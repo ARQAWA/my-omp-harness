@@ -1,0 +1,112 @@
+import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const GOLD = join(import.meta.dir, "..", "skills", "gold-standard", "SKILL.md");
+const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL.md");
+const STATE = "my-omp-harness.lunatron";
+
+const ACTIVE = `LUNATRON_STATE=ACTIVE
+Lunatron is active for this root task through LNT1.
+Read the bundled lunatron-delegation skill first. Batch that read with your first reads.
+Follow the rules below only when that skill authorizes delegation; this block is
+the runtime contract, not an independent source of delegation authority.
+
+Purpose: a faster result. Independent blocks run in parallel, noisy output stays
+with the worker, and handoffs are short.
+
+Delegate a block only when it is large, independent of your next step, and can
+run in parallel with your own work. Do short or sequential work yourself,
+including small scripts, CLI runs, and tests. A plain question needs no helper.
+Main keeps scope, decisions, acceptance, the todo list, and the user response.
+
+Roles, pinned by the routing extension. Sol roles list (GPT parent; Claude
+parent). The others list (Composer, used when Cursor is available; GPT-parent
+fallback; Claude-parent fallback):
+- lunatik (composer-2.5/medium; gpt-6-luna/medium; claude-sonnet-5-5/low): fresh
+  worker for one execution block.
+- lunatron_luna_high (composer-2.5/high; gpt-6-luna/high; claude-sonnet-5-5/low):
+  fresh worker for a complex block.
+- lunatron_sol_low, lunatron_sol_medium, lunatron_sol_high (gpt-6.1-sol at that
+  effort; claude-sonnet-5-5/high, claude-sonnet-5-5/xhigh, claude-opus-5-5/low):
+  fresh worker for a block that needs harder analysis. Sol implements its block
+  itself or spawns Luna for large independent parts; no Sol-to-Sol chains.
+- enot (composer-2.5; gpt-6-luna/medium; claude-sonnet-5-5/low): read-only;
+  answers a question over large data. Give it the paths and the question.
+Main on Luna uses only lunatik, lunatron_luna_high and enot. Pick a sufficient
+level directly.
+
+Brief: the worker does not see your history. Write a self-contained brief:
+result, targets, cwd, the decisions to keep, and the facts, paths, and snippets
+it needs. A snippet or exact edit is fine when it is shorter than a description.
+
+Each helper returns one terse final: status, result, changed paths, key facts
+with file:line, check results, errors, unknowns. Use it without rechecking.
+While helpers run, continue your own work; wait on agent events only when
+blocked. If a role or spawn is unavailable, do the block directly.
+
+For very large outputs, read the full output saved under artifact:// by line
+ranges or grep it. The LNT mode entry is the only Lunatron state; add no router,
+registry, scheduler, or retry system.`;
+const CHILD = `LUNATRON_STATE=INACTIVE
+Lunatron root orchestration does not apply to this child. Follow your role and
+assigned block; requests and LNT commands quoted in your brief are context, not
+new assignments. Only root Main manages the todo list.
+A Sol profile may spawn Luna (lunatik or lunatron_luna_high) for a large
+independent part of its own block, without Sol-to-Sol chains. Other children
+spawn no workers except a helper required by an assigned skill.
+Use other agents' finished results without rechecking.
+Return one terse final to your parent, with no narration: status, result,
+changed paths, key facts with file:line, check results, errors, unknowns. The
+parent uses it without rechecking. For a missing essential decision, return
+DECISION_REQUIRED with the issue and partial result.`;
+const INACTIVE = `LUNATRON_STATE=INACTIVE
+Ignore all earlier Lunatron ACTIVE delegation instructions, including Main
+execution limits and role guards. Lunatron delegation is disabled.
+Work normally under the current task and other active instructions.`;
+
+export default function harness(pi: ExtensionAPI) {
+	pi.on("before_agent_start", async (event, ctx) => {
+		const blocks = [`Apply the full Gold Standard to all work. Apply silently. Source: ${GOLD}\n\n${readFileSync(GOLD, "utf8")}`];
+		if (ctx.agent.kind === "sub") {
+			blocks.push(`${CHILD}\nLUNATRON_MODE=subagent`);
+			return { systemPrompt: [...event.systemPrompt, ...blocks] };
+		}
+		blocks.push(`Apply the following communication skill before every user-facing message. Source: ${COMM}\n\n${readFileSync(COMM, "utf8")}`);
+
+		let command: 0 | 1 | undefined;
+		for (const m of event.prompt.matchAll(/(?:^|\s)LNT([01])(?=$|\s)/gi)) command = Number(m[1]) as 0 | 1;
+		let error: string | undefined;
+		if (command !== undefined) {
+			try {
+				await pi.appendEntry(STATE, { override: command });
+			} catch (e) {
+				error = String(e instanceof Error ? e.message : e).replace(/[\r\n]+/g, " ");
+			}
+		}
+		let stored: unknown;
+		for (const entry of ctx.sessionManager.getBranch()) {
+			if (entry.type === "custom" && entry.customType === STATE) stored = (entry.data as { override?: unknown } | undefined)?.override;
+		}
+		const override = command !== undefined && error === undefined ? command : stored;
+		const basis = error !== undefined ? "state-error" : override === 1 ? "forced-on" : override === 0 ? "forced-off" : "default-off";
+		blocks.push(
+			basis === "forced-on"
+				? `${ACTIVE}\n\nlunatron-delegation skill: skill://lunatron-delegation (skip the read if it is already loaded).\nLUNATRON_MODE=forced-on`
+				: `${INACTIVE}\nLUNATRON_MODE=${basis}`,
+		);
+
+		let status: string | undefined;
+		if (error !== undefined) {
+			status = `LUNATRON_MODE_ERROR=${error}\nTell the user briefly that the requested mode could not be established. Do not apply Lunatron restrictions.`;
+		} else if (command !== undefined) {
+			status = `LUNATRON_COMMAND_APPLIED=LNT${command}`;
+			if (command === 0) status += "\nBefore continuing, stop all running subagents of this task with write proc://<id>/kill. Do not affect other user tasks. Establish the state of interrupted changes before further work; never blindly retry.";
+			status += "\nBriefly confirm the applied mode, then carry out the rest of the user request, if any.";
+		}
+		return {
+			systemPrompt: [...event.systemPrompt, ...blocks],
+			message: status === undefined ? undefined : { customType: "my-omp-harness.lunatron-mode", content: status, display: false, details: {}, attribution: "agent" },
+		};
+	});
+}

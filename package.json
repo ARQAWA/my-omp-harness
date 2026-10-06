@@ -1,0 +1,5 @@
+{
+  "name": "my-omp-harness",
+  "private": true,
+  "omp": { "extensions": ["./extensions/harness.ts", "./extensions/subagent-model-policy.ts", "./extensions/wrap-and-timer.ts", "./extensions/compact-at-231k.ts"] }
+}
