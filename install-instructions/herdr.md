@@ -33,6 +33,7 @@ onboarding = false
 
 [ui]
 status_indicators = "dots"
+mouse_scroll_lines = 1
 
 [update]
 version_check = false

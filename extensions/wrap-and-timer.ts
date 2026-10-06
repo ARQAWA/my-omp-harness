@@ -1,4 +1,8 @@
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import {
+	AssistantMessageComponent,
+	SEGMENTS,
+	type ExtensionAPI,
+} from "@oh-my-pi/pi-coding-agent";
 
 const WIDTH = 60;
 
@@ -224,6 +228,29 @@ export function wrapText(text: string): string {
 	return formatText(text, WIDTH);
 }
 
+const wrappedBlockCache = new WeakMap<object, object>();
+
+function wrapMessage(message: any) {
+	if (!message || !Array.isArray(message.content)) return message;
+	let changed = false;
+	const newContent = message.content.map((block: any) => {
+		if (block.type === "text" && typeof block.text === "string") {
+			const wrapped = wrapText(block.text);
+			if (wrapped === block.text) return block;
+			changed = true;
+			let cached = wrappedBlockCache.get(block);
+			if (!cached) {
+				cached = { ...block, text: wrapped };
+				wrappedBlockCache.set(block, cached);
+			}
+			return cached;
+		}
+		return block;
+	});
+	if (!changed) return message;
+	return { ...message, content: newContent };
+}
+
 function fmt(ms: number): string {
 	const s = Math.round(ms / 1000);
 	if (s < 60) return `${s} s`;
@@ -233,6 +260,30 @@ function fmt(ms: number): string {
 }
 
 export default function wrapAndTimer(pi: ExtensionAPI) {
+	const PATCHED = Symbol.for("my-omp-harness.wrap60");
+	const proto = AssistantMessageComponent.prototype as any;
+	if (typeof proto.updateContent === "function" && !proto[PATCHED]) {
+		const original = proto.updateContent;
+		proto[PATCHED] = true;
+		// live wrap during streaming
+		proto.updateContent = function (message: any, options: any) {
+			return original.call(this, wrapMessage(message), options);
+		};
+	}
+
+	const RATE_PATCHED = Symbol.for("my-omp-harness.rate-color");
+	const tokenRate = SEGMENTS?.token_rate as any;
+	if (tokenRate && typeof tokenRate.describe === "function" && !tokenRate[RATE_PATCHED]) {
+		tokenRate[RATE_PATCHED] = true;
+		// colored tok/s in status line
+		tokenRate.describe = (ctx: any) => {
+			const rate = ctx?.usageStats?.tokensPerSecond;
+			if (!rate || !Number.isFinite(rate)) return null;
+			const [r, g, b] = rate < 30 ? [255, 71, 87] : rate < 60 ? [255, 215, 95] : rate < 90 ? [168, 230, 163] : [0, 255, 136];
+			return { spans: [{ t: `\x1b[38;2;${r};${g};${b}m${rate.toFixed(1)} tok/s\x1b[39m` }], icon: "throughput" };
+		};
+	}
+
 	let startedAt: number | undefined;
 
 	pi.on("assistant_message", event => ({

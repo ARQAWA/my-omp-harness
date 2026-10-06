@@ -186,7 +186,9 @@ the batch with the first work calls. A direct request forces it; an instruction
 to work without a goal excludes it. Shape the objective like a todo item below,
 in one or two sentences, and add `token_budget` only when the user gave one.
 Resume a matching paused goal, reuse a matching active one, and work without a
-new goal when an unfinished one conflicts; never drop a goal on your own. omp
+new goal when an unfinished one conflicts; never drop a goal on your own. When
+the user asks to continue the work or the goal, call op `get` first and, if it
+returns a paused goal, call op `resume` before any other work. omp
 continues an active goal after each turn until it is complete. When the work
 waits for the user or another external event, block the waiting todo item with
 the reason and end the turn; answer a continuation that arrives during the wait

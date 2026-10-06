@@ -50,7 +50,7 @@ omp ставится штатным установщиком с omp.sh и обн
    Если файл есть и отличается, покажи различия командой
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
    замени файл только с согласия владельца.
-4. Задай тему и статус-строку:
+4. Задай тему, статус-строку и скрытие списка todo:
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -61,9 +61,11 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set statusLine.transparent false
    omp config set statusLine.compactThinkingLevel false
    omp config set statusLine.showHookStatus true
-   omp config set statusLine.leftSegments '["model","mode","collab","stream","path","git","pr","context_pct","cost"]'
+   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","path","git","pr","context_pct"]'
    omp config set statusLine.rightSegments '["session_name"]'
    omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true},"path":{"abbreviate":true,"maxLength":40,"stripWorkPrefix":true}}'
+   omp config set composer.tokenRate false
+   omp config set tasks.todoClearDelay 0
    ```
 
 5. Настройки действуют в новой сессии omp. Не прерывай текущую задачу ради
@@ -75,8 +77,8 @@ omp ставится штатным установщиком с omp.sh и обн
 2. `cmp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/titanium-arq.json"`
    ничего не печатает. Та же команда для `models.yml` ничего не печатает, если
    владелец не отказался от замены.
-3. `omp config list` показывает для `theme.dark` и `statusLine.*` значения из
-   шага 4.
+3. `omp config list` показывает для `theme.dark`, `statusLine.*`,
+   `composer.tokenRate` и `tasks.todoClearDelay` значения из шага 4.
 
 ## Обновление
 
