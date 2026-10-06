@@ -21,6 +21,9 @@ omp ставится штатным установщиком с omp.sh и обн
 
 - macOS, Linux или Windows 10/11. В Windows нужны PowerShell 5.1+ и Git for
   Windows; Git ставится без прав администратора вариантом «только для меня».
+- Окружение «Windows только внутри VS Code» из
+  [WORKING-ENVIRONMENTS.md](../WORKING-ENVIRONMENTS.md): omp там ставится и
+  запускается только в окне herdr из расширения VS Code.
 - Доступ к omp.sh и github.com. Проверено на omp 18.6.3.
 - Клон репозитория: настройки берутся из его каталога `settings/`.
 

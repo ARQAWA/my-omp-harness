@@ -30,6 +30,9 @@ Harness перенесён из финальной версии
    herdr и выполнит проверки. После этого перезапусти omp и запусти `herdr` в
    новом окне терминала.
 
+В окружении «Windows только внутри VS Code» порядок установки и запуск herdr и
+omp другие: см. [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md).
+
 ## Обновление
 
 В папке клона попроси omp: «Обнови всё по INSTALL_FOR_AGENTS.md».
@@ -44,3 +47,4 @@ Harness перенесён из финальной версии
 - [AGENTS.md](AGENTS.md) — разработка и release.
 - [SCOPE-FOCUS-DESIGN.md](SCOPE-FOCUS-DESIGN.md) — концепция Scope Focus.
 - [LUNATRON-DESIGN.md](LUNATRON-DESIGN.md) — концепция Lunatron.
+- [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md) — условия рабочих окружений.

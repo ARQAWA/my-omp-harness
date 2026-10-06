@@ -12,6 +12,8 @@
 - `SYSTEM.md`;
 - `settings/` — настройки владельца для omp;
 - `INSTALL_FOR_AGENTS.md` и `install-instructions/`;
+- `WORKING-ENVIRONMENTS.md` — условия рабочих окружений, отдельно от
+  документации пакета; пиши их абстрактно и без чувствительных деталей;
 - `SCOPE-FOCUS-DESIGN.md` и `LUNATRON-DESIGN.md`;
 - приватный форк `ARQAWA/herdr` (upstream — `herdrdev/herdr`) — исходники herdr.
 
