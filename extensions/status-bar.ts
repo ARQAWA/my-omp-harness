@@ -1,22 +1,10 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { SEGMENTS } from "@oh-my-pi/pi-coding-agent";
+import { SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
-import os from "node:os";
 
 let latest: any;
-let tuiRef: { requestRender?: () => void } | undefined;
-let git: GitState | undefined;
 let turnStart: number | undefined;
 let turnInterval: ReturnType<typeof setInterval> | undefined;
-
-interface GitState {
-	branch?: string;
-	ahead: number;
-	behind: number;
-	staged: number;
-	modified: number;
-	untracked: number;
-}
 
 function rateText(ctx: any): string | undefined {
 	const rate = ctx?.usageStats?.tokensPerSecond;
@@ -37,6 +25,39 @@ function patchTokenRate() {
 	tokenRate.describe = (ctx: any) => {
 		const t = rateText(ctx);
 		return t ? { spans: [{ t }] } : null;
+	};
+}
+
+function patchStatusLine() {
+	const ROWS_PATCHED = Symbol.for("my-omp-harness.status-rows");
+	const proto = StatusLineComponent.prototype as any;
+	if (proto[ROWS_PATCHED]) return;
+	proto[ROWS_PATCHED] = true;
+	const render = proto.render;
+	const rightPart = proto.getStandaloneTopBorder;
+	// The rule composer would put the right segments into the line above the input; keep that line plain.
+	proto.getStandaloneTopBorder = () => ({ content: "", width: 0, revision: 0 });
+	proto.render = function (width: number) {
+		const base: string[] = render.call(this, width);
+		const theme = latest?.ui?.theme;
+		const k = base.findIndex(line => line !== "");
+		if (!theme || k < 0) return base;
+		// omp draws the running subagent and background job counters only with the right segments; move them to the model row.
+		const agentCount = this.subagentCount;
+		const jobCount = this.runningBackgroundJobCount();
+		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
+		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
+		const sep = ` ${theme.getFgAnsi("statusLineSep")}·${theme.getFgAnsi("text")} `;
+		let model = base[k];
+		let place: string = rightPart.call(this, width)?.content ?? "";
+		for (const badge of [agents, jobs]) {
+			if (!badge) continue;
+			model += `${theme.fg("statusLineSep", "·")} ${badge}`;
+			place = place.replace(badge + sep, "");
+		}
+		const rows = [...base.slice(0, k), contextLine(width, theme), truncateToWidth(model, width)];
+		if (place) rows.push(truncateToWidth(place, width));
+		return [...rows, ...base.slice(k + 1)];
 	};
 }
 
@@ -63,73 +84,6 @@ function fmtK(n: number): string {
 	return `${s.endsWith(".0") ? s.slice(0, -2) : s}k`;
 }
 
-function parseGit(output: string): GitState | undefined {
-	const state: GitState = { ahead: 0, behind: 0, staged: 0, modified: 0, untracked: 0 };
-	for (const line of output.split("\n")) {
-		if (line.startsWith("# branch.head ")) {
-			state.branch = line.slice("# branch.head ".length).trim();
-		} else if (line.startsWith("# branch.ab ")) {
-			const m = line.match(/\+(\d+) -(\d+)/);
-			if (m) {
-				state.ahead = Number(m[1]);
-				state.behind = Number(m[2]);
-			}
-		} else if (line.startsWith("1 ") || line.startsWith("2 ")) {
-			const xy = line.split(/\s+/)[1] ?? "..";
-			if (xy[0] !== ".") state.staged++;
-			if (xy[1] !== ".") state.modified++;
-		} else if (line.startsWith("u ")) {
-			state.modified++;
-		} else if (line.startsWith("? ")) {
-			state.untracked++;
-		}
-	}
-	return state;
-}
-
-async function refreshGit(pi: ExtensionAPI, ctx: any) {
-	try {
-		const res = await pi.exec("git", ["status", "--porcelain=v2", "--branch"], {
-			cwd: ctx.cwd,
-			timeout: 3000,
-		});
-		if (res.code !== 0) {
-			git = undefined;
-		} else {
-			git = parseGit(res.stdout ?? "");
-		}
-		tuiRef?.requestRender?.();
-	} catch {
-		// keep previous git state
-	}
-}
-
-function abbrevPath(cwd: string): string {
-	const home = os.homedir();
-	if (cwd === home) return "~";
-	if (cwd.startsWith(home + "/")) return "~" + cwd.slice(home.length);
-	return cwd;
-}
-
-function placeLine(width: number, ctx: any, theme: any): string {
-	const path = theme.fg("statusLinePath", abbrevPath(ctx.cwd));
-	const parts: string[] = [path];
-	if (git) {
-		const dirty = git.staged + git.modified + git.untracked;
-		const branchColor = dirty === 0 ? "statusLineGitClean" : "statusLineGitDirty";
-		const gitParts: string[] = [];
-		if (git.branch) gitParts.push(theme.fg(branchColor, git.branch));
-		if (git.ahead > 0) gitParts.push(theme.fg("muted", `↑${git.ahead}`));
-		if (git.behind > 0) gitParts.push(theme.fg("muted", `↓${git.behind}`));
-		if (git.staged > 0) gitParts.push(theme.fg("success", `+${git.staged}`));
-		if (git.modified > 0) gitParts.push(theme.fg("warning", `~${git.modified}`));
-		if (git.untracked > 0) gitParts.push(theme.fg("dim", `?${git.untracked}`));
-		if (gitParts.length) parts.push(gitParts.join(" "));
-	}
-	const line = " " + parts.join("   ");
-	return truncateToWidth(line, width);
-}
-
 function contextLine(width: number, theme: any): string {
 	const u = latest?.getContextUsage?.();
 	if (!u?.contextWindow) return theme.fg("dim", "─".repeat(width));
@@ -146,38 +100,18 @@ function contextLine(width: number, theme: any): string {
 	return truncateToWidth(line, width);
 }
 
-function setupWidget(ctx: any) {
-	ctx.ui.setWidget(
-		"my-omp-harness.status-rows",
-		(tui: any, theme: any) => {
-			tuiRef = tui;
-			return {
-				render(width: number) {
-					const c = latest ?? ctx;
-					return [placeLine(width, c, theme), contextLine(width, theme)];
-				},
-				invalidate() {},
-			};
-		},
-		{ placement: "belowEditor" },
-	);
-}
-
 export default function statusBar(pi: ExtensionAPI) {
 	patchTokenRate();
+	patchStatusLine();
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		latest = ctx;
-		setupWidget(ctx);
-		await refreshGit(pi, ctx);
 	});
 
-	pi.on("session_switch", async (_event, ctx) => {
+	pi.on("session_switch", (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		latest = ctx;
-		setupWidget(ctx);
-		await refreshGit(pi, ctx);
 	});
 
 	pi.on("before_agent_start", (_event, ctx) => {
@@ -187,29 +121,22 @@ export default function statusBar(pi: ExtensionAPI) {
 		turnStart = Date.now();
 		const update = () => {
 			if (turnStart === undefined) return;
-			ctx.ui.setStatus("turn", `turn ${fmtTurn(Date.now() - turnStart)}`);
+			ctx.ui.setStatus("turn", fmtTurn(Date.now() - turnStart));
 		};
 		update();
 		turnInterval = setInterval(update, 1000);
 		turnInterval.unref?.();
 	});
 
-	pi.on("turn_end", async (_event, ctx) => {
+	pi.on("agent_end", (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		latest = ctx;
-		await refreshGit(pi, ctx);
-	});
-
-	pi.on("agent_end", async (_event, ctx) => {
-		if (!ctx.hasUI) return;
-		latest = ctx;
-		await refreshGit(pi, ctx);
 		if (turnStart === undefined) return;
 		if (turnInterval !== undefined) {
 			clearInterval(turnInterval);
 			turnInterval = undefined;
 		}
-		ctx.ui.setStatus("turn", `turn ${fmtTurn(Date.now() - turnStart)}`);
+		ctx.ui.setStatus("turn", fmtTurn(Date.now() - turnStart));
 		turnStart = undefined;
 	});
 }

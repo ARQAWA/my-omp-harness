@@ -50,23 +50,23 @@ omp ставится штатным установщиком с omp.sh и обн
    Если файл есть и отличается, покажи различия командой
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
    замени файл только с согласия владельца.
-4. Задай тему, вид поля ввода, первую строку статуса и скрытие списка todo.
-   Тема убирает иконки статус-строки; вторую и третью строки рисует
-   расширение `status-bar.ts` пакета harness.
+4. Задай тему, вид поля ввода, сегменты статус-строки и скрытие списка todo.
+   Тема убирает только значок перед контекстом; три строки статуса под полем
+   ввода собирает расширение `status-bar.ts` пакета harness.
 
    ```bash
    omp config set theme.dark titanium-arq
    omp config set statusLine.preset custom
    omp config set statusLine.separator none
-   omp config set statusLine.contextLine embedded
+   omp config set statusLine.contextLine off
    omp config set statusLine.sessionAccent true
-   omp config set statusLine.transparent false
+   omp config set statusLine.transparent true
    omp config set statusLine.compactThinkingLevel false
-   omp config set statusLine.showHookStatus true
-   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status"]'
-   omp config set statusLine.rightSegments '["session_name"]'
+   omp config set statusLine.showHookStatus false
+   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status","session_name"]'
+   omp config set statusLine.rightSegments '["path","git","pr"]'
    omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true}}'
-   omp config set composer.shape borderless
+   omp config set composer.shape rule
    omp config set composer.tokenRate false
    omp config set tasks.todoClearDelay 0
    ```
