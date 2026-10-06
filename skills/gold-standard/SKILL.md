@@ -125,7 +125,7 @@ the requested result, logical consistency, mandatory evidence, and no remaining
 required work.
 
 In omp plan mode, root Main runs two automatic checkpoints of
-[High Review Cycle](skill://high-review-cycle); this is the owner's standing
+[Blind Review Cycle](skill://blind-review-cycle); this is the owner's standing
 adopted procedure. Before proposing a plan for approval, review the complete
 plan with `review_stage=pre-action` against the user's request, amendments and
 binding decisions, and propose only a plan that reached CLEAN. When executing a
@@ -134,7 +134,7 @@ plan the user approved, review the complete actual result with
 before reporting completion: every step done as specified, nothing missing or
 broken, and every deviation justified by the plan's own contingencies or the
 user's later instructions. At each checkpoint, fix all admitted findings and
-repeat with a fresh Bossy until CLEAN.
+repeat with a fresh Smarty until CLEAN. ToSpec keeps its own checkpoints.
 
 ## Task-specific boundaries
 
@@ -154,11 +154,11 @@ repeat with a fresh Bossy until CLEAN.
 - Communication produces the requested message or draft without extra context,
   disclaimers, or follow-up suggestions.
 
-Root Main uses the `todo` tool automatically for a task with several dependent
-work stages, such as research, a plan, and step-by-step implementation or
-automation; a task whose result is one answer, document, or short change needs
-none, however much it reads, waits, or fills the context. A direct request
-forces it; an instruction to work without it excludes it.
+Root Main uses the `todo` tool automatically for every task with two or more
+steps, such as research and an edit, several edits, or a plan and its
+implementation: the todo panel is where the user follows progress. Only one
+answer or one short action needs none. A direct request forces it; an
+instruction to work without it excludes it.
 
 The todo list holds the plan and the decisions that keep the stages
 consistent, not the gathered context: the context and its compaction stay the
@@ -172,6 +172,28 @@ flow, a data model, or an important decision with its reasons, in its own
 when a step completes, a decision or the plan changes, or the user amends the
 order, batched with other calls, never per tool call. After a context loss,
 read the todo list and the files it names before continuing.
+
+While root Main works on a todo item with several substeps, it shows them with
+the `progress` tool under the todo panel: call it with the substep list and the
+number of the current substep when the item starts and whenever the current
+substep changes, batched with the work calls of that substep. Skip it for an
+item of one substep.
+
+Root Main sets a goal automatically for every task with several dependent work
+stages, such as research, a plan, and step-by-step implementation: call the
+`goal` tool with op `get` in the batch with the first reads and op `create` in
+the batch with the first work calls. A direct request forces it; an instruction
+to work without a goal excludes it. Shape the objective like a todo item below,
+in one or two sentences, and add `token_budget` only when the user gave one.
+Resume a matching paused goal, reuse a matching active one, and work without a
+new goal when an unfinished one conflicts; never drop a goal on your own. omp
+continues an active goal after each turn until it is complete. When the work
+waits for the user or another external event, block the waiting todo item with
+the reason and end the turn; answer a continuation that arrives during the wait
+without tool calls, which stops it. Call op `complete` only when the requested
+result and all mandatory actions are done; a pause, wait, blocker, or
+cancellation does not complete it, and the audit before it follows the evidence
+rules of this standard. omp refuses goals in plan mode; skip the goal there.
 
 For todo items, shape the user's intent into concrete outcomes with bounded
 scope and grounds for completion drawn from the request. Ordinary verification

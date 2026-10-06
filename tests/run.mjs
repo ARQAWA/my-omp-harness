@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -24,7 +24,7 @@ const policy = read('extensions/subagent-model-policy.ts');
 const named = [...policy.matchAll(/^\t(\w+): \{ gpt: ("[^"]+"|\[[^\]]+\]), claude: ("[^"]+"|\[[^\]]+\]) \},$/gm)]
   .map(([, name, gpt, claude]) => [name, [JSON.parse(gpt)].flat(), [JSON.parse(claude)].flat()]);
 const tiers = [...policy.matchAll(/^\t(subagent_\w+): \{\n\t\tgpt: "([^"]+)",\n\t\tclaude: "([^"]+)",\n\t\},$/gm)];
-assert.equal(named.length, 9, 'NAMED routes');
+assert.equal(named.length, 10, 'NAMED routes');
 assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
 // 'openai-codex/gpt-6-sol:medium' -> ['gpt-6-sol', 'medium']; 'cursor/composer-2.5' -> ['composer-2.5']
@@ -62,7 +62,7 @@ for (const name of ['spotty', 'smarty', 'bossy', 'enot']) {
   assert.equal(frontmatter(`agents/${name}.md`).tools, 'read, grep, glob', name);
 }
 
-const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'tospec'];
+const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools', 'tospec'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
 assert.deepEqual(skills, [...hidden, 'lunatron-delegation'].sort());
