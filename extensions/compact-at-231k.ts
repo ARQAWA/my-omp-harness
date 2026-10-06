@@ -1,19 +1,18 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 
-const TRIGGER_TOKENS = 231_200;
-const DEFAULT_RESERVE_TOKENS = 16_384;
 const FOCUS_MAX_CHARS = 4_000;
 
-export function isTargetModel(id: string): boolean {
+export function triggerTokens(id: string): number | undefined {
+	if (/composer/i.test(id)) return 180_000;
 	const claude = /claude-(opus|sonnet)-(\d+)(?:[-.](\d{1,2})(?!\d))?/i.exec(id);
 	if (claude) {
 		const major = Number(claude[2]);
 		const minor = Number(claude[3] ?? 0);
-		return major > 5 || (major === 5 && minor >= 5);
+		return major > 5 || (major === 5 && minor >= 5) ? 272_000 : undefined;
 	}
 	const gpt = /(?:^|[/.])gpt-(\d+)/i.exec(id);
-	return gpt !== null && Number(gpt[1]) >= 6;
+	return gpt !== null && Number(gpt[1]) >= 6 ? 244_800 : undefined;
 }
 
 function latestUserRequest(branch: readonly unknown[]): string | undefined {
@@ -42,23 +41,23 @@ function latestUserRequest(branch: readonly unknown[]): string | undefined {
 
 export default function compactAt231k(pi: ExtensionAPI) {
 	const threshold = lookup("compaction.thresholdTokens")!;
-	const reserveSetting = lookup("compaction.reserveTokens")!;
-	let applied = false;
+	let applied: number | undefined;
 
 	const sync = (ctx: ExtensionContext) => {
 		if (ctx.agent.kind !== "main") return;
 		const model = ctx.models.current();
 		const window = ctx.getContextUsage()?.contextWindow ?? model?.contextWindow ?? 0;
-		const configuredReserve = reserveSetting.get(pi.pi.settings) as number | undefined;
-		const reserve = Math.max(Math.floor(window * 0.15), configuredReserve ?? DEFAULT_RESERVE_TOKENS);
-		const want = !!model && isTargetModel(model.id) && TRIGGER_TOKENS < window - reserve;
+		const trigger = model ? triggerTokens(model.id) : undefined;
+		const want = trigger !== undefined && trigger < window ? trigger : undefined;
 		if (want === applied) return;
-		if (want) threshold.override(pi.pi.settings, TRIGGER_TOKENS);
+		if (want !== undefined) threshold.override(pi.pi.settings, want);
 		else threshold.clearOverride(pi.pi.settings);
 		applied = want;
 		if (ctx.hasUI) {
 			ctx.ui.notify(
-				want ? `Auto-compaction at 231.2k tokens (${model.id})` : "Auto-compaction: default threshold",
+				want !== undefined
+					? `Auto-compaction at ${want / 1000}k tokens (${model!.id})`
+					: "Auto-compaction: default threshold",
 				"info",
 			);
 		}
