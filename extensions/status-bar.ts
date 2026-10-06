@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { getSessionAccentAnsi, getSessionAccentHex, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 
 let latest: any;
@@ -55,7 +55,10 @@ function patchStatusLine() {
 			model += `${theme.fg("statusLineSep", "·")} ${badge}`;
 			place = place.replace(badge + sep, "");
 		}
-		const rows = [...base.slice(0, k), contextLine(width, theme), truncateToWidth(model, width)];
+		// Drop omp's blank gap row so the context bar sits right under the input.
+		const name = this.session?.sessionManager?.getSessionName?.();
+		const accent = (name && getSessionAccentAnsi(getSessionAccentHex(name, theme.sessionAccentInputs))) || theme.getFgAnsi("accent");
+		const rows = [contextLine(width, theme, accent), truncateToWidth(model, width)];
 		if (place) rows.push(truncateToWidth(place, width));
 		return [...rows, ...base.slice(k + 1)];
 	};
@@ -84,19 +87,18 @@ function fmtK(n: number): string {
 	return `${s.endsWith(".0") ? s.slice(0, -2) : s}k`;
 }
 
-function contextLine(width: number, theme: any): string {
+function contextLine(width: number, theme: any, accent: string): string {
 	const u = latest?.getContextUsage?.();
 	if (!u?.contextWindow) return theme.fg("dim", "─".repeat(width));
 	let p = u.percent ?? ((u.tokens ?? 0) / u.contextWindow) * 100;
 	p = Math.min(100, Math.max(0, p));
 	const label = ` ${Math.round(p)}% ${fmtK(u.tokens ?? 0)}/${fmtK(u.contextWindow)}`;
-	const color = p < 50 ? "success" : p < 80 ? "warning" : "error";
 	const barWidth = Math.max(0, width - visibleWidth(label));
 	const filled = Math.round((barWidth * p) / 100);
 	const line =
-		theme.fg(color, "━".repeat(filled))
+		`${accent}${"━".repeat(filled)}\x1b[39m`
 		+ theme.fg("dim", "─".repeat(barWidth - filled))
-		+ theme.fg(color, label);
+		+ `${accent}${label}\x1b[39m`;
 	return truncateToWidth(line, width);
 }
 
