@@ -50,7 +50,9 @@ omp ставится штатным установщиком с omp.sh и обн
    Если файл есть и отличается, покажи различия командой
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
    замени файл только с согласия владельца.
-4. Задай тему, статус-строку и скрытие списка todo:
+4. Задай тему, вид поля ввода, первую строку статуса и скрытие списка todo.
+   Тема убирает иконки статус-строки; вторую и третью строки рисует
+   расширение `status-bar.ts` пакета harness.
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -61,9 +63,10 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set statusLine.transparent false
    omp config set statusLine.compactThinkingLevel false
    omp config set statusLine.showHookStatus true
-   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","path","git","pr","context_pct"]'
+   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status"]'
    omp config set statusLine.rightSegments '["session_name"]'
-   omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true},"path":{"abbreviate":true,"maxLength":40,"stripWorkPrefix":true}}'
+   omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true}}'
+   omp config set composer.shape borderless
    omp config set composer.tokenRate false
    omp config set tasks.todoClearDelay 0
    ```
@@ -78,7 +81,8 @@ omp ставится штатным установщиком с omp.sh и обн
    ничего не печатает. Та же команда для `models.yml` ничего не печатает, если
    владелец не отказался от замены.
 3. `omp config list` показывает для `theme.dark`, `statusLine.*`,
-   `composer.tokenRate` и `tasks.todoClearDelay` значения из шага 4.
+   `composer.shape`, `composer.tokenRate` и `tasks.todoClearDelay` значения из
+   шага 4.
 
 ## Обновление
 

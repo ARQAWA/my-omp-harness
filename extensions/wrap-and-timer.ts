@@ -1,6 +1,5 @@
 import {
 	AssistantMessageComponent,
-	SEGMENTS,
 	type ExtensionAPI,
 } from "@oh-my-pi/pi-coding-agent";
 
@@ -268,19 +267,6 @@ export default function wrapAndTimer(pi: ExtensionAPI) {
 		// live wrap during streaming
 		proto.updateContent = function (message: any, options: any) {
 			return original.call(this, wrapMessage(message), options);
-		};
-	}
-
-	const RATE_PATCHED = Symbol.for("my-omp-harness.rate-color");
-	const tokenRate = SEGMENTS?.token_rate as any;
-	if (tokenRate && typeof tokenRate.describe === "function" && !tokenRate[RATE_PATCHED]) {
-		tokenRate[RATE_PATCHED] = true;
-		// colored tok/s in status line
-		tokenRate.describe = (ctx: any) => {
-			const rate = ctx?.usageStats?.tokensPerSecond;
-			if (!rate || !Number.isFinite(rate)) return null;
-			const [r, g, b] = rate < 30 ? [255, 71, 87] : rate < 60 ? [255, 215, 95] : rate < 90 ? [168, 230, 163] : [0, 255, 136];
-			return { spans: [{ t: `\x1b[38;2;${r};${g};${b}m${rate.toFixed(1)} tok/s\x1b[39m` }], icon: "throughput" };
 		};
 	}
 

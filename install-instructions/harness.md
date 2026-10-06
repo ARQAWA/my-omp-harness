@@ -7,8 +7,9 @@
 Пакет лежит в корне клона: `package.json` (поля `omp.extensions` и
 `dependencies`), `bun.lock`, `extensions/harness.ts`,
 `extensions/subagent-model-policy.ts`, `extensions/wrap-and-timer.ts`,
-`extensions/compact-at-231k.ts`, `extensions/model-arrows.js`,
-`extensions/reasoning-arrows.js`, `extensions/diagram.ts`, `skills/` и
+`extensions/status-bar.ts`, `extensions/compact-at-231k.ts`,
+`extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
+`extensions/diagram.ts`, `skills/` и
 `agents/`. Каталог из списка `extensions` в `config.yml` omp загружает целиком:
 расширения берёт из его `package.json`, а `skills/` и `agents/` находит рядом.
 Зависимость `diagram.ts`, библиотека `beautiful-mermaid`, ставится из `bun.lock`
@@ -93,10 +94,14 @@ ToSpec (`/skill:tospec`): исследование с вопросами чер�
 - В субагентах расширение выключает `retry.modelFallback`.
 
 `wrap-and-timer.ts` переносит текст ответа ассистента по 60 колонок уже во
-время стриминга, красит скорость генерации в сегменте статус-строки
+время стриминга и после каждого ответа показывает время работы («Vremya
+raboty: …»). `status-bar.ts` достраивает статус-строку omp под полем ввода до
+трёх строк. В первой, родной строке omp, оно красит скорость генерации
 `token_rate` (меньше 30 ток/с — красный, меньше 60 — жёлтый, меньше 90 —
-бледно-зелёный, иначе ярко-зелёный) и после каждого ответа показывает время
-работы («Vremya raboty: …»). `compact-at-231k.ts`
+бледно-зелёный, иначе ярко-зелёный) и через `setStatus` показывает время
+текущего хода, которое остаётся после его конца. Вторая строка — рабочая папка
+и состояние ветки git, третья — заполнение контекста полосой во всю ширину.
+Раскладку и сегменты задаёт [omp.md](omp.md). `compact-at-231k.ts`
 ставит порог автосжатия Main: 272 000 токенов для Claude Opus и Sonnet версии
 5.5 и выше, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
