@@ -84,7 +84,7 @@ function stripIndent(line: string, columns: number): string {
 	return " ".repeat(Math.max(0, consumed - columns)) + line.slice(i);
 }
 
-function formatText(text: string, width: number | undefined): string {
+function formatText(text: string, width: number): string {
 	if (!text) return text;
 	const lines = text.split("\n");
 	const out: string[] = [];
@@ -148,7 +148,7 @@ function formatText(text: string, width: number | undefined): string {
 					lazy = proseLine(content);
 				}
 			}
-			const innerWidth = width === undefined ? undefined : Math.max(1, width - 2);
+			const innerWidth = Math.max(1, width - 2);
 			out.push(...formatText(body.join("\n"), innerWidth).split("\n").map(content => `> ${content}`));
 			continue;
 		}
@@ -187,7 +187,7 @@ function formatText(text: string, width: number | undefined): string {
 					lazy = proseLine(content);
 				}
 			}
-			const innerWidth = width === undefined ? undefined : Math.max(1, width - prefix.length);
+			const innerWidth = Math.max(1, width - prefix.length);
 			const formatted = formatText(body.join("\n"), innerWidth).split("\n");
 			out.push(prefix + formatted[0]);
 			out.push(...formatted.slice(1).map(content => BLANK.test(content) ? content : " ".repeat(prefix.length) + content));
@@ -200,7 +200,7 @@ function formatText(text: string, width: number | undefined): string {
 				const slashes = fragment.match(/\\+$/)?.[0].length ?? 0;
 				return / {2,}$/.test(fragment) || slashes % 2 === 1 ? fragment.trimStart() : fragment.trim();
 			}).join(" ");
-			out.push(...(width === undefined ? [paragraph] : wrapLine(paragraph, width)));
+			out.push(...wrapLine(paragraph, width));
 			segment = [];
 		};
 		while (i < lines.length && !BLANK.test(lines[i])) {
@@ -218,10 +218,6 @@ function formatText(text: string, width: number | undefined): string {
 		flush();
 	}
 	return out.join("\n");
-}
-
-export function reflowText(text: string): string {
-	return formatText(text, undefined);
 }
 
 export function wrapText(text: string): string {

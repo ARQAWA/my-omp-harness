@@ -124,6 +124,18 @@ work. After removing excess, reassess only affected grounds. Completion requires
 the requested result, logical consistency, mandatory evidence, and no remaining
 required work.
 
+In omp plan mode, root Main runs two automatic checkpoints of
+[High Review Cycle](skill://high-review-cycle); this is the owner's standing
+adopted procedure. Before proposing a plan for approval, review the complete
+plan with `review_stage=pre-action` against the user's request, amendments and
+binding decisions, and propose only a plan that reached CLEAN. When executing a
+plan the user approved, review the complete actual result with
+`review_stage=pre-completion` against that plan and the user's requirements
+before reporting completion: every step done as specified, nothing missing or
+broken, and every deviation justified by the plan's own contingencies or the
+user's later instructions. At each checkpoint, fix all admitted findings and
+repeat with a fresh Bossy until CLEAN.
+
 ## Task-specific boundaries
 
 - Research and discovery return the exact requested facts with sufficient
