@@ -28,7 +28,10 @@ description: Release or install my-omp-harness; ordinary edits do not trigger re
 Если файлы менялись после последнего прогона, один раз запусти
 `node tests/run.mjs` перед коммитом; повтор — только после исправления
 выявленного сбоя. Остальные проверки выполняй, когда они заказаны или требуются
-выбранной инструкцией.
+выбранной инструкцией. Перед коммитом сверь `config.yml` из `omp config path`,
+тему и `models.yml` с `install-instructions/omp.md`, `settings/` и
+«Требованиями» `install-instructions/harness.md`; расхождения внеси в эти
+источники.
 
 ## 3. Исходный коммит
 

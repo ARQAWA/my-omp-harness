@@ -15,7 +15,7 @@
 
 | Компонент | Инструкция |
 |---|---|
-| omp и настройки владельца (тема, окна контекста, статус-строка) | [`install-instructions/omp.md`](install-instructions/omp.md) |
+| omp и настройки владельца (тема, окна контекста, статус-строка и остальные настройки omp) | [`install-instructions/omp.md`](install-instructions/omp.md) |
 | Пакет harness (Scope Focus, Lunatron, маршрутизация моделей, служебные расширения) | [`install-instructions/harness.md`](install-instructions/harness.md) |
 | Системный промпт | [`install-instructions/system-prompt.md`](install-instructions/system-prompt.md) |
 | herdr (наша сборка) | [`install-instructions/herdr.md`](install-instructions/herdr.md) |

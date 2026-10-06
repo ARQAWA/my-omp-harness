@@ -12,7 +12,12 @@ omp ставится штатным установщиком с omp.sh и обн
 - окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
   `<agent-dir>/models.yml`: 400 000 токенов для GPT-6.1 Sol, GPT-6 Luna, Claude
   Opus 5.5 и Sonnet 5.5, 250 000 для Composer 2.5;
-- вид статус-строки — ключи `statusLine.*` в `config.yml`.
+- остальные настройки — ключи `config.yml` из шага 4 первой установки: вид
+  статус-строки и поля ввода, модели и провайдеры, работа агента и интерфейс.
+
+Ключи `extensions`, `task.maxConcurrency` и роли `subagent_*` в `modelRoles`
+задаёт [пакет harness](harness.md). Роль `default` выбирает владелец каждой
+машины, служебный `setupVersion` ведёт сам omp; они не переносятся.
 
 `<agent-dir>` — каталог, который печатает `omp config path`. Переключение модели
 и reasoning ctrl-стрелками входит в [пакет harness](harness.md).
@@ -50,9 +55,9 @@ omp ставится штатным установщиком с omp.sh и обн
    Если файл есть и отличается, покажи различия командой
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
    замени файл только с согласия владельца.
-4. Задай тему, вид поля ввода, сегменты статус-строки и скрытие списка todo.
-   Тема убирает только значок перед контекстом; три строки статуса под полем
-   ввода собирает расширение `status-bar.ts` пакета harness.
+4. Задай настройки владельца. Тема убирает только значок перед контекстом; три
+   строки статуса под полем ввода собирает расширение `status-bar.ts` пакета
+   harness.
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -69,6 +74,37 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set composer.shape rule
    omp config set composer.tokenRate false
    omp config set tasks.todoClearDelay 0
+   omp config set symbolPreset unicode
+   omp config set colorBlindMode false
+   omp config set hideThinkingBlock false
+   omp config set proseOnlyThinking false
+   omp config set omitThinking false
+   omp config set enabledModels '["cursor/composer-2.5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'
+   omp config set disabledProviders '["openrouter"]'
+   omp config set retry.fallbackChains '{"openai-codex/*":[]}'
+   omp config set extendedContext false
+   omp config set codexResets.autoRedeem no
+   omp config set steeringMode one-at-a-time
+   omp config set contextPromotion.enabled true
+   omp config set branchSummary.enabled false
+   omp config set compaction.methodOrder '["snapcompact","handoff","shake","soft","remote"]'
+   omp config set checkpoint.enabled true
+   omp config set astGrep.enabled true
+   omp config set find.enabled auto
+   omp config set tools.intentTracing false
+   omp config set tui.resizeScrollback rebuild
+   omp config set tui.textSizing false
+   omp config set tui.renderMermaid true
+   omp config set tui.codexResetFireworks true
+   omp config set tui.titleSpinner braille
+   omp config set tui.titleState true
+   omp config set display.collapseCompacted false
+   omp config set display.showTurnTime false
+   omp config set display.showTokenUsage false
+   omp config set spelling.typoDetection false
+   omp config set spelling.autocorrect false
+   omp config set spelling.autocomplete off
+   omp config set paste.largeMenuThreshold 100
    ```
 
 5. Настройки действуют в новой сессии omp. Не прерывай текущую задачу ради
@@ -80,9 +116,8 @@ omp ставится штатным установщиком с omp.sh и обн
 2. `cmp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/titanium-arq.json"`
    ничего не печатает. Та же команда для `models.yml` ничего не печатает, если
    владелец не отказался от замены.
-3. `omp config list` показывает для `theme.dark`, `statusLine.*`,
-   `composer.shape`, `composer.tokenRate` и `tasks.todoClearDelay` значения из
-   шага 4.
+3. `omp config list` показывает для каждого ключа шага 4 его значение из этого
+   шага.
 
 ## Обновление
 
