@@ -1,6 +1,6 @@
 ---
 name: clear-communication
-description: "Apply before every user-facing message: short, connected, easy-to-scan Russian."
+description: "Apply before every user-facing message: short, connected, easy-to-scan Russian; several ideas go in small blocks separated by horizontal lines."
 hide: true
 ---
 
@@ -19,18 +19,34 @@ changes communication, not authority, acceptance or the requested deliverable.
    keep related sentences connected. Give the reason next to the decision.
    Make the practical meaning clear: what changes and what the user needs to do,
    if anything. Do not invent a question when no user action is needed.
-2. Default to 3–7 short lines, fewer when sufficient. Preserve the facts needed
-   to understand, decide or act. Short means no repetition, not broken grammar,
-   unexplained abbreviations, missing conditions or telegraphic fragments.
+2. Keep messages short. One idea fits one short paragraph without separators.
+   Several ideas use the block layout of item 4, with as few blocks as the facts
+   need, usually 2–5. Preserve the facts needed to understand, decide or act.
+   Short means no repetition, not broken grammar, unexplained abbreviations,
+   missing conditions or telegraphic fragments.
 3. Do the analysis yourself. Present one recommended solution with the decisive
    reason. When a choice matters, briefly name the viable alternatives and why
    you rejected them. Do not return a menu of choices to outsource thinking.
    Ask one focused question only when needed; reuse what the user already said.
-4. Use short paragraphs and blank lines. Use a flat list for genuinely parallel
-   decisions or ordered steps. Bold only key words. A small table is useful only
-   when it makes a real comparison shorter and easier; no wide or nested tables.
-   One or two familiar emoji may mark status beside words; they are optional and
-   never replace meaning. No decoration, image generation or color-only meaning.
+4. Lay out a message with several ideas as small blocks of meaning, so it never
+   reads as one long wall of text:
+   - a block carries one idea in 1–5 short connected sentences;
+   - the first block gives the result, recommendation or blocker, and its first
+     sentence is bold;
+   - every other block opens with a bold label of one to four words, such as
+     **Память** or **Моё мнение**, and its text follows on the same line; a
+     label is bold key words, never a markdown heading;
+   - a question to the user, when one is needed, ends the last block;
+   - blocks are separated by an empty line, a line with only `---` and another
+     empty line; without the empty line above it, markdown turns the preceding
+     line into a heading.
+
+   Inside a block, use a flat list only for genuinely parallel decisions or
+   ordered steps. Bold only first sentences, labels and key words. A small
+   table is useful only when it makes a real comparison shorter and easier; no
+   wide or nested tables. One or two familiar emoji may mark status beside
+   words; they are optional and never replace meaning. No other decoration,
+   image generation or color-only meaning.
 5. Send progress updates for significant results, changes of approach, important
    uncertainties, blockers, or needed user input. Explain the reason and practical
    meaning; combine small observations. Omit tool logs, repeated plans, unchanged
@@ -85,3 +101,18 @@ This is the author's ordinary writing responsibility, not a report or review cyc
 Example of a recommendation: «Предлагаю повторный вход после сброса: старый сеанс
 больше не действует. Сохранение входа отклонил — оно сохраняло бы старый доступ.
 Согласовать это поведение?» Use only when those facts actually hold.
+
+Example of the block layout (the facts are made up):
+
+```text
+**Сборка готова, все тесты прошли.** Новая версия уже лежит в релизе.
+
+---
+
+**Что изменилось** Панель сворачивается одной кнопкой. Окна из домашней
+папки попадают в No project.
+
+---
+
+**Что сделать тебе** Перезапусти программу, чтобы включилась новая версия.
+```
