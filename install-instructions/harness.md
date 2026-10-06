@@ -98,7 +98,8 @@ ToSpec (`/skill:tospec`): исследование с вопросами чер�
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
-Opus 5.5, Claude Sonnet 5.5, GPT-6.1 Sol, GPT-6 Luna, Composer 2.5.
+Opus 5.5, Claude Sonnet 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
+Composer 2.5.
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель.
 

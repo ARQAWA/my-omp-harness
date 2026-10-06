@@ -2,6 +2,7 @@ export default function (pi) {
   const list = [
     "anthropic/claude-opus-5-5",
     "anthropic/claude-sonnet-5-5",
+    "anthropic/claude-fable-5-1",
     "openai-codex/gpt-6.1-sol",
     "openai-codex/gpt-6-luna",
     "cursor/composer-2.5",
