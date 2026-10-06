@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness', 'subagent-model-policy', 'wrap-and-timer', 'compact-at-231k'].map(name => `./extensions/${name}.ts`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -106,7 +106,7 @@ for (const [, name, gpt, claude] of tiers) {
   assert.ok(system.includes(`\`@${name}\``), `SYSTEM.md: @${name}`);
 }
 
-const installDocs = ['install-instructions/harness.md', 'install-instructions/system-prompt.md'];
+const installDocs = ['omp', 'harness', 'system-prompt', 'herdr'].map(name => `install-instructions/${name}.md`);
 const headings = ['## Состав', '## Требования', '## Первая установка', '## Проверка после установки', '## Обновление'];
 for (const doc of installDocs) {
   const text = read(doc);

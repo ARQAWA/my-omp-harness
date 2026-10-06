@@ -1,7 +1,8 @@
 # Рабочая база
 
 Этот репозиторий — рабочая база harness для omp: Scope Focus, Lunatron,
-маршрутизация моделей субагентов и системный промпт. Он перенесён из финальной
+маршрутизация моделей субагентов, системный промпт, настройки владельца для omp и
+поставка нашего herdr. Он перенесён из финальной
 версии [my-codex-harness](https://github.com/ARQAWA/my-codex-harness) (коммит
 `13372c1`); там хранятся версия для Codex и история решений до переноса.
 
@@ -9,15 +10,19 @@
 
 - `package.json`, `extensions/`, `skills/` и `agents/` — пакет omp;
 - `SYSTEM.md`;
+- `settings/` — настройки владельца для omp;
 - `INSTALL_FOR_AGENTS.md` и `install-instructions/`;
-- `SCOPE-FOCUS-DESIGN.md` и `LUNATRON-DESIGN.md`.
+- `SCOPE-FOCUS-DESIGN.md` и `LUNATRON-DESIGN.md`;
+- приватный форк `ARQAWA/herdr` (upstream — `herdrdev/herdr`) — исходники herdr.
 
 omp загружает пакет прямо из клона через `extensions`. На машине разработки
 рабочее дерево и есть установленная копия: правка, даже не закоммиченная,
 действует в следующей новой сессии omp. `SYSTEM.md` устанавливается отдельной
 копией.
 
-Версия — это коммит. Номеров версий, тегов, cachebuster и GitHub Releases нет.
+Версия — это коммит. Номеров версий и cachebuster нет. Единственный тег и GitHub
+Release — `herdr`: в нём лежат готовые файлы herdr из форка, выпуск заменяет эти
+файлы.
 
 ## Локальная проверка исходников
 
@@ -119,10 +124,13 @@ cwd, решения, которые нужно сохранить, нужные 
 - список маршрутизации в `SYSTEM.md`;
 - упоминания моделей в review skills, `skills/tospec/references/review.md`,
   `.agents/skills/finalize-work/SKILL.md`, `extensions/harness.ts` и в описаниях
-  `agents/lunatik.md` и `agents/lunatron_*.md`.
+  `agents/lunatik.md` и `agents/lunatron_*.md`;
+- список ctrl+↑/↓ в `extensions/model-arrows.js` и окна контекста в
+  `settings/models.yml`.
 
 `node tests/run.mjs` сверяет расширение со всем перечисленным, кроме читаемых
-названий моделей в `SYSTEM.md` и описаниях агентов. После смены на машине
+названий моделей в `SYSTEM.md`, описаниях агентов, `model-arrows.js` и
+`settings/models.yml`. После смены на машине
 разработки нужно обновить `modelRoles` по `harness.md`, копию `SYSTEM.md` и начать
 новую сессию omp.
 
@@ -166,9 +174,10 @@ Lunatron по умолчанию выключен для корневой зад
 Источники действий установки — этот входной документ, инструкция выбранного
 компонента из `install-instructions/` той же ревизии и её явно указанные
 зависимости. Репозиторный `AGENTS.md` описывает разработку и находится вне
-процедуры установки. Компонентов два: пакет harness
-(`install-instructions/harness.md`) и системный промпт
-(`install-instructions/system-prompt.md`). Обе инструкции сохраняют общий порядок
+процедуры установки. Компонентов четыре: omp с настройками владельца
+(`install-instructions/omp.md`), пакет harness (`install-instructions/harness.md`),
+системный промпт (`install-instructions/system-prompt.md`) и herdr
+(`install-instructions/herdr.md`). Все инструкции сохраняют общий порядок
 разделов: состав, требования, первая установка, проверка после установки,
 обновление.
 
@@ -182,7 +191,8 @@ Unicode-последовательности вида \uXXXX; при перес�
 `install-instructions/*.md` и справочные тексты должны быть короткими и
 содержательными. Описывай конкретный состав, отдельно подключаемые части и
 готовность пакета. В инструкциях нужны ясные шаги установки и обновления командами
-`git` и `omp config`; инструкция системного промпта использует `omp config path`.
+`git` и `omp config`; инструкция системного промпта использует `omp config path`,
+инструкция herdr — `curl`, а в Windows `powershell.exe`.
 Достаточные команды и примеры настроек допустимы здесь; они не переходят в
 runtime skills. Проверки из выбранного документа `install-instructions/*.md`
 выполняет устанавливающий агент в конце установки на целевой ОС. В Windows — через
@@ -207,7 +217,7 @@ Windows. Редактирование исходников и документа
 истории Git/GitHub. Не помещать в дизайн рабочие TODO, очереди выполнения и
 чек-листы релиза. Текущий план и статус работы ведутся в достаточном первичном
 источнике или в `todo`. Текущие инструкции установки находятся в
-`install-instructions/harness.md` и `install-instructions/system-prompt.md`.
+`install-instructions/`.
 
 При удалении компонента, кода или отказе от решения удаляй относящиеся к нему
 действующие исходники и документацию. Не создавай архивные копии, заметки,

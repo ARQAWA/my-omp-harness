@@ -6,7 +6,8 @@
 
 Пакет лежит в корне клона: `package.json` (поле `omp.extensions`),
 `extensions/harness.ts`, `extensions/subagent-model-policy.ts`,
-`extensions/wrap-and-timer.ts`, `extensions/compact-at-231k.ts`, `skills/` и
+`extensions/wrap-and-timer.ts`, `extensions/compact-at-231k.ts`,
+`extensions/model-arrows.js`, `extensions/reasoning-arrows.js`, `skills/` и
 `agents/`. Каталог из списка `extensions` в `config.yml` omp загружает целиком:
 расширения берёт из его `package.json`, а `skills/` и `agents/` находит рядом.
 Системный промпт — отдельный компонент: [system-prompt.md](system-prompt.md).
@@ -79,6 +80,11 @@ ToSpec (`/skill:tospec`): исследование → спека, написа�
 5.5 и выше, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
+`model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
+Opus 5.5, Claude Sonnet 5.5, GPT-6.1 Sol, GPT-6 Luna, Composer 2.5.
+`reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
+уровней, которые поддерживает модель.
+
 Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
 модель с рабочими учётными данными.
 
@@ -131,8 +137,8 @@ Skills. Семь скрытых (`hide: true`) вызываются через `
 
 ## Требования
 
-- omp (проверено на 18.6.1) и git. В Windows нужен Git for Windows. Команды
-  выполняются через bash-инструмент omp или Git Bash.
+- [omp](omp.md) и git. В Windows нужен Git for Windows. Команды выполняются через
+  bash-инструмент omp или Git Bash.
 - Учётные данные провайдеров:
   - `openai-codex` — для GPT;
   - `anthropic` — для Claude;

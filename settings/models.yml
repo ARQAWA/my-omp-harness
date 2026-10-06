@@ -1,0 +1,17 @@
+providers:
+  openai-codex:
+    modelOverrides:
+      gpt-6.1-sol:
+        contextWindow: 400000
+      gpt-6-luna:
+        contextWindow: 400000
+  anthropic:
+    modelOverrides:
+      claude-opus-5-5:
+        contextWindow: 400000
+      claude-sonnet-5-5:
+        contextWindow: 400000
+  cursor:
+    modelOverrides:
+      composer-2.5:
+        contextWindow: 250000
