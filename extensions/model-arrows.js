@@ -6,6 +6,7 @@ export default function (pi) {
     "openai-codex/gpt-6.1-sol",
     "openai-codex/gpt-6-luna",
     "cursor/composer-2.5",
+    "cursor/grok-4.7-fast",
   ];
   for (const [key, direction] of [["ctrl+up", -1], ["ctrl+down", 1]]) {
     pi.registerShortcut(key, {

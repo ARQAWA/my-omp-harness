@@ -113,7 +113,7 @@ raboty: …»). `status-bar.ts` достраивает статус-строку
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
 Opus 5.5, Claude Sonnet 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
-Composer 2.5.
+Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель.
 
