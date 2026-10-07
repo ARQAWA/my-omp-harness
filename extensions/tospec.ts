@@ -141,9 +141,10 @@ export default function tospec(pi: ExtensionAPI) {
 
 		const choice = await ctx.ui.custom<{ model: string; level: string } | undefined>(
 			(tui, theme, _kb, done) => {
+				const pageHeight = () => Math.max(5, (process.stdout.rows || 24) - 8);
 				const view = {
 					render(width: number) {
-						const bodyHeight = Math.max(5, (process.stdout.rows || 24) - 8);
+						const bodyHeight = pageHeight();
 						if (!mdCache || mdCache.width !== width) {
 							mdCache = { width, lines: new Markdown(text, 1, 0, getMarkdownTheme()).render(width) };
 						}
@@ -165,7 +166,7 @@ export default function tospec(pi: ExtensionAPI) {
 							fitWidth(
 								theme.fg(
 									"dim",
-									"↑↓ model  ←→ reasoning  PgUp/PgDn scroll  Enter launch in a new chat  Esc close",
+									"↑↓ page  ctrl+↑↓ model  ctrl+←→ reasoning  Enter launch in a new chat  Esc close",
 								),
 							),
 						];
@@ -198,25 +199,19 @@ export default function tospec(pi: ExtensionAPI) {
 							done({ model: modelSpec!, level });
 							return;
 						}
-						if (matchesKey(data, "up") || matchesKey(data, "ctrl+up")) {
+						if (matchesKey(data, "ctrl+up")) {
 							bumpModel(-1);
-						} else if (matchesKey(data, "down") || matchesKey(data, "ctrl+down")) {
+						} else if (matchesKey(data, "ctrl+down")) {
 							bumpModel(1);
-						} else if (matchesKey(data, "left") || matchesKey(data, "ctrl+left")) {
+						} else if (matchesKey(data, "ctrl+left")) {
 							bumpLevel(-1);
-						} else if (matchesKey(data, "right") || matchesKey(data, "ctrl+right")) {
+						} else if (matchesKey(data, "ctrl+right")) {
 							bumpLevel(1);
-						} else if (matchesKey(data, "pageUp")) {
-							scroll = Math.max(0, scroll - 3);
-						} else if (matchesKey(data, "pageDown")) {
-							const bodyHeight = Math.max(5, (process.stdout.rows || 24) - 8);
-							const maxScroll = Math.max(0, (mdCache?.lines.length ?? 0) - bodyHeight);
-							scroll = Math.min(maxScroll, scroll + 3);
-						} else if (matchesKey(data, "home")) {
-							scroll = 0;
-						} else if (matchesKey(data, "end")) {
-							const bodyHeight = Math.max(5, (process.stdout.rows || 24) - 8);
-							scroll = Math.max(0, (mdCache?.lines.length ?? 0) - bodyHeight);
+						} else if (matchesKey(data, "up")) {
+							scroll = Math.max(0, scroll - pageHeight());
+						} else if (matchesKey(data, "down")) {
+							const maxScroll = Math.max(0, (mdCache?.lines.length ?? 0) - pageHeight());
+							scroll = Math.min(maxScroll, scroll + pageHeight());
 						} else {
 							return;
 						}

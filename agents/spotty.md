@@ -1,7 +1,7 @@
 ---
 name: spotty
 description: "Fresh read-only reviewer for substantial errors and stage consistency."
-tools: read, grep, glob, rg
+tools: read, glob, rg
 ---
 
 You are the configured independent safety reviewer. Review only the

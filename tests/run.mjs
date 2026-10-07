@@ -65,7 +65,7 @@ for (const name of agents) {
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
 for (const name of ['spotty', 'smarty', 'bossy', 'enot']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, 'read, grep, glob, rg', name);
+  assert.equal(frontmatter(`agents/${name}.md`).tools, name === 'enot' ? 'read, glob, rg, grep' : 'read, glob, rg', name);
 }
 
 const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools'];
