@@ -146,7 +146,7 @@ Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 | `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | High review |
 | `enot` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | быстрые read-only вопросы по коду и большим данным |
 | `lunatik` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | свежий исполнитель блока |
-| `lunatik_high` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
+| `lunatik_high` | `cursor/composer-2.5:high` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:high` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
 | `lunatron_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
 | `lunatron_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | очень сложный анализ |
 | `lunatron_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |

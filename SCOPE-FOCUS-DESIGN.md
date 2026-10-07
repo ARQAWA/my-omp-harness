@@ -715,7 +715,7 @@ enforcement. Эффект не измерен.
   `agents/*.md`, read-only песочница — `tools: read, grep, glob`.
 - Модели выбираются по семейству родителя, значения владельца на 2026-10-06
   лежат в `install-instructions/harness.md`; `enot`, `lunatik` и
-  `lunatron_luna_high` запускаются на Composer 2.5, если доступен Cursor.
+  `lunatik_high` запускаются на Composer 2.5, если доступен Cursor.
   Причина: Main на GPT и на Claude работают одинаково, а Composer для этих ролей
   выбрал владелец.
 - 2026-10-07: родитель не на GPT (Claude, Grok, Composer и другие) получает
@@ -858,7 +858,7 @@ tooling из Codex против частых ошибок перенести, н
 
 Владелец поручил заменить везде в harness модель Composer 2.5 Fast на простой
 Composer 2.5. Решение заменяет модель во всех решениях выше, включая
-`code_writer`: маршруты `enot`, `lunatik`, `lunatron_luna_high` и `code_writer`
+`code_writer`: маршруты `enot`, `lunatik`, `lunatik_high` и `code_writer`
 начинаются с `cursor/composer-2.5`, список ctrl+↑/↓ содержит
 `cursor/composer-2.5`, а окно контекста 250 000 и `enabledModels` относятся к
 той же модели.
@@ -996,4 +996,4 @@ Read; omp подменяет их своими на стороне клиент�
 
 ## 2026-10-07: матрица моделей субагентов
 
-Решение владельца. Под Claude-родителем `smarty` и `bossy` работают на одной модели `claude-opus-5-5/low`; `code_writer`, `enot` и уровень `@subagent_simple` идут на `claude-sonnet-5-5:off` (без reasoning: omp шлёт `between_tools`, расширение `reasoning-arrows.js` ставит effort low). Под GPT-родителем `code_writer` и `enot` берут `gpt-6-luna/low` после Composer 2.5, `@subagent_simple` — `gpt-6-luna/low`, `@subagent_routine` — `gpt-6-luna/medium`, `@subagent_medium` — `gpt-6-luna/xhigh`. Агент `lunatron_luna_high` стал `lunatik_high` на `composer-2.5/medium` → `gpt-6-luna/medium`, а `lunatron_sol_{low,medium,high}` — `lunatron_{low,medium,high}`; под Claude-родителем `lunatron_medium` и `lunatron_high` идут на `claude-opus-5-5/low`.
+Решение владельца. Под Claude-родителем `smarty` и `bossy` работают на одной модели `claude-opus-5-5/low`; `code_writer`, `enot` и уровень `@subagent_simple` идут на `claude-sonnet-5-5:off` (без reasoning: omp шлёт `between_tools`, расширение `reasoning-arrows.js` ставит effort low). Под GPT-родителем `code_writer` и `enot` берут `gpt-6-luna/low` после Composer 2.5, `@subagent_simple` — `gpt-6-luna/low`, `@subagent_routine` — `gpt-6-luna/medium`, `@subagent_medium` — `gpt-6-luna/xhigh`. Агент `lunatron_luna_high` стал `lunatik_high` на `composer-2.5/high` → `gpt-6-luna/medium` (меняется только Luna: high → medium), а `lunatron_sol_{low,medium,high}` — `lunatron_{low,medium,high}`; под Claude-родителем `lunatron_medium` и `lunatron_high` идут на `claude-opus-5-5/low`.

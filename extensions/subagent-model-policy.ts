@@ -26,7 +26,7 @@ const NAMED: Record<string, { gpt: string | string[]; claude: string | string[] 
 	bossy: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
 	enot: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:low"], claude: "anthropic/claude-sonnet-5-5:off" },
 	lunatik: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:medium", "anthropic/claude-sonnet-5-5:low"] },
-	lunatik_high: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:medium", "anthropic/claude-sonnet-5-5:low"] },
+	lunatik_high: { gpt: ["cursor/composer-2.5:high", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:high", "anthropic/claude-sonnet-5-5:low"] },
 	lunatron_low: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-sonnet-5-5:high" },
 	lunatron_medium: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
 	lunatron_high: { gpt: "openai-codex/gpt-6.1-sol:high", claude: "anthropic/claude-opus-5-5:low" },

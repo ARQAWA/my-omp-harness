@@ -27,7 +27,7 @@ parent). The others list (Composer, used when Cursor is available; GPT-parent
 fallback; Claude-parent fallback):
 - lunatik (composer-2.5/medium; gpt-6-luna/medium; claude-sonnet-5-5/low): fresh
   worker for one execution block.
-- lunatik_high (composer-2.5/medium; gpt-6-luna/medium; claude-sonnet-5-5/low):
+- lunatik_high (composer-2.5/high; gpt-6-luna/medium; claude-sonnet-5-5/low):
   fresh worker for a complex block.
 - lunatron_low, lunatron_medium, lunatron_high (gpt-6.1-sol at that
   effort; claude-sonnet-5-5/high, claude-opus-5-5/low, claude-opus-5-5/low):

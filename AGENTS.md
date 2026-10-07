@@ -93,7 +93,7 @@ Focus и Lunatron не ограничивают Main ролями Lunatron и н
 Роли закреплены маршрутизацией; модели — в таблице
 `install-instructions/harness.md`, для маршрута-списка сначала Composer 2.5,
 затем модель семейства родителя. `lunatik` (Composer 2.5 medium) — свежий
-исполнитель блока; `lunatik_high` (Composer 2.5 medium, GPT-6 Luna medium) —
+исполнитель блока; `lunatik_high` (Composer 2.5 high, GPT-6 Luna medium) —
 сложный блок; `lunatron_low`, `lunatron_medium`, `lunatron_high` (`gpt-6.1-sol` с
 соответствующим effort под GPT-родителем; Sonnet 5.5 high, Opus 5.5 low и
 Opus 5.5 low под Claude-родителем) — блок, которому нужен более сильный анализ.
