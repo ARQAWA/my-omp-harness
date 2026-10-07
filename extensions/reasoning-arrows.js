@@ -25,7 +25,7 @@ export default function (pi) {
       },
     });
   }
-  // On off omp sends no effort or low effort, Anthropic would default to high, so set high explicitly; Haiku gets thinking disabled; with thinking disabled Anthropic rejects any effort change in history, so per-message effort inserts become high too.
+  // On off Haiku gets thinking disabled and Sonnet keeps between_tools; both get effort low explicitly; with thinking disabled Anthropic rejects any effort change in history, so per-message effort inserts become low too.
   pi.on("before_provider_request", event => {
     const payload = event.payload;
     if (payload?.model === "claude-haiku-5-5" && pi.getThinkingLevel() === "off") {
@@ -34,15 +34,15 @@ export default function (pi) {
       return {
         ...rest,
         messages: payload.messages?.map(message =>
-          message?.output_config?.effort !== undefined && message.output_config.effort !== "high"
-            ? { ...message, output_config: { ...message.output_config, effort: "high" } }
+          message?.output_config?.effort !== undefined && message.output_config.effort !== "low"
+            ? { ...message, output_config: { ...message.output_config, effort: "low" } }
             : message),
         ...(edits.length ? { context_management: { ...contextManagement, edits } } : {}),
         thinking: { type: "disabled" },
-        output_config: { ...payload.output_config, effort: "high" },
+        output_config: { ...payload.output_config, effort: "low" },
       };
     }
     if (payload?.thinking?.type !== "between_tools") return;
-    return { ...payload, output_config: { ...payload.output_config, effort: "high" } };
+    return { ...payload, output_config: { ...payload.output_config, effort: "low" } };
   });
 }

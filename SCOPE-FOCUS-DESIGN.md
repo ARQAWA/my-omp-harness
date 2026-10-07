@@ -1168,3 +1168,25 @@ Sonnet 5.5, с выключенным мышлением и effort high; у Sonn
 - `compact-at-231k.ts`: Haiku добавлен в ветку Opus/Sonnet версии 5.5 и выше.
 
 Устройство Haiku — правка запроса в хуке, потому что флаг omp `compat.disabledThinking` в `models.yml` не применяется: сборщик compat Anthropic переносит из override только ключи базового набора. Пробы при планировании (`omp -p --thinking off` с пробным расширением, реальные учётные данные) подтвердили: Haiku — тело `{"thinking":{"type":"disabled"},"output_config":{"effort":"high"}}`, ответ без ошибки, в том числе с вызовом инструмента; Sonnet — `between_tools` и effort high, ответ без ошибки. Проба переключения уровня внутри сессии показала, что при выключенном мышлении Anthropic отклоняет любую смену effort в истории (400 на вставке omp `output_config.effort: "low"`), поэтому хук ставит high и во вставках effort в сообщениях; после этого цепочка Haiku `high → off → medium → off → low` в одной сессии проходит без ошибок. Прежние абзацы с effort medium выше — история.
+
+## 2026-10-08: no reasoning с effort low и Composer без off
+
+Решение владельца: уровень `off` у Haiku 5.5 и Sonnet 5.5 работает с effort low
+вместо high. Владелец также просил официальный уровень `off` для Composer 2.5.
+
+Выполненное изменение: хук `before_provider_request` в `reasoning-arrows.js` при
+уровне `off` ставит effort low у Haiku (с `thinking: { type: "disabled" }`) и у
+Sonnet (`between_tools`), а вставки effort в сообщениях Haiku делает low. Субагенты
+на `claude-sonnet-5-5:off` тоже получают effort low. Запросы через логирующий
+прокси к API Anthropic (`omp -p`, реальные учётные данные) подтвердили: Haiku и
+Sonnet с вызовом инструмента — `effort: "low"`, ответ 200; цепочка Haiku
+`high → off → medium → off → low` в одной сессии проходит с ответом 200 на
+каждом шаге. Абзацы выше с effort high — история.
+
+Composer 2.5 уровень `off` не получил. omp делает off у моделей Cursor через
+`thinking.effortRouting.off` (отдельный вариант модели без reasoning, например
+`gpt-5.5-none`) или через параметр варианта `thinking`/`reasoning`. Для
+`composer-2.5` Cursor отдаёт один вариант с параметром `fast=false` и без
+параметра reasoning, `cursor-agent models` тоже знает только `composer-2.5` и
+`composer-2.5-fast`. Поэтому omp шлёт одинаковый запрос на любом уровне, и
+официально выключить reasoning Composer нельзя.

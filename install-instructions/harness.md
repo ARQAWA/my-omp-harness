@@ -168,8 +168,10 @@ Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
 GPT-6 Luna, Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; добавлен no reasoning (`off`): у Sonnet
-5.5 — `between_tools` с effort high, у Haiku 5.5 — мышление выключено
-(`thinking: disabled`) с effort high; хук запроса ставит их при отправке.
+5.5 — `between_tools` с effort low, у Haiku 5.5 — мышление выключено
+(`thinking: disabled`) с effort low; хук запроса ставит их при отправке.
+У Composer 2.5 уровня `off` нет: Cursor не даёт ему варианта или параметра без
+reasoning.
 
 Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
 модель с рабочими учётными данными.
