@@ -25,8 +25,10 @@ After CLEAN record the fact and READY FOR IMPLEMENTATION in plan.md.
 Briefly tell the user in the chat that the plan is ready: a link to plan.md, what
 will be done and how it will end. Then call `tospec` with step `ready` and end
 the turn with that short message. The approval window opens by itself when the
-turn ends: it shows spec.md and plan.md, lets the user choose the executor model
-and reasoning, and launches execution in a new clean chat on Enter. Do not run
+turn ends: it shows spec.md and plan.md with a table of contents and scrolling,
+lets the user choose the executor model and reasoning, and launches execution in
+a new clean chat on `Launch in a new chat`; Esc or `Close` leaves the plan ready,
+and `/tospec review` opens the window again. Do not run
 cleanup, and do not read 06. If the basis of readiness is lost, return the
 affected stages and pass the Smarty check again, then call `tospec` with step
 `ready` again; do not execute a plan with invalid approval or CLEAN.

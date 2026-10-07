@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { getAgentDir, getMarkdownTheme } from "@oh-my-pi/pi-coding-agent";
-import { Markdown, matchesKey, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
+import { Markdown, ScrollView, matchesKey, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
+import { bottomBorder, divider, dividerSplit, row, splitBodyWidth, splitRow, topBorder, topBorderSplit } from "@oh-my-pi/pi-tui/chrome";
 import { MODELS } from "./model-arrows.js";
 import { ORDER, levelsFor } from "./reasoning-arrows.js";
 import { homedir } from "node:os";
@@ -109,9 +110,11 @@ export default function tospec(pi: ExtensionAPI) {
 			ctx.ui.notify("ToSpec is not waiting for approval.", "info");
 			return;
 		}
-		let text: string;
+		let specText: string;
+		let planText: string;
 		try {
-			text = `${readFileSync(join(workspace, "spec.md"), "utf8")}\n\n---\n\n${readFileSync(join(workspace, "plan.md"), "utf8")}`;
+			specText = readFileSync(join(workspace, "spec.md"), "utf8");
+			planText = readFileSync(join(workspace, "plan.md"), "utf8");
 		} catch (e) {
 			ctx.ui.notify(String(e instanceof Error ? e.message : e), "error");
 			return;
@@ -136,40 +139,137 @@ export default function tospec(pi: ExtensionAPI) {
 		let model = ctx.models.resolve(modelSpec);
 		let level = saved?.level ?? pi.getThinkingLevel();
 		level = fitLevel(level, model);
-		let scroll = 0;
-		let mdCache: { width: number; lines: string[] } | undefined;
+		const split = (source: string, fileName: string) => {
+			const out: { level: number; title: string; text: string }[] = [];
+			let fenced = false;
+			let head: string[] = [];
+			let current: { level: number; title: string; lines: string[] } | undefined;
+			const flush = () => {
+				if (current) out.push({ level: current.level, title: current.title, text: current.lines.join("\n") });
+			};
+			for (const line of source.split("\n")) {
+				const t = line.trimStart();
+				if (t.startsWith("```") || t.startsWith("~~~")) fenced = !fenced;
+				const m = fenced ? null : line.match(/^(#{1,6})\s+(.*)$/);
+				if (m) {
+					if (!current && head.some(l => l.trim())) {
+						out.push({ level: 1, title: fileName, text: head.join("\n") });
+					}
+					flush();
+					current = { level: m[1].length, title: m[2].replace(/[#\s]+$/, "").trim(), lines: [line] };
+				} else if (current) {
+					current.lines.push(line);
+				} else {
+					head.push(line);
+				}
+			}
+			if (!current && head.some(l => l.trim())) out.push({ level: 1, title: fileName, text: head.join("\n") });
+			flush();
+			return out;
+		};
+		let sections = [...split(specText, "spec.md"), ...split(planText, "plan.md")];
+		if (!sections.length) sections = [{ level: 1, title: "empty", text: "" }];
+		const minLevel = Math.min(...sections.map(s => s.level));
 
 		const choice = await ctx.ui.custom<{ model: string; level: string } | undefined>(
 			(tui, theme, _kb, done) => {
-				const pageHeight = () => Math.max(5, (process.stdout.rows || 24) - 8);
-				const view = {
-					render(width: number) {
-						const bodyHeight = pageHeight();
-						if (!mdCache || mdCache.width !== width) {
-							mdCache = { width, lines: new Markdown(text, 1, 0, getMarkdownTheme()).render(width) };
+				type Focus = "toc" | "body" | "actions";
+				let focus: Focus = "actions";
+				let tocIndex = 0;
+				let actionIndex = 0;
+				let showToc = false;
+				let cache: { width: number; lines: string[]; starts: number[] } | undefined;
+				const view = new ScrollView([], {
+					height: 3,
+					scrollbar: "auto",
+					theme: { track: (s: string) => theme.fg("dim", s), thumb: (s: string) => theme.fg("accent", s) },
+				});
+				const current = () => {
+					let cur = 0;
+					if (cache) {
+						for (let i = 0; i < cache.starts.length; i++) {
+							if (cache.starts[i] <= view.getScrollOffset()) cur = i;
 						}
-						const maxScroll = Math.max(0, mdCache.lines.length - bodyHeight);
-						scroll = Math.min(scroll, maxScroll);
-						const visible = mdCache.lines.slice(scroll, scroll + bodyHeight);
+					}
+					return cur;
+				};
+				const component = {
+					render(width: number) {
+						const rows = process.stdout.rows || 40;
+						const tocWidth = Math.max(18, Math.min(30, Math.round(width * 0.24)));
+						showToc = sections.length >= 2 && width >= 64 && splitBodyWidth(width, tocWidth) >= 40;
+						const bodyWidth = showToc ? splitBodyWidth(width, tocWidth) : Math.max(1, width - 4);
+						const bodyHeight = Math.max(3, rows - 8);
+						if (!cache || cache.width !== bodyWidth) {
+							const lines: string[] = [];
+							const starts: number[] = [];
+							for (const s of sections) {
+								starts.push(lines.length);
+								lines.push(...new Markdown(s.text, 1, 0, getMarkdownTheme()).render(Math.max(1, bodyWidth - 1)));
+							}
+							cache = { width: bodyWidth, lines, starts };
+							view.setLines(lines);
+						}
+						view.setHeight(bodyHeight);
+						const body = view.render(bodyWidth);
+						const cur = current();
+						if (focus !== "toc") tocIndex = cur;
+						let toc: string[] = [];
+						if (showToc) {
+							toc = sections.map((s, i) => {
+								const indent = " ".repeat((s.level - minLevel) * 2);
+								if (focus === "toc" && i === tocIndex) {
+									const plain = truncateToWidth("› " + indent + s.title, tocWidth);
+									const pad = " ".repeat(Math.max(0, tocWidth - visibleWidth(plain)));
+									return theme.bg(
+										"selectedBg",
+										theme.fg("accent", "›") + " " + theme.bold(plain.slice(2)) + pad,
+									);
+								}
+								if (focus !== "toc" && i === cur) {
+									return truncateToWidth(theme.fg("accent", "▎") + " " + theme.fg("accent", indent + s.title), tocWidth);
+								}
+								return truncateToWidth("  " + theme.fg("muted", indent + s.title), tocWidth);
+							});
+							if (toc.length > bodyHeight) {
+								const at = focus === "toc" ? tocIndex : cur;
+								const start = Math.min(toc.length - bodyHeight, Math.max(0, at - Math.floor(bodyHeight / 2)));
+								toc = toc.slice(start, start + bodyHeight);
+							}
+							while (toc.length < bodyHeight) toc.push("");
+						}
 						const spec = modelSpec!;
-						const resolved = ctx.models.resolve(spec);
+						const resolvedName = ctx.models.resolve(spec)?.name ?? spec;
 						const levelLabel = level === "off" ? "no reasoning" : level;
-						const fitWidth = (line: string) => {
-							const w = visibleWidth(line);
-							return w >= width ? truncateToWidth(line, width) : line + " ".repeat(width - w);
+						const item = (i: number, label: string) => {
+							const selected = actionIndex === i;
+							if (selected && focus === "actions") {
+								return theme.fg("accent", theme.nav.cursor) + " " + theme.bold(theme.fg("accent", label));
+							}
+							if (selected) return theme.fg("dim", theme.nav.cursor) + " " + label;
+							return "  " + label;
 						};
-						return [
-							fitWidth(theme.fg("accent", "ToSpec: spec and plan")),
-							...visible.map(fitWidth),
-							fitWidth(""),
-							fitWidth(`Executor: ${resolved?.name ?? spec} · ${levelLabel}`),
-							fitWidth(
-								theme.fg(
-									"dim",
-									"↑↓ page  ctrl+↑↓ model  ctrl+←→ reasoning  Enter launch in a new chat  Esc close",
-								),
-							),
+						const areaHint =
+							focus === "toc"
+								? "↑↓ section · →/Enter open"
+								: focus === "body"
+									? "↑↓ scroll · shift faster · PgUp/PgDn page · g/G ends"
+									: "↑↓ select · Enter confirm";
+						const hint = areaHint + " · " + "Tab regions · ctrl+↑↓ model · ctrl+←→ reasoning · Esc close";
+						const out: string[] = [
+							showToc ? topBorderSplit(width, "ToSpec Review", tocWidth) : topBorder(width, "ToSpec Review"),
 						];
+						for (let i = 0; i < bodyHeight; i++) {
+							out.push(showToc ? splitRow(toc[i], body[i] ?? "", width, tocWidth) : row(body[i] ?? "", width));
+						}
+						out.push(showToc ? dividerSplit(width, tocWidth) : divider(width));
+						out.push(row("Executor: " + theme.bold(theme.fg("accent", resolvedName)) + " · " + levelLabel, width));
+						out.push(row(item(0, "Launch in a new chat"), width));
+						out.push(row(item(1, "Close"), width));
+						out.push(divider(width));
+						out.push(row(theme.fg("dim", hint), width));
+						out.push(bottomBorder(width));
+						return out;
 					},
 					handleInput(data: string) {
 						const bumpModel = (dir: number) => {
@@ -195,10 +295,6 @@ export default function tospec(pi: ExtensionAPI) {
 							done(undefined);
 							return;
 						}
-						if (matchesKey(data, "enter")) {
-							done({ model: modelSpec!, level });
-							return;
-						}
 						if (matchesKey(data, "ctrl+up")) {
 							bumpModel(-1);
 						} else if (matchesKey(data, "ctrl+down")) {
@@ -207,23 +303,86 @@ export default function tospec(pi: ExtensionAPI) {
 							bumpLevel(-1);
 						} else if (matchesKey(data, "ctrl+right")) {
 							bumpLevel(1);
-						} else if (matchesKey(data, "up")) {
-							scroll = Math.max(0, scroll - pageHeight());
-						} else if (matchesKey(data, "down")) {
-							const maxScroll = Math.max(0, (mdCache?.lines.length ?? 0) - pageHeight());
-							scroll = Math.min(maxScroll, scroll + pageHeight());
+						} else if (matchesKey(data, "shift+tab") || matchesKey(data, "tab")) {
+							const areas: Focus[] = showToc ? ["toc", "body", "actions"] : ["body", "actions"];
+							if (!areas.includes(focus)) focus = "body";
+							const step = matchesKey(data, "shift+tab") ? -1 : 1;
+							focus = areas[(areas.indexOf(focus) + step + areas.length) % areas.length];
 						} else {
-							return;
+							if (!cache) return;
+							if (focus === "toc" && !showToc) focus = "body";
+							if (focus === "toc") {
+								if (matchesKey(data, "up")) {
+									tocIndex = Math.max(0, tocIndex - 1);
+									view.setScrollOffset(cache.starts[tocIndex]);
+								} else if (matchesKey(data, "down")) {
+									if (tocIndex >= sections.length - 1) {
+										focus = "actions";
+									} else {
+										tocIndex++;
+										view.setScrollOffset(cache.starts[tocIndex]);
+									}
+								} else if (matchesKey(data, "right") || matchesKey(data, "enter")) {
+									focus = "body";
+								} else {
+									return;
+								}
+							} else if (focus === "body") {
+								if (matchesKey(data, "up")) {
+									if (view.getScrollOffset() === 0 && showToc) focus = "toc";
+									else view.scroll(-1);
+								} else if (matchesKey(data, "down")) {
+									if (view.getScrollOffset() >= view.getMaxScrollOffset()) focus = "actions";
+									else view.scroll(1);
+								} else if (matchesKey(data, "shift+up")) {
+									view.scroll(-5);
+								} else if (matchesKey(data, "shift+down")) {
+									view.scroll(5);
+								} else if (matchesKey(data, "pageUp")) {
+									view.page(-1);
+								} else if (matchesKey(data, "pageDown")) {
+									view.page(1);
+								} else if (matchesKey(data, "home") || data === "g") {
+									view.scrollToTop();
+								} else if (matchesKey(data, "end") || data === "G") {
+									view.scrollToBottom();
+								} else if (matchesKey(data, "left")) {
+									if (showToc) focus = "toc";
+								} else if (matchesKey(data, "right") || matchesKey(data, "enter")) {
+									focus = "actions";
+								} else {
+									return;
+								}
+							} else {
+								if (matchesKey(data, "up")) {
+									if (actionIndex === 0) focus = "body";
+									else actionIndex = 0;
+								} else if (matchesKey(data, "down")) {
+									actionIndex = 1;
+								} else if (matchesKey(data, "left")) {
+									focus = "body";
+								} else if (matchesKey(data, "enter")) {
+									if (actionIndex === 0) done({ model: modelSpec!, level });
+									else done(undefined);
+									return;
+								} else {
+									return;
+								}
+							}
 						}
 						tui.requestRender();
 					},
 					invalidate() {
-						mdCache = undefined;
+						cache = undefined;
+						view.invalidate();
 					},
 				};
-				return view;
+				return component;
 			},
-			{ overlay: true },
+			{
+				overlay: true,
+				overlayOptions: { anchor: "bottom-center", width: "100%", maxHeight: "100%", margin: 0, fullscreen: true },
+			},
 		);
 
 		if (!choice) return;
@@ -246,12 +405,12 @@ export default function tospec(pi: ExtensionAPI) {
 			});
 			if (r?.cancelled) {
 				await save("ready", ctx);
-				ctx.ui.notify("ToSpec launch was cancelled. Run /tospec to open the window again.", "info");
+				ctx.ui.notify("ToSpec launch was cancelled. Run /tospec review to open the window again.", "info");
 				return;
 			}
 		} catch {
 			await save("ready", ctx);
-			ctx.ui.notify("ToSpec launch was cancelled. Run /tospec to open the window again.", "info");
+			ctx.ui.notify("ToSpec launch was cancelled. Run /tospec review to open the window again.", "info");
 			return;
 		}
 		phase = "execute";
@@ -314,12 +473,12 @@ export default function tospec(pi: ExtensionAPI) {
 		if (commandCtx) {
 			setTimeout(() => openApproval(commandCtx!).catch(e => commandCtx!.ui.notify(String(e), "error")), 0);
 		} else {
-			ctx.ui.notify("ToSpec plan is ready: run /tospec to review and launch it.", "info");
+			ctx.ui.notify("ToSpec plan is ready: run /tospec review to review and launch it.", "info");
 		}
 	});
 
 	pi.registerCommand("tospec", {
-		description: "ToSpec: research, spec and plan; approve and launch in a new chat",
+		description: "ToSpec: research, spec and plan; approve and launch in a new chat; review reopens the window",
 		handler: async (args, ctx) => {
 			commandCtx = ctx;
 			sync(ctx);
@@ -333,7 +492,7 @@ export default function tospec(pi: ExtensionAPI) {
 				}
 				return;
 			}
-			if (!task) {
+			if (!task || task === "review") {
 				if (phase === "ready") {
 					void openApproval(ctx);
 					return;

@@ -71,8 +71,9 @@ or an available reviewer, continue independent work and wait on the dependent
 transition.
 
 Launch is only Enter in the approval window. The window shows spec.md and
-plan.md, selects the executor model and reasoning and opens a new clean chat;
-Esc closes it without launch, and `/tospec` opens it again. A reply in the chat
+plan.md with a table of contents and scrolling, selects the executor model and
+reasoning and, on `Launch in a new chat`, opens a new clean chat; Esc or `Close`
+closes it without launch, and `/tospec review` opens it again. A reply in the chat
 is an amendment or a question, not a launch. A repeated launch continues the same
 execution or reports the result achieved, without a second todo, a second goal or
 repeating operations. Readiness alone does not authorize execution; the

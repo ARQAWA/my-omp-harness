@@ -105,11 +105,13 @@ ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. 
 вопросами через `ask` → спека, написанная по Gold Standard → согласование через
 `ask` (каждый выбор с рекомендацией, затем «принять спеку целиком») → переход
 `plan` (reasoning на ступень ниже) → план с задачами → проверка спеки, плана и
-задач Smarty → переход `ready` и окно одобрения: spec.md и plan.md, выбор
-модели исполнителя и reasoning, Enter запускает выполнение в новом чистом чате
-(последний исполнитель запоминается) → выполнение с `todo` и целью → проверка
+задач Smarty → переход `ready` и полноэкранное окно одобрения: оглавление и
+прокручиваемые spec.md и plan.md, выбор модели исполнителя и reasoning
+(ctrl+↑↓, ctrl+←→), пункт `Launch in a new chat` запускает выполнение в новом
+чистом чате (последний исполнитель запоминается) → выполнение с `todo` и целью → проверка
 результата Bossy до CLEAN. В подготовке запись вне workspace и `local://`
-блокируется. `/tospec` открывает окно в фазе ready, `/tospec off` выключает режим.
+блокируется. `/tospec review` (и `/tospec` без аргумента) открывает окно в фазе
+ready, `/tospec off` выключает режим.
 
 Режим Lunatron:
 
@@ -162,8 +164,8 @@ git и PR, справа — ID сессии;
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
-Opus 5.5, Claude Sonnet 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
-Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
+Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
+GPT-6 Luna, Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; у Sonnet 5.5 добавлен no reasoning
 (`between_tools` с effort medium).
