@@ -369,12 +369,13 @@ function readFragment(
 	line: number,
 	charStart: number,
 	charCount: number,
+	raw = false,
 ): ReadResult {
 	const total = lines.length;
 	if (line < 1 || line > total) return { text: "Error: line out of range", details: {}, error: true };
 	const s = lines[line - 1]!;
 	if (charStart >= s.length && s.length > 0) return { text: "Error: char offset out of range", details: {}, error: true };
-	const prefix = charStart === 0 && total >= 10 && line % 10 === 0 ? `${String(line).padStart(6)}|` : "";
+	const prefix = !raw && charStart === 0 && total >= 10 && line % 10 === 0 ? `${String(line).padStart(6)}|` : "";
 	const trailer = (n: number): string =>
 		charStart + n < s.length
 			? `\n[Use path=${pathLabel}:${line}:chars:${charStart + n}+${n} to continue]`
@@ -399,11 +400,11 @@ function readFragment(
 	return { text, details: readDetails(text, total, fileSize, 1, n < want) };
 }
 
-function readLocalText(abs: string, pathLabel: string, sel: ReadSel): ReadResult {
+function readLocalText(abs: string, pathLabel: string, sel: ReadSel, raw: boolean): ReadResult {
 	const lines = splitFileLines(readFileSync(abs, "utf8"));
 	const total = lines.length;
 	const fileSize = statSync(abs).size;
-	if ("line" in sel) return readFragment(lines, fileSize, pathLabel, sel.line, sel.charStart, sel.charCount);
+	if ("line" in sel) return readFragment(lines, fileSize, pathLabel, sel.line, sel.charStart, sel.charCount, raw);
 
 	let start = 1;
 	let end = total;
@@ -420,7 +421,7 @@ function readLocalText(abs: string, pathLabel: string, sel: ReadSel): ReadResult
 	let bytes = 0;
 	for (let n = start; n <= end; n++) {
 		const body = lines[n - 1]!;
-		const text = total >= 10 && n % 10 === 0 ? `${String(n).padStart(6)}|${body}` : body;
+		const text = !raw && total >= 10 && n % 10 === 0 ? `${String(n).padStart(6)}|${body}` : body;
 		const sep = shown.length > 0 ? 1 : 0;
 		if (
 			chars + sep + text.length > READ_MAX_CHARS - READ_RESERVE ||
@@ -431,13 +432,16 @@ function readLocalText(abs: string, pathLabel: string, sel: ReadSel): ReadResult
 		bytes += sep + Buffer.byteLength(text, "utf8");
 		shown.push(text);
 	}
-	if (shown.length === 0 && start <= end) return readFragment(lines, fileSize, pathLabel, start, 0, Number.MAX_SAFE_INTEGER);
+	if (shown.length === 0 && start <= end) return readFragment(lines, fileSize, pathLabel, start, 0, Number.MAX_SAFE_INTEGER, raw);
 
 	const fit = start - 1 + shown.length;
 	const out: string[] = [];
-	if (start > 1) out.push(`... ${start - 1} lines not shown ...`);
+	if (!raw && start > 1) out.push(`... ${start - 1} lines not shown ...`);
 	out.push(...shown);
-	if (fit < end) {
+	if (raw) {
+		// raw: the server numbers lines itself; only a cut by the budget keeps the continuation line
+		if (fit < end) out.push(`[Use offset=${fit + 1} to continue]`);
+	} else if (fit < end) {
 		out.push(`... ${total - fit} lines not shown ...`, `[Use offset=${fit + 1} to continue]`);
 	} else if (end < total) {
 		out.push(`... ${total - end} lines not shown ...`);
@@ -613,25 +617,47 @@ function isPlainLocalPath(p: string): boolean {
 
 export default function rg(pi: ExtensionAPI) {
 	const grepBases = new Map<string, { base: string; glob: string }>();
-	let removedGrep = false;
+	const CURSOR_DUPLICATES = ["rg", "glob", "edit"]; // removed only when grep is active: native Grep, Glob and StrReplace run through omp grep/write and this engine
+	const removed = new Set<string>();
 
-	async function syncGrep(api: ExtensionAPI, ctx: { model?: { provider?: string } }): Promise<void> {
+	async function syncTools(api: ExtensionAPI, ctx: { model?: { provider?: string } }): Promise<void> {
 		try {
 			const active = await api.getActiveTools();
-			if (!isCursor(ctx)) {
-				if (active.includes("grep")) {
-					await api.setActiveTools(active.filter((name: string) => name !== "grep"));
-					removedGrep = true;
+			let next: string[];
+			if (isCursor(ctx)) {
+				next = [...active];
+				if (removed.has("grep") && !next.includes("grep")) next.push("grep");
+				removed.delete("grep");
+				if (next.includes("grep")) {
+					next = next.filter((name: string) => {
+						if (CURSOR_DUPLICATES.includes(name)) {
+							removed.add(name);
+							return false;
+						}
+						return true;
+					});
 				}
-			} else if (removedGrep && !active.includes("grep")) {
-				await api.setActiveTools([...active, "grep"]);
-				removedGrep = false;
+			} else {
+				next = active.filter((name: string) => {
+					if (name === "grep") {
+						removed.add("grep");
+						return false;
+					}
+					return true;
+				});
+				for (const name of CURSOR_DUPLICATES) {
+					if (removed.has(name)) {
+						if (!next.includes(name)) next.push(name);
+						removed.delete(name);
+					}
+				}
 			}
+			if (next.length !== active.length || next.some((n, i) => n !== active[i])) await api.setActiveTools(next);
 		} catch {}
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
-		await syncGrep(pi, ctx);
+		await syncTools(pi, ctx);
 		try {
 			lookup("edit.mode")?.override(pi.pi.settings, "replace");
 			lookup("edit.modelVariants")?.override(pi.pi.settings, { gpt: "apply_patch" });
@@ -639,7 +665,7 @@ export default function rg(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (_event, ctx) => {
-		await syncGrep(pi, ctx);
+		await syncTools(pi, ctx);
 	});
 
 	pi.on("tool_result", async (event, ctx) => {
@@ -718,6 +744,7 @@ export default function rg(pi: ExtensionAPI) {
 				shownFiles.push(f);
 			}
 			const fileMatches = counts.map(f => ({ path: f.path, count: f.count }));
+			const listing = pattern === "."; // native Glob arrives as a files_with_matches search for "."
 			const { perFileLimitReached: _removed, ...rest } = details;
 			const body = headingText(shownFiles);
 			const text = cut
@@ -727,11 +754,11 @@ export default function rg(pi: ExtensionAPI) {
 				content: [{ type: "text", text }],
 				details: {
 					...rest,
-					files: content.map(f => f.path),
+					files: listing ? content.slice(0, OUTPUT_CAP).map(f => f.path) : content.map(f => f.path),
 					fileMatches,
 					fileCount: fileMatches.length,
 					matchCount: fileMatches.reduce((s, f) => s + f.count, 0),
-					truncated: cut,
+					truncated: listing ? content.length > OUTPUT_CAP : cut,
 					fileLimitReached: false,
 				},
 			};
@@ -968,7 +995,7 @@ export default function rg(pi: ExtensionAPI) {
 				const fragAbs = resolve(ctx.cwd, frag[1]!);
 				if (!statSync(fragAbs, { throwIfNoEntry: false })?.isFile()) return notFound;
 				return shaped(
-					readLocalText(fragAbs, frag[1]!, { line: Number(frag[2]), charStart: Number(frag[3]), charCount: Number(frag[4]) }),
+					readLocalText(fragAbs, frag[1]!, { line: Number(frag[2]), charStart: Number(frag[3]), charCount: Number(frag[4]) }, isCursor(ctx)),
 				);
 			}
 
@@ -1015,7 +1042,7 @@ export default function rg(pi: ExtensionAPI) {
 			const off = start === 0 ? undefined : start;
 			const sel: ReadSel =
 				off !== undefined && off < 0 ? { start: 1, limit: lim, offsetNeg: -off } : { start: off ?? 1, limit: lim };
-			return shaped(readLocalText(abs, file, sel));
+			return shaped(readLocalText(abs, file, sel, isCursor(ctx)));
 		},
 	});
 }

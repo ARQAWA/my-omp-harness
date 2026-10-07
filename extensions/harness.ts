@@ -62,6 +62,7 @@ Return one terse final to your parent, with no narration: status, result,
 changed paths, key facts with file:line, check results, errors, unknowns. The
 parent uses it without rechecking. For a missing essential decision, return
 DECISION_REQUIRED with the issue and partial result.`;
+const CURSOR_TOOLS = `Tool names on the Cursor provider. Your native Read, Glob, Grep, Shell, StrReplace, Write, Delete and TodoWrite are the omp tools these instructions call read, glob, rg, bash, edit, write, delete and todo: use the native tools for them. Read also accepts omp selectors in the path, such as file:raw:N+K and file:<line>:chars:<start>+<count>. Call the other omp tools, such as task, goal, progress, eval and lsp, as MCP tools of pi-agent. Use the MCP task for subagents and the MCP goal for goals: the native Task, AskQuestion and SwitchMode are rejected here, and the native goal tools of Cursor are not the omp goal. Here Read returns plain file lines that the Cursor server numbers itself, so the omp read markers do not appear; a Read cut by the output budget still ends with [Use offset=N to continue], and a line too long for the output ends with [Use path=<file>:<line>:chars:<start>+<count> to continue]. If your MCP tools include rg and glob, your role has no native Grep and Glob: search with the MCP rg and glob instead. This mapping is complete; do not compare the tool lists.`;
 const INACTIVE = `LUNATRON_STATE=INACTIVE
 Ignore all earlier Lunatron ACTIVE delegation instructions, including Main
 execution limits and role guards. Lunatron delegation is disabled.
@@ -122,6 +123,7 @@ export default function harness(pi: ExtensionAPI) {
 			`Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`,
 			`Apply the following context-gathering cycle to every search and read. Source: ${CONTEXT}\n\n${readFileSync(CONTEXT, "utf8")}`,
 		];
+		if (ctx.model?.provider === "cursor") blocks.push(CURSOR_TOOLS);
 		if (ctx.agent.kind === "sub") {
 			blocks.push(`${CHILD}\nLUNATRON_MODE=subagent`);
 			return { systemPrompt: [...event.systemPrompt, ...blocks] };
