@@ -1,19 +1,17 @@
 # 01. Research
 
 Input: the original request, amendments and the available objects of the task.
-The basis from [SKILL.md](skill://tospec) applies; a working directory is not
+The basis from [basis.md](basis.md) applies; a working directory is not
 required.
 
 ## Working folder
 
-Create the workspace with one command in the first batch of reads:
-`node -e "const f=require('fs'),o=require('os'),p=require('path');console.log(f.mkdtempSync(p.join(f.realpathSync(o.tmpdir()),'scope-focus-tospec-')))"`
-Write the path from the output into the header of spec.md together with the task
-scope and the paths of Gold Standard and the applicable rules. spec.md, plan.md
-and experiment materials are written only here; do not write into the target
-objects. Read existing documents as context. On continuation use the workspace
-you were given. A folder registry and a state file are not needed. The folder
-lives until execution completes; step 06 deletes it.
+The extension created the workspace; its path is in the header of the ToSpec
+block. Write the path into the header of spec.md together with the task scope
+and the paths of Gold Standard and the applicable rules. spec.md, plan.md and
+experiment materials are written only here; do not write into the target
+objects. Read existing documents as context. A folder registry and a state file
+are not needed. The folder lives until execution completes; step 06 deletes it.
 
 ## What to find out
 
@@ -39,7 +37,7 @@ Choose the sufficient decision yourself by Gold Standard. When it is ambiguous,
 weigh the real sufficient alternatives and record a short basis for the choice.
 Ask only for an unavailable material fact or a material agreement that research
 cannot obtain; propose a decision, not a menu. Ask what is explicitly unclear in
-the request through `ask` under SKILL.md in the first batch. Conduct research in
+the request through `ask` under basis.md in the first batch. Conduct research in
 blocks: ask the questions that arise after a block in one `ask` and continue
 independent reading; repeat while questions remain.
 

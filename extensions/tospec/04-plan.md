@@ -1,7 +1,7 @@
 # 04. Plan with embedded tasks
 
 Input: the approved spec. Create plan.md next to spec.md using the
-[template](skill://tospec/templates/plan.md); there is no separate tasks.md.
+[plan template](plan-template.md); there is no separate tasks.md.
 
 Choose an existing sufficient mechanism or a minimal adaptation under Gold
 Standard. Assess efficiency theoretically; resolve a material unknown under 01,

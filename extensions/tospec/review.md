@@ -1,6 +1,6 @@
 # Review of preparation and execution
 
-Loaded together with 04–05. ToSpec checks two points; at each there is one fresh
+Part of the ToSpec instructions, together with 04–05. ToSpec checks two points; at each there is one fresh
 reviewer per pass and one CLEAN:
 
 | Step | Object | Cycle and profile |

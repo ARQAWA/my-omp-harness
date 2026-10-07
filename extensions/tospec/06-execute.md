@@ -1,7 +1,8 @@
 # 06. Execution of the confirmed plan
 
-Input: a launch under SKILL.md after the ready plan, the exact spec.md and
-plan.md, approval and the Smarty CLEAN. Apply [SKILL.md](skill://tospec) and Gold
+Input: the start message of this new chat with the paths of spec.md and
+plan.md, approval and the Smarty CLEAN. The executor model and reasoning were
+already chosen in the approval window. Apply [basis.md](basis.md) and Gold
 Standard; the step fits any task and its real objects.
 
 ## Launch
@@ -25,7 +26,7 @@ continuing against the user's will.
 
 Execute T in order under Gold Standard. Preserve user changes and mandatory
 behavior; remove what the approved rework makes obsolete within its scope. Ask
-the user questions through `ask` under SKILL.md. A new result, scope, cost,
+the user questions through `ask` under basis.md. A new result, scope, cost,
 access, privacy or a change of method returns to approval through `ask`; changed
 T require an up-to-date plan. Smarty is not repeated: Bossy checks the result
 together with the changes. Update the plan.md "Execution" field once, at
@@ -37,7 +38,7 @@ checks require real observations. ToSpec does not enable delegation.
 After the result, launch one fresh read-only Bossy under High Review Cycle,
 review_stage=pre-completion, without Main's history and earlier findings; while
 it works, prepare the final answer. Bases — under
-[review](skill://tospec/references/review.md). The reviewer checks the result
+[review](review.md). The reviewer checks the result
 against the requirements and the full Gold Standard: conditions, extra scope and
 contradictions. Do not change the result during the pass.
 
@@ -52,8 +53,9 @@ the blocker and wait; do not substitute another reviewer.
 After the result, the mandatory evidence and a Bossy CLEAN, update "Execution".
 Leave the needed results, originals and evidence where the order requires; do not
 create permanent reports, copies of spec/plan or an archive for the sake of the
-workflow. In the final batch, together with closing the todo and completing the
-goal, delete by exact paths the task workspace and the temporary files you
+workflow. In the final batch, together with closing the todo, completing the
+goal and calling `tospec` with step `done`, delete by exact paths the task
+workspace and the temporary files you
 created. Do not delete results, source objects, or other people's or unknown
 materials. On a pause, wait, blocker or a request to keep, leave everything. Do
 not load cleanup skills.

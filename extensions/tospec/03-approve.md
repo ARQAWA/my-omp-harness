@@ -48,5 +48,6 @@ relates to the content, not to the number. Explain your own change of meaning
 after approval and get it approved through `ask`. The vN rules are in 02.
 
 Output: approval of the whole current meaning, amendments made, no blocking
-questions about the result. Next 04 (steps 04–05 are read as a batch per
-SKILL.md). There is no separate plan approval.
+questions about the result. Then call `tospec` with step `plan` (it lowers the
+reasoning one level for the plan and tasks) and go to 04. There is no separate
+plan approval.

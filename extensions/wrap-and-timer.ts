@@ -250,14 +250,6 @@ function wrapMessage(message: any) {
 	return { ...message, content: newContent };
 }
 
-function fmt(ms: number): string {
-	const s = Math.round(ms / 1000);
-	if (s < 60) return `${s} s`;
-	const m = Math.floor(s / 60);
-	if (m < 60) return `${m} min ${s % 60} s`;
-	return `${Math.floor(m / 60)} h ${m % 60} min ${s % 60} s`;
-}
-
 export default function wrapAndTimer(pi: ExtensionAPI) {
 	const PATCHED = Symbol.for("my-omp-harness.wrap60");
 	const proto = AssistantMessageComponent.prototype as any;
@@ -270,22 +262,9 @@ export default function wrapAndTimer(pi: ExtensionAPI) {
 		};
 	}
 
-	let startedAt: number | undefined;
-
 	pi.on("assistant_message", event => ({
 		content: event.message.content.map(block =>
 			block.type === "text" ? { ...block, text: wrapText(block.text) } : block,
 		),
 	}));
-
-	pi.on("before_agent_start", () => {
-		startedAt ??= Date.now();
-	});
-
-	pi.on("agent_end", async (_event, ctx) => {
-		if (startedAt === undefined) return;
-		const elapsed = Date.now() - startedAt;
-		startedAt = undefined;
-		ctx.ui.notify(`Vremya raboty: ${fmt(elapsed)}`, "info");
-	});
 }

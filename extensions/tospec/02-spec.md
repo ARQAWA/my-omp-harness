@@ -1,6 +1,6 @@
 # 02. Specification
 
-Write spec.md in the workspace using the [template](skill://tospec/templates/spec.md).
+Write spec.md in the workspace using the [spec template](spec-template.md).
 The document is for the agent and has no human-facing part; the explanation for
 the user goes in the chat (step 03). Describe the scope and rules for the real
 task. Put material observations from an experiment into F with the conditions

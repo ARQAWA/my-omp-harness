@@ -2,7 +2,7 @@
 
 Revision: v1
 Status: DRAFT / APPROVED / NEEDS UPDATE
-Workspace: <path from mkdtemp>
+Workspace: <path from the ToSpec block>
 Scope: <objects of the task; paths if needed>
 Gold Standard: <absolute path of the full SKILL.md>
 Applicable rules: <sources of mandatory instructions>

@@ -23,4 +23,4 @@ R/AC/D: ...; scope: <paths/symbols or "create">; action: ...; check: ...
 
 ## Handoff
 
-Read spec.md and Gold Standard (paths in the spec.md header). Execute T in order; a changed condition or an unavailable mandatory source is a blocker. Status NEEDS UPDATE or the absence of CLEAN forbids launch. Execution is launched by the reply «Запустить» in `ask` or a separate `+++` (step 06); Bossy checks the result.
+Read spec.md and Gold Standard (paths in the spec.md header). Execute T in order; a changed condition or an unavailable mandatory source is a blocker. Status NEEDS UPDATE or the absence of CLEAN forbids launch. Execution is launched from the approval window in a new chat (step 06); Bossy checks the result.

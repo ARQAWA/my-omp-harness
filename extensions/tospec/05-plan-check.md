@@ -1,7 +1,7 @@
 # 05. Spec and plan check, readiness and launch
 
 Input: plan.md and the approved spec.md. Procedure —
-[review](skill://tospec/references/review.md), review_stage=pre-completion.
+[review](review.md), review_stage=pre-completion.
 
 Launch one fresh Smarty under Blind Review Cycle. It checks the spec, plan and
 tasks together against the requirements and the full Gold Standard: two-way
@@ -23,10 +23,10 @@ After CLEAN record the fact and READY FOR IMPLEMENTATION in plan.md.
 ## Launch
 
 Briefly tell the user in the chat that the plan is ready: a link to plan.md, what
-will be done and how it will end. Then ask through `ask` «Запустить выполнение?»
-with the options «Запустить» (recommended) and «Позже». «Запустить» is the
-launch: read 06. For any other answer wait; launch can be given later as a whole
-message `+++` (the boundaries are in SKILL.md). Do not run cleanup, and do not
-read 06 before launch. If the basis of readiness is lost, return the affected
-stages and pass the Smarty check again; do not execute a plan with invalid
-approval or CLEAN.
+will be done and how it will end. Then call `tospec` with step `ready` and end
+the turn with that short message. The approval window opens by itself when the
+turn ends: it shows spec.md and plan.md, lets the user choose the executor model
+and reasoning, and launches execution in a new clean chat on Enter. Do not run
+cleanup, and do not read 06. If the basis of readiness is lost, return the
+affected stages and pass the Smarty check again, then call `tospec` with step
+`ready` again; do not execute a plan with invalid approval or CLEAN.

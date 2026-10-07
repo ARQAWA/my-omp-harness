@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -37,7 +37,7 @@ for (const [skill, agent] of [['light-review-cycle', 'spotty'], ['blind-review-c
   assert.ok(read(`skills/${skill}/SKILL.md`).includes(`GPT parent: \`${gptId}\`, reasoning \`${gptEffort}\`; Claude parent: \`${claudeId}\`, reasoning \`${claudeEffort}\``), `${skill}: ${agent} models`);
 }
 const [, [smartyGpt], [smartyClaude]] = route('smarty');
-for (const file of ['skills/tospec/references/review.md', '.agents/skills/finalize-work/SKILL.md']) {
+for (const file of ['extensions/tospec/review.md', '.agents/skills/finalize-work/SKILL.md']) {
   assert.ok(read(file).includes(`GPT parent: ${split(smartyGpt).join(' / ')}; Claude parent: ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
 }
 const harness = read('extensions/harness.ts');
@@ -62,7 +62,7 @@ for (const name of ['spotty', 'smarty', 'bossy', 'enot']) {
   assert.equal(frontmatter(`agents/${name}.md`).tools, 'read, grep, glob, rg', name);
 }
 
-const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools', 'tospec'];
+const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
 assert.deepEqual(skills, [...hidden, 'lunatron-delegation'].sort());
@@ -72,9 +72,9 @@ for (const skill of skills) {
   assert.ok(meta.description, `${skill}: description`);
   assert.equal(meta.hide === 'true', hidden.includes(skill), `${skill}: hide`);
 }
-assert.deepEqual(readdirSync(path.join(root, 'skills/tospec/steps')).sort(),
-  ['01-research.md', '02-spec.md', '03-approve.md', '04-plan.md', '05-plan-check.md', '06-execute.md']);
-for (const step of ['03-approve.md', '05-plan-check.md']) assert.ok(read(`skills/tospec/steps/${step}`).includes('`ask`'), `${step}: ask`);
+assert.deepEqual(readdirSync(path.join(root, 'extensions/tospec')).sort(),
+  ['01-research.md', '02-spec.md', '03-approve.md', '04-plan.md', '05-plan-check.md', '06-execute.md', 'basis.md', 'plan-template.md', 'review.md', 'spec-template.md']);
+for (const step of ['03-approve.md', '05-plan-check.md']) assert.ok(read(`extensions/tospec/${step}`).includes('`ask`'), `${step}: ask`);
 
 const codexLeftovers = /Goal|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 for (const dir of ['skills', 'agents', 'extensions']) {
@@ -83,7 +83,7 @@ for (const dir of ['skills', 'agents', 'extensions']) {
     if (!statSync(path.join(root, relative)).isFile()) continue;
     const text = read(relative);
     assert.doesNotMatch(text, codexLeftovers, relative);
-    if (relative.startsWith(path.join('skills', 'tospec'))) assert.doesNotMatch(text, /[Ss]potty|[Ll]ight[ -][Rr]eview/, `${relative}: one Smarty check`);
+    if (relative.startsWith(path.join('extensions', 'tospec'))) assert.doesNotMatch(text, /[Ss]potty|[Ll]ight[ -][Rr]eview/, `${relative}: one Smarty check`);
     // skill://<name>[/<file>] must point to a bundled skill and an existing file
     for (const [, skill, sub] of text.matchAll(/skill:\/\/([\w-]+)(?:\/([\w./-]*\w))?/g)) {
       assert.ok(skills.includes(skill) && (!sub || existsSync(path.join(root, 'skills', skill, sub))), `${relative}: skill://${skill}/${sub ?? ''}`);

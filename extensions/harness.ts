@@ -72,10 +72,15 @@ export default function harness(pi: ExtensionAPI) {
 	const PROGRESS = "my-omp-harness.progress";
 	let progressItem: string | undefined;
 
-	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped; subagents get no progress tool.
+	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped; subagents get no progress or tospec tools.
 	const syncTools = async (kind: string) => {
 		const active = await pi.getActiveTools();
-		const next = kind === "sub" ? active.filter(name => name !== "progress") : active.includes("goal") ? active : [...active, "goal"];
+		const next =
+			kind === "sub"
+				? active.filter(name => name !== "progress" && name !== "tospec")
+				: active.includes("goal")
+					? active
+					: [...active, "goal"];
 		if (next.length !== active.length) await pi.setActiveTools(next);
 	};
 	pi.on("session_start", async (_event, ctx) => syncTools(ctx.agent.kind));

@@ -56,8 +56,8 @@ omp ставится штатным установщиком с omp.sh и обн
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
    замени файл только с согласия владельца.
 4. Задай настройки владельца. Тема убирает только значок перед контекстом; три
-   строки статуса под полем ввода собирает расширение `status-bar.ts` пакета
-   harness.
+   строки статуса под полем ввода и строку над ним собирает расширение
+   `status-bar.ts` пакета harness.
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -68,7 +68,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set statusLine.transparent true
    omp config set statusLine.compactThinkingLevel false
    omp config set statusLine.showHookStatus false
-   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status","session_name"]'
+   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status"]'
    omp config set statusLine.rightSegments '["path","git","pr"]'
    omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true}}'
    omp config set composer.shape rule

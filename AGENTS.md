@@ -131,7 +131,7 @@ Composer 2.5).
 - `NAMED` и `ROUTES`;
 - таблицы и JSON `modelRoles` в `install-instructions/harness.md`;
 - список маршрутизации в `SYSTEM.md`;
-- упоминания моделей в review skills, `skills/tospec/references/review.md`,
+- упоминания моделей в review skills, `extensions/tospec/review.md`,
   `.agents/skills/finalize-work/SKILL.md`, `extensions/harness.ts` и в описаниях
   `agents/lunatik.md`, `agents/code_writer.md` и `agents/lunatron_*.md`;
 - список ctrl+↑/↓ в `extensions/model-arrows.js` и окна контекста в
@@ -155,8 +155,10 @@ Composer 2.5).
 Перед commit и push сверяй `config.yml` машины разработки с этими источниками.
 
 Единственное runtime-состояние управления Lunatron — запись сессии
-`my-omp-harness.lunatron`. Не добавлять другой router, state, toggle или
-enforcement вместо prompt.
+`my-omp-harness.lunatron`. Не добавлять Lunatron другой router, state, toggle или
+enforcement вместо prompt. Режим ToSpec хранит фазу записью сессии
+`my-omp-harness.tospec` и блокирует запись обработчиком `tool_call` по прямому
+поручению владельца; описание — в `SCOPE-FOCUS-DESIGN.md`.
 
 Обычная проверка — чтение и логика. После изменений кода или конфигурации один
 раз запускать существующие проверки, покрывающие изменение (`node tests/run.mjs`),
