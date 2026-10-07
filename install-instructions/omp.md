@@ -78,7 +78,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set colorBlindMode false
    omp config set hideThinkingBlock false
    omp config set proseOnlyThinking true
-   omp config set omitThinking false
+   omp config set omitThinking true
    omp config set enabledModels '["cursor/composer-2.5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'
    omp config set disabledProviders '["openrouter"]'
    omp config set retry.fallbackChains '{"openai-codex/*":[]}'
