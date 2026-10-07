@@ -159,7 +159,7 @@ git и PR, справа — ID сессии;
 расширение переносит их сюда из линии над полем ввода, и та остаётся линией
 цвета сессии.
 Раскладку и сегменты задаёт [omp.md](omp.md). `compact-at-231k.ts`
-ставит порог автосжатия Main: 272 000 токенов для Claude Opus и Sonnet версии
+ставит порог автосжатия Main: 272 000 токенов для Claude Opus, Sonnet и Haiku версии
 5.5 и выше и для Claude Fable, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
@@ -167,8 +167,9 @@ git и PR, справа — ID сессии;
 Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
 GPT-6 Luna, Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
-уровней, которые поддерживает модель; у Sonnet 5.5 добавлен no reasoning
-(`between_tools` с effort medium).
+уровней, которые поддерживает модель; добавлен no reasoning (`off`): у Sonnet
+5.5 — `between_tools` с effort high, у Haiku 5.5 — мышление выключено
+(`thinking: disabled`) с effort high; хук запроса ставит их при отправке.
 
 Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
 модель с рабочими учётными данными.

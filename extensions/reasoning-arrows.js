@@ -1,10 +1,11 @@
 export const ORDER = ["off", "low", "medium", "high", "xhigh", "max"];
 
-// off is offered only where omp sends between_tools (Sonnet 5.5).
+// off exists for Sonnet 5.5 (between_tools) and Haiku 5.5 (thinking disabled).
 export function levelsFor(model) {
   return ORDER.filter(level =>
     level === "off"
-      ? model?.compat?.supportsBetweenToolsThinking === true
+      ? model?.compat?.supportsBetweenToolsThinking === true ||
+        (model?.provider === "anthropic" && model?.id === "claude-haiku-5-5")
       : model?.thinking?.efforts?.includes(level),
   );
 }
@@ -24,13 +25,24 @@ export default function (pi) {
       },
     });
   }
-  // On off omp sends between_tools without effort; Anthropic would default to high.
+  // On off omp sends no effort or low effort, Anthropic would default to high, so set high explicitly; Haiku gets thinking disabled; with thinking disabled Anthropic rejects any effort change in history, so per-message effort inserts become high too.
   pi.on("before_provider_request", event => {
     const payload = event.payload;
+    if (payload?.model === "claude-haiku-5-5" && pi.getThinkingLevel() === "off") {
+      const { context_management: contextManagement, ...rest } = payload;
+      const edits = (contextManagement?.edits ?? []).filter(edit => edit?.type !== "clear_thinking_20251015");
+      return {
+        ...rest,
+        messages: payload.messages?.map(message =>
+          message?.output_config?.effort !== undefined && message.output_config.effort !== "high"
+            ? { ...message, output_config: { ...message.output_config, effort: "high" } }
+            : message),
+        ...(edits.length ? { context_management: { ...contextManagement, edits } } : {}),
+        thinking: { type: "disabled" },
+        output_config: { ...payload.output_config, effort: "high" },
+      };
+    }
     if (payload?.thinking?.type !== "between_tools") return;
-    return {
-      ...payload,
-      output_config: { ...payload.output_config, effort: "medium" },
-    };
+    return { ...payload, output_config: { ...payload.output_config, effort: "high" } };
   });
 }

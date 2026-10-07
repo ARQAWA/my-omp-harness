@@ -1153,3 +1153,18 @@ Cursor» и повтор оболочки и ls Cursor):
 - перед реализацией опыт показал, что `@oh-my-pi/pi-tui/chrome` и `ScrollView` резолвятся в расширении omp 18.8.3 и рисуют строки нужной ширины; поведение внутри полноэкранного оверлея в терминале не запускалось.
 
 Не добавлялись мышь, аннотации и правка документов из окна.
+
+## 2026-10-08: no reasoning у Haiku 5.5 и effort high
+
+Решения владельца: у Haiku 5.5 появляется уровень `off` («no reasoning»), как у
+Sonnet 5.5, с выключенным мышлением и effort high; у Sonnet 5.5 `off` остаётся
+`between_tools`, но effort меняется с medium на high; порог автосжатия Haiku 5.5
+становится таким же, как у остальных Claude-моделей списка (272 000), у Fable он
+уже такой. Проверку имени модели в хуке владелец выбрал сам.
+
+Выполненное изменение:
+
+- `reasoning-arrows.js`: `levelsFor` даёт `off` также для `anthropic/claude-haiku-5-5`; хук `before_provider_request` при уровне `off` у Haiku ставит `thinking: { type: "disabled" }`, `output_config.effort = "high"` и убирает правку `clear_thinking_20251015` из `context_management`; для `between_tools` (Sonnet) ставит effort high. Субагенты на `claude-sonnet-5-5:off` тоже получают effort high.
+- `compact-at-231k.ts`: Haiku добавлен в ветку Opus/Sonnet версии 5.5 и выше.
+
+Устройство Haiku — правка запроса в хуке, потому что флаг omp `compat.disabledThinking` в `models.yml` не применяется: сборщик compat Anthropic переносит из override только ключи базового набора. Пробы при планировании (`omp -p --thinking off` с пробным расширением, реальные учётные данные) подтвердили: Haiku — тело `{"thinking":{"type":"disabled"},"output_config":{"effort":"high"}}`, ответ без ошибки, в том числе с вызовом инструмента; Sonnet — `between_tools` и effort high, ответ без ошибки. Проба переключения уровня внутри сессии показала, что при выключенном мышлении Anthropic отклоняет любую смену effort в истории (400 на вставке omp `output_config.effort: "low"`), поэтому хук ставит high и во вставках effort в сообщениях; после этого цепочка Haiku `high → off → medium → off → low` в одной сессии проходит без ошибок. Прежние абзацы с effort medium выше — история.
