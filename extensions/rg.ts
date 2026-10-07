@@ -721,7 +721,7 @@ export default function rg(pi: ExtensionAPI) {
 			const { perFileLimitReached: _removed, ...rest } = details;
 			const body = headingText(shownFiles);
 			const text = cut
-				? `${body}\n[Output cut at ${OUTPUT_CAP} lines in ${shownFiles[shownFiles.length - 1]?.path ?? "the first file"}; continue with skip=${skip + shownFiles.length} for the remaining files]`
+				? `${body}\n[Output cut at ${OUTPUT_CAP} lines in ${shownFiles[shownFiles.length - 1]?.path ?? "the first file"}; ${content.length - shownFiles.length} more files not shown. Narrow the path or glob to see them]`
 				: body;
 			return {
 				content: [{ type: "text", text }],
