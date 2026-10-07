@@ -993,3 +993,7 @@ Read; omp подменяет их своими на стороне клиент�
 - Строки статуса: над линией акцента слева «Worked …» за последний ход, справа
   имя сессии; ID сессии — на третьей строке справа; план и цель показываются
   вместе в сегменте `mode`; фаза ToSpec — в сегменте `status`.
+
+## 2026-10-07: матрица моделей субагентов
+
+Решение владельца. Под Claude-родителем `smarty` и `bossy` работают на одной модели `claude-opus-5-5/low`; `code_writer`, `enot` и уровень `@subagent_simple` идут на `claude-sonnet-5-5:off` (без reasoning: omp шлёт `between_tools`, расширение `reasoning-arrows.js` ставит effort low). Под GPT-родителем `code_writer` и `enot` берут `gpt-6-luna/low` после Composer 2.5, `@subagent_simple` — `gpt-6-luna/low`, `@subagent_routine` — `gpt-6-luna/medium`, `@subagent_medium` — `gpt-6-luna/xhigh`. Агент `lunatron_luna_high` стал `lunatik_high` на `composer-2.5/medium` → `gpt-6-luna/medium`, а `lunatron_sol_{low,medium,high}` — `lunatron_{low,medium,high}`; под Claude-родителем `lunatron_medium` и `lunatron_high` идут на `claude-opus-5-5/low`.

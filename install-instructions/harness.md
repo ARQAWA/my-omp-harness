@@ -98,9 +98,10 @@ ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. 
 родитель GPT (id модели `gpt-*`) получает GPT-маршрут, любой другой родитель
 (Claude, Grok, Composer и прочие) — Claude-маршрут.
 
-- Именованные агенты запускаются по имени в `agent`, без `model`. Для `enot`,
-  `lunatik`, `lunatron_luna_high` и `code_writer` маршрут — список: сначала
-  Composer 2.5, затем модель семейства.
+- Именованные агенты запускаются по имени в `agent`, без `model`. Для `lunatik`
+  и `lunatik_high` маршрут — список: сначала Composer 2.5, затем модель
+  семейства; так же устроены `enot` и `code_writer` под GPT-родителем, а под
+  Claude-родителем они идут на одной модели Sonnet 5.5 без reasoning (`:off`).
   omp запускает потомка на первой модели списка, для которой есть рабочие
   учётные данные, поэтому без входа `cursor` эти агенты работают на модели
   семейства.
@@ -141,23 +142,23 @@ Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
 | `spotty` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-sonnet-5-5:medium` | Light review |
-| `smarty` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | Blind review |
+| `smarty` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | Blind review |
 | `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | High review |
-| `enot` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5` → `anthropic/claude-sonnet-5-5:low` | быстрые read-only вопросы по коду и большим данным |
+| `enot` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | быстрые read-only вопросы по коду и большим данным |
 | `lunatik` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | свежий исполнитель блока |
-| `lunatron_luna_high` | `cursor/composer-2.5:high` → `openai-codex/gpt-6-luna:high` | `cursor/composer-2.5:high` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
-| `lunatron_sol_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
-| `lunatron_sol_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-sonnet-5-5:xhigh` | очень сложный анализ |
-| `lunatron_sol_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |
-| `code_writer` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | код и конфиги по коротким планам Main |
+| `lunatik_high` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
+| `lunatron_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
+| `lunatron_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | очень сложный анализ |
+| `lunatron_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |
+| `code_writer` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | код и конфиги по коротким планам Main |
 
 Уровни сложности для остальных запусков:
 
 | Уровень | GPT-родитель | Claude-родитель | Сложность решений |
 |---|---|---|---|
-| `@subagent_simple` | `openai-codex/gpt-6-luna:medium` | `anthropic/claude-sonnet-5-5:low` | примитивные, механические |
-| `@subagent_routine` | `openai-codex/gpt-6-sol:low` | `anthropic/claude-sonnet-5-5:medium` | не совсем примитивные |
-| `@subagent_medium` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-sonnet-5-5:high` | средние |
+| `@subagent_simple` | `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | примитивные, механические |
+| `@subagent_routine` | `openai-codex/gpt-6-luna:medium` | `anthropic/claude-sonnet-5-5:medium` | не совсем примитивные |
+| `@subagent_medium` | `openai-codex/gpt-6-luna:xhigh` | `anthropic/claude-sonnet-5-5:high` | средние |
 | `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | сложные |
 
 Skills. Восемь скрытых (`hide: true`) вызываются через `/skill:<имя>` и
@@ -190,9 +191,9 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 - Учётные данные провайдеров:
   - `openai-codex` — для GPT;
   - `anthropic` — для Claude;
-  - `cursor` (необязательно) — для Composer 2.5 в `enot`, `lunatik`,
-    `lunatron_luna_high` и `code_writer`; без него эти агенты работают на модели
-    семейства.
+  - `cursor` (необязательно) — для Composer 2.5 в `lunatik`, `lunatik_high`,
+    а под GPT-родителем и в `enot`, `code_writer`; без него эти агенты работают
+    на модели семейства.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:
   - `extensions` содержит путь клона.
   - `task.maxConcurrency` не ниже 44; более высокое значение или `0` (без
@@ -203,7 +204,7 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
   - `modelRoles` содержит четыре ключа:
 
     ```json
-    {"subagent_simple": "openai-codex/gpt-6-luna:medium", "subagent_routine": "openai-codex/gpt-6-sol:low", "subagent_medium": "openai-codex/gpt-6-sol:medium", "subagent_complex": "openai-codex/gpt-6.1-sol:low"}
+    {"subagent_simple": "openai-codex/gpt-6-luna:low", "subagent_routine": "openai-codex/gpt-6-luna:medium", "subagent_medium": "openai-codex/gpt-6-luna:xhigh", "subagent_complex": "openai-codex/gpt-6.1-sol:low"}
     ```
 
     Незаданная или недоступная роль останавливает запуск до маршрутизации;
@@ -261,7 +262,7 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 3. Выполни одной командой вызов модели и чтение файла сессии потомка:
 
    ```bash
-   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'LUNATRON_MODE=default-off'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: lunatron_sol_low, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
+   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'LUNATRON_MODE=default-off'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: lunatron_low, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
    ```
 
    Ожидаемый вывод: `yes` (или `да`) дважды, вывод потомка, затем из файла его
@@ -287,3 +288,6 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 6. Выполни проверки изменённых частей. Если изменились `extensions/` или
    `agents/`, включи проверку 3. Полную проверку первой установки без запроса не
    повторяй.
+
+
+[You have received this identical output 6 times. Re-reading '/Users/arkadijcukavin/Documents/ChatGPT/my-omp-harness/install-instructions/harness.md:raw' will not change it — use a narrower selector (path:A-B), or proceed with the edit.]

@@ -3,15 +3,15 @@ import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 
 const ROUTES = {
 	subagent_simple: {
-		gpt: "openai-codex/gpt-6-luna:medium",
-		claude: "anthropic/claude-sonnet-5-5:low",
+		gpt: "openai-codex/gpt-6-luna:low",
+		claude: "anthropic/claude-sonnet-5-5:off",
 	},
 	subagent_routine: {
-		gpt: "openai-codex/gpt-6-sol:low",
+		gpt: "openai-codex/gpt-6-luna:medium",
 		claude: "anthropic/claude-sonnet-5-5:medium",
 	},
 	subagent_medium: {
-		gpt: "openai-codex/gpt-6-sol:medium",
+		gpt: "openai-codex/gpt-6-luna:xhigh",
 		claude: "anthropic/claude-sonnet-5-5:high",
 	},
 	subagent_complex: {
@@ -22,15 +22,15 @@ const ROUTES = {
 
 const NAMED: Record<string, { gpt: string | string[]; claude: string | string[] }> = {
 	spotty: { gpt: "openai-codex/gpt-6-sol:medium", claude: "anthropic/claude-sonnet-5-5:medium" },
-	smarty: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-sonnet-5-5:high" },
+	smarty: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-opus-5-5:low" },
 	bossy: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
-	enot: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5", "anthropic/claude-sonnet-5-5:low"] },
+	enot: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:low"], claude: "anthropic/claude-sonnet-5-5:off" },
 	lunatik: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:medium", "anthropic/claude-sonnet-5-5:low"] },
-	lunatron_luna_high: { gpt: ["cursor/composer-2.5:high", "openai-codex/gpt-6-luna:high"], claude: ["cursor/composer-2.5:high", "anthropic/claude-sonnet-5-5:low"] },
-	lunatron_sol_low: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-sonnet-5-5:high" },
-	lunatron_sol_medium: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-sonnet-5-5:xhigh" },
-	lunatron_sol_high: { gpt: "openai-codex/gpt-6.1-sol:high", claude: "anthropic/claude-opus-5-5:low" },
-	code_writer: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:medium", "anthropic/claude-sonnet-5-5:low"] },
+	lunatik_high: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5:medium", "anthropic/claude-sonnet-5-5:low"] },
+	lunatron_low: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-sonnet-5-5:high" },
+	lunatron_medium: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
+	lunatron_high: { gpt: "openai-codex/gpt-6.1-sol:high", claude: "anthropic/claude-opus-5-5:low" },
+	code_writer: { gpt: ["cursor/composer-2.5:medium", "openai-codex/gpt-6-luna:low"], claude: "anthropic/claude-sonnet-5-5:off" },
 };
 
 export default function subagentModelPolicy(pi: ExtensionAPI) {

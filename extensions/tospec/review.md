@@ -11,7 +11,7 @@ reviewer per pass and one CLEAN:
 The procedure is set by the cycle and its shared blind contract; do not copy the
 role and do not redefine the procedure. A reviewer is launched through `task`
 with `agent` by name, without `model`:
-Smarty (GPT parent: gpt-6.1-sol / low; Claude parent: claude-sonnet-5-5 / high);
+Smarty (GPT parent: gpt-6.1-sol / low; Claude parent: claude-opus-5-5 / low);
 Bossy (GPT parent: gpt-6.1-sol / medium; Claude parent: claude-opus-5-5 / low).
 Each reviewer checks the object against the requirements — the original request,
 amendments, `ask` answers and the spec — and against the full Gold Standard. The

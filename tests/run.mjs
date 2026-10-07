@@ -41,13 +41,19 @@ for (const file of ['extensions/tospec/review.md', '.agents/skills/finalize-work
   assert.ok(read(file).includes(`GPT parent: ${split(smartyGpt).join(' / ')}; Claude parent: ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
 }
 const harness = read('extensions/harness.ts');
-for (const agent of ['lunatik', 'lunatron_luna_high', 'enot']) {
+for (const agent of ['lunatik', 'lunatik_high']) {
   const [, gpt, claude] = route(agent);
   assert.ok(gpt.length === 2 && claude.length === 2 && gpt[0] === claude[0] && gpt[0].startsWith('cursor/composer-'), `${agent}: Composer first`);
   assert.ok(harness.includes(`- ${agent} (${short(gpt[0])}; ${short(gpt[1])}; ${short(claude[1])})`), `harness.ts: ${agent} models`);
 }
-const sol = ['low', 'medium', 'high'].map(effort => [effort, ...route(`lunatron_sol_${effort}`).slice(1).map(([model]) => split(model))]);
-for (const [effort, [gpt, gptEffort]] of sol) assert.ok(gpt === sol[0][1][0] && gptEffort === effort, `lunatron_sol_${effort}: GPT model`);
+{
+  const [, gpt, claude] = route('enot');
+  assert.ok(gpt.length === 2 && gpt[0].startsWith('cursor/composer-'), 'enot: Composer first');
+  assert.ok(claude.length === 1, 'enot: Claude route length');
+  assert.ok(harness.includes(`- enot (${short(gpt[0])}; ${short(gpt[1])}; ${short(claude[0])})`), 'harness.ts: enot models');
+}
+const sol = ['low', 'medium', 'high'].map(effort => [effort, ...route(`lunatron_${effort}`).slice(1).map(([model]) => split(model))]);
+for (const [effort, [gpt, gptEffort]] of sol) assert.ok(gpt === sol[0][1][0] && gptEffort === effort, `lunatron_${effort}: GPT model`);
 assert.ok(harness.includes(`(${sol[0][1][0]} at that\n  effort; ${sol.map(([, , [claude, effort]]) => `${claude}/${effort}`).join(', ')})`), 'harness.ts: Sol models');
 
 const agents = readdirSync(path.join(root, 'agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3)).sort();

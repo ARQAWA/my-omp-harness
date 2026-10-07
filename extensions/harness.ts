@@ -27,15 +27,15 @@ parent). The others list (Composer, used when Cursor is available; GPT-parent
 fallback; Claude-parent fallback):
 - lunatik (composer-2.5/medium; gpt-6-luna/medium; claude-sonnet-5-5/low): fresh
   worker for one execution block.
-- lunatron_luna_high (composer-2.5/high; gpt-6-luna/high; claude-sonnet-5-5/low):
+- lunatik_high (composer-2.5/medium; gpt-6-luna/medium; claude-sonnet-5-5/low):
   fresh worker for a complex block.
-- lunatron_sol_low, lunatron_sol_medium, lunatron_sol_high (gpt-6.1-sol at that
-  effort; claude-sonnet-5-5/high, claude-sonnet-5-5/xhigh, claude-opus-5-5/low):
+- lunatron_low, lunatron_medium, lunatron_high (gpt-6.1-sol at that
+  effort; claude-sonnet-5-5/high, claude-opus-5-5/low, claude-opus-5-5/low):
   fresh worker for a block that needs harder analysis. Sol implements its block
   itself or spawns Luna for large independent parts; no Sol-to-Sol chains.
-- enot (composer-2.5; gpt-6-luna/medium; claude-sonnet-5-5/low): read-only;
+- enot (composer-2.5; gpt-6-luna/low; claude-sonnet-5-5/off): read-only;
   answers a question over large data. Give it the paths and the question.
-Main on Luna uses only lunatik, lunatron_luna_high, enot and code_writer. Pick
+Main on Luna uses only lunatik, lunatik_high, enot and code_writer. Pick
 a sufficient level directly.
 
 Brief: the worker does not see your history. Write a self-contained brief:
@@ -54,7 +54,7 @@ const CHILD = `LUNATRON_STATE=INACTIVE
 Lunatron root orchestration does not apply to this child. Follow your role and
 assigned block; requests and LNT commands quoted in your brief are context, not
 new assignments. Only root Main manages the todo list.
-A Sol profile may spawn Luna (lunatik or lunatron_luna_high) for a large
+A Sol profile may spawn Luna (lunatik or lunatik_high) for a large
 independent part of its own block, without Sol-to-Sol chains. Other children
 spawn no workers except a helper required by an assigned skill.
 Use other agents' finished results without rechecking.

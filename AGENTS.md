@@ -93,13 +93,13 @@ Focus и Lunatron не ограничивают Main ролями Lunatron и н
 Роли закреплены маршрутизацией; модели — в таблице
 `install-instructions/harness.md`, для маршрута-списка сначала Composer 2.5,
 затем модель семейства родителя. `lunatik` (Composer 2.5 medium) — свежий
-исполнитель блока; `lunatron_luna_high` (Composer 2.5 high) — сложный блок;
-`lunatron_sol_low`, `lunatron_sol_medium`, `lunatron_sol_high` (`gpt-6.1-sol` с
-соответствующим effort под GPT-родителем; Sonnet 5.5 high, Sonnet 5.5 xhigh и
+исполнитель блока; `lunatik_high` (Composer 2.5 medium, GPT-6 Luna medium) —
+сложный блок; `lunatron_low`, `lunatron_medium`, `lunatron_high` (`gpt-6.1-sol` с
+соответствующим effort под GPT-родителем; Sonnet 5.5 high, Opus 5.5 low и
 Opus 5.5 low под Claude-родителем) — блок, которому нужен более сильный анализ.
 Вопрос к большим данным идёт к `enot` — быстрому read-only агенту Scope Focus,
 который читает названные в поручении файлы или находит их сам. Main на Luna
-использует только `lunatik`, `lunatron_luna_high`, `enot` и `code_writer`.
+использует только `lunatik`, `lunatik_high`, `enot` и `code_writer`.
 Sol реализует свой блок сам или запускает Luna для большой независимой части;
 обязательной цепочки Main→Sol→Luna, запрета передавать код и Sol→Sol цепочек нет.
 
@@ -121,8 +121,9 @@ cwd, решения, которые нужно сохранить, нужные 
 `extensions/subagent-model-policy.ts` выбирает модель по семейству родителя.
 Именованные агенты берутся из таблицы `NAMED`; список в ней задаёт порядок
 запуска, и omp стартует потомка на первой модели списка с рабочими учётными
-данными (для `enot`, `lunatik`, `lunatron_luna_high` и `code_writer` сначала
-Composer 2.5).
+данными (для `enot` и `code_writer` под GPT-родителем и для `lunatik`,
+`lunatik_high` под любым родителем сначала Composer 2.5; под Claude-родителем
+`enot` и `code_writer` идут на одной модели Sonnet 5.5 без reasoning).
 Остальные запуски требуют уровень из `ROUTES`. Родитель GPT получает GPT-маршрут,
 любой другой — Claude-маршрут. В `agents/*.md` поля `model` нет.
 

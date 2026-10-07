@@ -21,18 +21,18 @@ omp-контракт — разделы 1–2. Датированные разд
 | Роль | Агент | GPT-родитель | Claude-родитель | Назначение |
 | --- | --- | --- | --- | --- |
 | **Lunatik** | `lunatik` | `composer-2.5/medium` → `gpt-6-luna/medium` | `composer-2.5/medium` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для одного блока. |
-| **Luna High** | `lunatron_luna_high` | `composer-2.5/high` → `gpt-6-luna/high` | `composer-2.5/high` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для сложного блока. |
-| **Sol Low / Medium / High** | `lunatron_sol_{low,medium,high}` | `gpt-6.1-sol/low`, `/medium`, `/high` | `claude-sonnet-5-5/high`, `claude-sonnet-5-5/xhigh`, `claude-opus-5-5/low` | Свежий исполнитель с самодостаточным брифом для блока, которому нужен более сильный анализ. |
-| **Enot** | `enot`, read-only | `composer-2.5` → `gpt-6-luna/medium` | `composer-2.5` → `claude-sonnet-5-5/low` | Ответ на вопрос к большим данным. |
+| **Lunatik High** | `lunatik_high` | `composer-2.5/medium` → `gpt-6-luna/medium` | `composer-2.5/medium` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для сложного блока. |
+| **Lunatron Low / Medium / High** | `lunatron_{low,medium,high}` | `gpt-6.1-sol/low`, `/medium`, `/high` | `claude-sonnet-5-5/high`, `claude-opus-5-5/low`, `claude-opus-5-5/low` | Свежий исполнитель с самодостаточным брифом для блока, которому нужен более сильный анализ. |
+| **Enot** | `enot`, read-only | `composer-2.5` → `gpt-6-luna/low` | `claude-sonnet-5-5/off` | Ответ на вопрос к большим данным. |
 
 В маршруте-списке omp берёт Composer 2.5, если есть рабочий вход `cursor`, иначе
 модель семейства родителя.
 
-Main на Luna использует только `lunatik`, `lunatron_luna_high`, `enot` и
+Main на Luna использует только `lunatik`, `lunatik_high`, `enot` и
 `code_writer`: код и конфиги root Main пишет только через него (правило
 `SYSTEM.md`). Уровень выбирается сразу. Sol реализует свой блок сам или
 запускает Luna (`lunatik` или
-`lunatron_luna_high`) для большой независимой части. Обязательной цепочки
+`lunatik_high`) для большой независимой части. Обязательной цепочки
 Main→Sol→Luna, запрета передавать код и Sol→Sol цепочек нет. Reviewer
 определяется своим review-skill независимо от этого пула.
 

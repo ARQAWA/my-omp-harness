@@ -1,6 +1,6 @@
 ---
 name: blind-review-cycle
-description: "Run on explicit invocation or when a selected procedure, such as ToSpec's spec and plan check, the plan-mode checkpoints in Gold Standard or a project's finalization gate, requires it: one fresh blind CLEAN pass with Smarty (GPT parent: gpt-6.1-sol / low; Claude parent: claude-sonnet-5-5 / high) and an autonomous batch-fix loop."
+description: "Run on explicit invocation or when a selected procedure, such as ToSpec's spec and plan check, the plan-mode checkpoints in Gold Standard or a project's finalization gate, requires it: one fresh blind CLEAN pass with Smarty (GPT parent: gpt-6.1-sol / low; Claude parent: claude-opus-5-5 / low) and an autonomous batch-fix loop."
 hide: true
 ---
 
@@ -8,7 +8,7 @@ hide: true
 
 Run Blind Review Cycle on explicit invocation or when a selected procedure, such as ToSpec's spec and plan check, the plan-mode checkpoints in Gold Standard or a project's finalization gate, requires it.
 
-Direct invocation of `/skill:blind-review-cycle`, or a procedure that requires this cycle, selects agent `smarty` (GPT parent: `gpt-6.1-sol`, reasoning `low`; Claude parent: `claude-sonnet-5-5`, reasoning `high`)
+Direct invocation of `/skill:blind-review-cycle`, or a procedure that requires this cycle, selects agent `smarty` (GPT parent: `gpt-6.1-sol`, reasoning `low`; Claude parent: `claude-opus-5-5`, reasoning `low`)
 and one clean pass per checkpoint.
 
 Light Review Cycle and High Review Cycle read this file as their shared
