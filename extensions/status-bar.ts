@@ -83,8 +83,9 @@ function patchStatusLine() {
 		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
 		const sep = ` ${theme.getFgAnsi("statusLineSep")}·${theme.getFgAnsi("text")} `;
 		let model = base[k];
-		// Sonnet 5.5 off uses between_tools; show amber "no" like other reasoning labels.
+		// Shorten reasoning labels to no lo md hi xh mx; Sonnet 5.5 off (between_tools) shows amber "no".
 		model = model.replace(`${theme.status.disabled} off`, "\x1b[38;2;255;176;0mno");
+		for (const [level, short] of [["low", "lo"], ["medium", "md"], ["high", "hi"], ["xhigh", "xh"], ["max", "mx"]] as const) { const full = theme.thinking?.[level]; if (full) model = model.replace(full, full.replace(/\S+$/, short)); }
 		let place: string = rightPart.call(this, width)?.content ?? "";
 		for (const badge of [agents, jobs]) {
 			if (!badge) continue;

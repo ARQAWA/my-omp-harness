@@ -156,7 +156,7 @@ Opus 5.5, Claude Sonnet 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
 Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; у Sonnet 5.5 добавлен no reasoning
-(`between_tools` с effort low).
+(`between_tools` с effort medium).
 
 Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
 модель с рабочими учётными данными.

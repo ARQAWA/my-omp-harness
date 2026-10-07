@@ -30,7 +30,7 @@ export default function (pi) {
     if (payload?.thinking?.type !== "between_tools") return;
     return {
       ...payload,
-      output_config: { ...payload.output_config, effort: "low" },
+      output_config: { ...payload.output_config, effort: "medium" },
     };
   });
 }
