@@ -1,6 +1,6 @@
 ---
 name: finalize-work
-description: "Mandatory finalization of changes in this repository before handing over a task, committing, pushing or finishing a release. Select this skill automatically: a blind Smarty reviewer checks the consistency of the code and all documentation of the result, outdated information, junk and conflicts; completion is forbidden without CLEAN."
+description: "Mandatory finalization of changes in this repository before handing over a task, committing, pushing or finishing a release. Select this skill automatically: a blind Smarty reviewer checks the consistency of the code and all documentation of the result, outdated information, junk and conflicts, after the local omp settings are reconciled with their repository sources; completion is forbidden without CLEAN."
 ---
 
 # Work finalization
@@ -35,6 +35,28 @@ evidence, other people's work and user data. Unrelated historical materials are
 not part of this task's cleanup. If a fix requires going outside the order's
 scope or an ambiguous deletion, stop the affected gate and name the decision that
 is needed. General refactoring and cosmetic cleanup are not part of this check.
+
+## Local settings
+
+Every gate run also reconciles the owner's omp settings on the current machine
+with the repository, whether or not the task touched them. `<agent-dir>` is the
+directory printed by `omp config path`. Compare:
+
+| Local | Repository source |
+|---|---|
+| `omp config list` (`<agent-dir>/config.yml`) | step 4 of `install-instructions/omp.md`; keys owned by the package in «Требования» of `install-instructions/harness.md` |
+| `<agent-dir>/models.yml` | `settings/models.yml` |
+| `<agent-dir>/themes/titanium-arq.json` | `settings/titanium-arq.json` |
+| `<agent-dir>/SYSTEM.md` | `SYSTEM.md` |
+
+A local value that differs from its source, or an owner setting present locally
+and absent from the sources, is a local change: write it into the matching
+source in the same result, so it is reviewed and committed together with the
+other changes, and update the documents that describe it. When the task itself
+changed a source, bring the local copy to it under the installation
+instructions. If the direction is unclear, ask the owner. Do not transfer
+`modelRoles.default`, `setupVersion`, secrets, credentials, account data or
+other machine-specific values. Pass the comparison result to Smarty as evidence.
 
 ## Blind Smarty review
 

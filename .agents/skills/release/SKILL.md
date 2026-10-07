@@ -28,10 +28,8 @@ A version is a commit: do not add numbers or tags. The only tag and release is
 
 If files changed after the last run, run `node tests/run.mjs` once before the
 commit; rerun only after fixing a failure it revealed. Run the other checks when
-they are ordered or required by the selected instruction. Before the commit,
-compare `config.yml` from `omp config path`, the theme and `models.yml` with
-`install-instructions/omp.md`, `settings/` and the Requirements section of
-`install-instructions/harness.md`; put any differences into those sources.
+they are ordered or required by the selected instruction. Local omp settings are
+reconciled with the repository by finalize-work (section 3).
 
 ## 3. Source commit
 
