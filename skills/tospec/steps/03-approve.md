@@ -1,47 +1,52 @@
-# 03. Согласовать спеку через ask
+# 03. Approve the spec through ask
 
-Внутренняя инструкция общения ToSpec. Вход: подготовленная спека, решения D и
-основания. Стиль — [Clear Communication](skill://clear-communication).
+Internal communication instruction of ToSpec. Input: the prepared spec, the
+decisions D and the bases. Style — [Clear Communication](skill://clear-communication).
 
-## Вопросы
+## Questions
 
-Согласуй спеку инструментом `ask`. Перед вызовом коротко дай в чате проблему и
-результат для пользователя, решения ПРЯМОЕ и ВЫНУЖДЕННОЕ с короткими
-основаниями, а для каждого решения ВЫБОР — ситуацию, что сделано, и
-обоснование. R, AC и F не пересказывай: подробности — по ссылке на spec.md. Из
-чата и вопросов должно быть видно всё, что принимается, без открытия файла.
-Прямые указания пользователя не выдавай за свои идеи.
+Get the spec approved with the `ask` tool. Before the call, briefly give in the
+chat the problem and the result for the user, the DIRECT and FORCED decisions
+with short bases, and for each CHOICE decision the situation, what was done, and
+the justification. Do not retell R, AC and F: details are at the link to spec.md.
+The chat and the questions must show everything that is being accepted, without
+opening the file. Do not pass off the user's direct instructions as your own
+ideas.
 
-В одном вызове каждый ВЫБОР — отдельный вопрос: что решается и 2–4 варианта —
-рекомендуемый и реальные альтернативы, в описании каждого — последствия;
-`recommended` указывает рекомендуемый. Альтернатив не выдумывай; вариант для
-своего текста ask добавляет сам. Последний вопрос — принять спеку целиком, с
-вариантами «Принять» (рекомендуемый) и «Есть поправки». Согласованное
-неизменённое содержание повторно не спрашивай.
+In one call each CHOICE is a separate question: what is being decided and 2–4
+options — the recommended one and the real alternatives, with the consequences in
+each description; `recommended` marks the recommended one. Do not invent
+alternatives; ask adds the option for the user's own text itself. The last
+question is to accept the whole spec, with the options «Принять» (recommended)
+and «Есть поправки». Do not ask again about agreed, unchanged content.
 
-## Ответы
+## Answers
 
-- Выбранный вариант — решение по этому D; свой текст — поправка к нему.
-- «Принять» — согласие на весь смысл с выбранными вариантами. Выбор, текст или
-  заметку, дающие однозначный новый смысл без новых самостоятельных решений и
-  противоречий, внеси в спеку без повторного вопроса.
-- Если ответ создаёт новое решение, противоречие или неясность либо спека не
-  принята, внеси поправки, спроектируй рекомендацию по новому и задай новый
-  `ask` только о нерешённом и о принятии целиком. «Есть поправки» без текста —
-  спроси о поправках в чате.
+- A chosen option is the decision for this D; the user's own text is an amendment
+  to it.
+- «Принять» is approval of the whole meaning with the chosen options. Put a
+  choice, text or note that gives an unambiguous new meaning without new
+  independent decisions or contradictions into the spec without asking again.
+- If an answer creates a new decision, contradiction or ambiguity, or the spec is
+  not accepted, make the amendments, design the recommendation for the new
+  decision and make a new `ask` call only about the unresolved points and about
+  accepting the whole. «Есть поправки» without text — ask about the amendments in
+  the chat.
 
-Повторяй, пока спека не станет финальной: все D решены, поправки внесены, спека
-принята целиком. Отмена ask, ответ по таймауту (`auto-selected after timeout`),
-переход к обсуждению, вопрос или молчание спеку не утверждают. Пока ответ не
-получен, зависимый переход не делай.
+Repeat until the spec is final: all D are decided, the amendments are made, and
+the spec is accepted as a whole. A cancelled ask, an answer by timeout
+(`auto-selected after timeout`), a switch to discussion, a question or silence do
+not approve the spec. Until an answer is received, do not make the dependent
+transition.
 
-## Запись
+## Record
 
-Заданные вопросы, ревизию, выбранные варианты, точные тексты пользователя и факт
-их учёта запиши в «Согласование» spec.md; обнови статусы D. Locator и согласие
-не выдумывай. Согласие относится к содержанию, не к номеру. Собственное изменение
-смысла после согласия объясни и согласуй через `ask`. Правила vN — в 02.
+Record the questions asked, the revision, the chosen options, the user's exact
+texts and the fact that they were taken into account in the "Approval" section of
+spec.md; update the statuses of D. Do not invent a locator or approval. Approval
+relates to the content, not to the number. Explain your own change of meaning
+after approval and get it approved through `ask`. The vN rules are in 02.
 
-Выход: согласие на весь текущий смысл, поправки внесены, блокирующих вопросов о
-результате нет. Далее 04 (шаги 04–05 читаются батчем по SKILL.md). Отдельного
-approval плана нет.
+Output: approval of the whole current meaning, amendments made, no blocking
+questions about the result. Next 04 (steps 04–05 are read as a batch per
+SKILL.md). There is no separate plan approval.

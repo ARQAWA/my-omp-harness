@@ -1,30 +1,32 @@
-# 05. Проверка спеки и плана, готовность и запуск
+# 05. Spec and plan check, readiness and launch
 
-Вход: plan.md и согласованная spec.md. Порядок —
+Input: plan.md and the approved spec.md. Procedure —
 [review](skill://tospec/references/review.md), review_stage=pre-completion.
 
-Запусти одного свежего Smarty по Blind Review Cycle. Он проверяет спеку, план и
-задачи вместе по требованиям и полному Gold Standard: сверка в обе стороны
-U → R/D → T → AC, полнота требований, сохранение точных условий, значений,
-интерфейсов и ограничений; отсутствие лишней работы; порядок и зависимости;
-достаточность задач для исполнителя без нового проектирования, скрытых знаний
-автора и контекста Main; минимальный достаточный способ, переиспользование,
-обоснованность решений, отсутствие ненужной сложности, действий и документов,
-сохранность работающего. Решения пользователя reviewer не пересматривает.
+Launch one fresh Smarty under Blind Review Cycle. It checks the spec, plan and
+tasks together against the requirements and the full Gold Standard: two-way
+reconciliation U → R/D → T → AC, completeness of requirements, preservation of
+exact conditions, values, interfaces and constraints; absence of extra work;
+order and dependencies; sufficiency of the tasks for an executor without new
+design, hidden author knowledge or Main's context; the minimal sufficient
+approach, reuse, justification of decisions, absence of unnecessary complexity,
+actions and documents, preservation of working behavior. The reviewer does not
+reconsider the user's decisions.
 
-Проверяется весь результат подготовки, не только diff. Существенные неизвестные,
-отложенное проектирование и недействительные основания готовности недопустимы.
-План не выдаётся за реализацию, чтение теста — за запуск. Находки исправляй по
-review. Если меняется согласованный смысл, сначала согласуй его через `ask`.
+The whole result of preparation is checked, not only the diff. Material unknowns,
+deferred design and invalid bases of readiness are not allowed. A plan is not
+presented as implementation, nor reading a test as running it. Fix findings under
+review. If the approved meaning changes, first get it approved through `ask`.
 
-После CLEAN запиши факт и ГОТОВ К РЕАЛИЗАЦИИ в plan.md.
+After CLEAN record the fact and READY FOR IMPLEMENTATION in plan.md.
 
-## Запуск
+## Launch
 
-Коротко сообщи в чате, что план готов: ссылка на plan.md, что будет сделано и чем
-закончится. Затем спроси через `ask` «Запустить выполнение?» с вариантами
-«Запустить» (рекомендуемый) и «Позже». «Запустить» — запуск: прочитай 06.
-Другой ответ — жди; запустить можно позже целым сообщением `+++` (границы — в
-SKILL.md). Cleanup не запускай, 06 до запуска не читай. При утраченном основании
-готовности верни затронутые стадии и снова пройди проверку Smarty; план с
-недействительным согласием или CLEAN не исполняй.
+Briefly tell the user in the chat that the plan is ready: a link to plan.md, what
+will be done and how it will end. Then ask through `ask` «Запустить выполнение?»
+with the options «Запустить» (recommended) and «Позже». «Запустить» is the
+launch: read 06. For any other answer wait; launch can be given later as a whole
+message `+++` (the boundaries are in SKILL.md). Do not run cleanup, and do not
+read 06 before launch. If the basis of readiness is lost, return the affected
+stages and pass the Smarty check again; do not execute a plan with invalid
+approval or CLEAN.

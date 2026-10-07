@@ -23,7 +23,7 @@ all matching folders or the newest folder. Read its spec/plan headers and curren
 task evidence (for an older three-document workspace, also read its existing
 tasks header) to establish ownership and actual completion of implementation and
 required checks, or the user's explicit instruction to discard this exact task.
-`ГОТОВ К РЕАЛИЗАЦИИ` is not completed implementation. Keep pending plans needed
+`READY FOR IMPLEMENTATION` is not completed implementation. Keep pending plans needed
 by another agent; do not delete them at the end of specification preparation.
 
 The target must be a real task-created `scope-focus-tospec-*` directory directly

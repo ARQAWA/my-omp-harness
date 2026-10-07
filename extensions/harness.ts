@@ -5,6 +5,7 @@ import { join } from "node:path";
 const GOLD = join(import.meta.dir, "..", "skills", "gold-standard", "SKILL.md");
 const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL.md");
 const TOOLS = join(import.meta.dir, "..", "skills", "omp-tools", "SKILL.md");
+const CONTEXT = join(import.meta.dir, "..", "skills", "context-gathering", "SKILL.md");
 const STATE = "my-omp-harness.lunatron";
 
 const ACTIVE = `LUNATRON_STATE=ACTIVE
@@ -114,6 +115,7 @@ export default function harness(pi: ExtensionAPI) {
 		const blocks = [
 			`Apply the full Gold Standard to all work. Apply silently. Source: ${GOLD}\n\n${readFileSync(GOLD, "utf8")}`,
 			`Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`,
+			`Apply the following context-gathering cycle to every search and read. Source: ${CONTEXT}\n\n${readFileSync(CONTEXT, "utf8")}`,
 		];
 		if (ctx.agent.kind === "sub") {
 			blocks.push(`${CHILD}\nLUNATRON_MODE=subagent`);

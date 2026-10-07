@@ -5,60 +5,61 @@ description: Release or install my-omp-harness; ordinary edits do not trigger re
 
 # Release
 
-Общий статус и границы установки: [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md).
+General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md).
 
-Триггер: «выпустить» либо «установить» или «обновить» harness или herdr. Обычное
-редактирование release не запускает.
+Trigger: «выпустить» (release), or «установить» (install) or «обновить» (update)
+harness or herdr. Ordinary editing does not trigger release.
 
-## 1. Область и источники
+## 1. Scope and sources
 
-Определи заказанные части в порядке заказа. Прочитай `INSTALL_FOR_AGENTS.md` и
-нужные `install-instructions/*.md`. Сохрани чужой delta.
+Determine the ordered parts in the order of the request. Read
+`INSTALL_FOR_AGENTS.md` and the needed `install-instructions/*.md`. Preserve
+other people's delta.
 
-Полный release — source commit, push и установка на текущем хосте. Частичный
-заказ выполняет только свою часть. Analysis-only состояние не меняет. Install-only
-идёт по инструкциям установки, без коммита и push. Уже выполненные части
-переиспользуй.
+A full release is a source commit, a push and installation on the current host.
+A partial order carries out only its own part. Analysis-only does not change
+state. Install-only follows the installation instructions, without a commit or
+push. Reuse parts that are already done.
 
-## 2. Версия и проверки
+## 2. Version and checks
 
-Версия — это коммит: номера и теги не добавляй. Единственный тег и релиз —
-`herdr` (раздел 5).
+A version is a commit: do not add numbers or tags. The only tag and release is
+`herdr` (section 5).
 
-Если файлы менялись после последнего прогона, один раз запусти
-`node tests/run.mjs` перед коммитом; повтор — только после исправления
-выявленного сбоя. Остальные проверки выполняй, когда они заказаны или требуются
-выбранной инструкцией. Перед коммитом сверь `config.yml` из `omp config path`,
-тему и `models.yml` с `install-instructions/omp.md`, `settings/` и
-«Требованиями» `install-instructions/harness.md`; расхождения внеси в эти
-источники.
+If files changed after the last run, run `node tests/run.mjs` once before the
+commit; rerun only after fixing a failure it revealed. Run the other checks when
+they are ordered or required by the selected instruction. Before the commit,
+compare `config.yml` from `omp config path`, the theme and `models.yml` with
+`install-instructions/omp.md`, `settings/` and the Requirements section of
+`install-instructions/harness.md`; put any differences into those sources.
 
-## 3. Исходный коммит
+## 3. Source commit
 
-Перед коммитом выполни обязательный [finalize-work](../finalize-work/SKILL.md) с
-`review_stage=pre-action` на полном сдаваемом результате. CLEAN переиспользуй,
-пока результат и основания неизменны. Тот же gate обязателен перед push и
-завершением release.
+Before the commit run the mandatory [finalize-work](../finalize-work/SKILL.md)
+with `review_stage=pre-action` on the full result to be handed over. Reuse the
+CLEAN while the result and bases are unchanged. The same gate is mandatory before
+the push and before finishing the release.
 
-`git add` выполняй только для точных путей; чужой delta не включай. Затем commit,
-а при полном release — `git push origin master`.
+Run `git add` only for exact paths; do not include other people's delta. Then
+commit, and for a full release `git push origin master`.
 
-## 4. Установка на текущем хосте
+## 4. Installation on the current host
 
-Пакет загружается из этого клона: убедись командой
-`omp config get extensions --json`, что путь клона есть в списке. Если изменился
-`SYSTEM.md`, обнови копию по `install-instructions/system-prompt.md`. Если
-изменились требования (например, `modelRoles`), примени их по
-`install-instructions/harness.md`. Выполни проверки изменённых частей и попроси
-владельца перезапустить omp. Другие машины обновляются по `INSTALL_FOR_AGENTS.md`.
+The package is loaded from this clone: make sure with
+`omp config get extensions --json` that the clone's path is in the list. If
+`SYSTEM.md` changed, update the copy under `install-instructions/system-prompt.md`.
+If the requirements changed (for example `modelRoles`), apply them under
+`install-instructions/harness.md`. Run the checks of the changed parts and ask the
+owner to restart omp. Other machines are updated under `INSTALL_FOR_AGENTS.md`.
 
 ## 5. herdr
 
-Исходники — приватный форк `ARQAWA/herdr`, готовые файлы — релиз `herdr` этого
-репозитория. В форке работает только ручной workflow
-`build-artifacts-manual.yml`; по умолчанию он собирает все системы с
-`ReleaseFast` и SIMD. Выпуск herdr: commit и push в `master` форка, затем сборка
-(около 10 минут) и замена файлов релиза:
+The sources are the private repository `ARQAWA/herdr`, derived from the upstream
+herdr; the ready files are the `herdr` release of this repository. In that
+repository only the manual workflow `build-artifacts-manual.yml` runs; by default
+it builds all systems with `ReleaseFast` and SIMD. Releasing herdr: commit and
+push to `master` of `ARQAWA/herdr`, then the build (about 10 minutes) and
+replacement of the release files:
 
 ```bash
 RUN="$(gh workflow run build-artifacts-manual.yml -R ARQAWA/herdr | grep -o '[0-9]*$')"
@@ -66,11 +67,11 @@ gh run watch "$RUN" -R ARQAWA/herdr --exit-status
 D="$(mktemp -d)" && gh run download "$RUN" -R ARQAWA/herdr -D "$D" && gh release upload herdr -R ARQAWA/my-omp-harness --clobber "$D"/*/herdr-* && gh release edit herdr -R ARQAWA/my-omp-harness --notes "ARQAWA/herdr $(gh run view "$RUN" -R ARQAWA/herdr --json headSha -q .headSha)"; rm -rf "$D"
 ```
 
-Затем обнови herdr на текущем хосте по `install-instructions/herdr.md`.
+Then update herdr on the current host under `install-instructions/herdr.md`.
 
-## 6. Ошибки
+## 6. Errors
 
-При неопределённом push, сборке, загрузке или установке сначала прочитай
-состояние (`git status`, `git log -1 origin/master`, `gh run list`,
-`gh release view herdr`, `omp config get …`). Не повторяй вслепую. Сообщи
-незавершённый этап и не объявляй release завершённым.
+On an uncertain push, build, upload or installation, first read the state
+(`git status`, `git log -1 origin/master`, `gh run list`,
+`gh release view herdr`, `omp config get …`). Do not repeat blindly. Report the
+unfinished stage and do not declare the release complete.

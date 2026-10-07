@@ -7,7 +7,7 @@ hide: true
 # Clear Communication
 
 Apply to every user-facing message, including while another skill is active.
-Reapply silently before sending. The extension supplies this source in the system prompt on every turn; do not announce each reload. Restore the source if it is no longer available in context.
+Reapply silently before sending. The extension supplies this source in the system prompt on every turn; do not announce each reload.
 Follow higher-priority instructions and the user's current language/format request.
 The Gold Standard still governs actions, scope, evidence and stopping. This skill
 changes communication, not authority, acceptance or the requested deliverable.
@@ -84,7 +84,7 @@ keep distinct consequences visible. Do not repeat approved unchanged items or du
 the technical ledger into chat. When the required set is long, use short groups by
 subject without asking permission merely to show the next group. An explicitly
 requested detailed answer may be longer; brevity must not conceal a decision.
-Keep internal U/F/R/AC/P/T codes, status fields and raw paths out of ordinary chat
+Keep internal U/F/R/AC/D/Q/T codes, status fields and raw paths out of ordinary chat
 unless needed for correction, approval or a usable link to the result.
 
 The short-message target applies to chat, not agent specifications, source code,

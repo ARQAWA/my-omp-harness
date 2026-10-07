@@ -1,41 +1,43 @@
-# 04. План со встроенными задачами
+# 04. Plan with embedded tasks
 
-Вход: согласованная спека. Создай plan.md рядом со spec.md по
-[шаблону](skill://tospec/templates/plan.md); отдельного tasks.md нет.
+Input: the approved spec. Create plan.md next to spec.md using the
+[template](skill://tospec/templates/plan.md); there is no separate tasks.md.
 
-Выбери существующий достаточный механизм или минимальную адаптацию по Gold
-Standard. Эффективность оценивай теоретически; существенное неизвестное разрешай
-по 01, без повторов для уверенности. Сохраняй обязательные контракты и работающее
-поведение вне правки.
+Choose an existing sufficient mechanism or a minimal adaptation under Gold
+Standard. Assess efficiency theoretically; resolve a material unknown under 01,
+without repeats for confidence. Preserve mandatory contracts and working
+behavior outside the change.
 
-Запиши подход и важные технические решения D: основание, влияние, реальные
-альтернативы, короткая причина. D уникальны в обоих документах; решения спеки не
-дублируй. Это решения агента внутри полномочий, отдельного одобрения пользователя
-не требуется. Изменение согласованного результата или условий возвращает к 02–03.
+Record the approach and the important technical decisions D: basis, impact, real
+alternatives, a short reason. D numbers are unique across both documents; do not
+duplicate the spec's decisions. These are the agent's decisions within its
+authority and need no separate user approval. A change to the approved result or
+conditions returns to 02–03.
 
-## Задачи
+## Tasks
 
-Разложи работу в одну последовательность T без списка P. Для каждой укажи R/AC/D,
-область (точные точки изменения, ссылка на образец или «создать»), действие и
-проверку; остальное — только если исполнитель без него не справится. T без связи
-с R/AC/D недействительна. Все R покрыты, каждая T необходима.
+Break the work into one sequence of T without a P list. For each give R/AC/D, the
+scope (exact points of change, a reference to a model, or "create"), the action
+and the check; add anything else only if the executor cannot manage without it. A
+T with no link to R/AC/D is invalid. All R are covered, and each T is necessary.
 
-Достаточность: исполнитель выполняет блок без нового проектирования, скрытого
-знания автора и нерешённого выбора. Важные решения принимает составитель,
-локальные детали кода остаются исполнителю. Строки не расписывай, исходники и
-спеку не пересказывай, простое не дроби. Число задач не фиксировано. Существенную
-неопределённость разреши чтением и решением либо назови блокер. Исполнителей
-выбирают внешние правила; план делегирование не включает.
+Sufficiency: the executor carries out a block without new design, hidden author
+knowledge or an unresolved choice. The author of the plan makes the important
+decisions; local code details are left to the executor. Do not spell out lines,
+do not retell the sources or the spec, do not split what is simple. The number of
+tasks is not fixed. Resolve a material uncertainty by reading and deciding, or
+name a blocker. Executors are chosen by external rules; the plan does not enable
+delegation.
 
-Чтение и логика — обычная проверка. Тесты, сборки и запуски указывай только при
-действующем явном основании. Подготовка допускает лишь изолированное
-исследование по 01. «Заодно» ничего не добавляй. Поле «Выполнение» — «не начато».
+Reading and logic are the ordinary check. Specify tests, builds and runs only
+when an explicit basis is in force. Preparation allows only the isolated research
+under 01. Add nothing "while at it". The "Execution" field is "not started".
 
-## Версия и выход
+## Version and output
 
-p1 — новый план. Содержательная правка плана повышает pN, а до запуска снимает
-CLEAN Smarty и готовность; служебная запись статуса или CLEAN версию не меняет.
-Неизменённая спека повторного согласования не требует.
+p1 is a new plan. A substantive edit of the plan raises pN and, before launch,
+removes the Smarty CLEAN and readiness; a service record of status or CLEAN does
+not change the version. An unchanged spec needs no re-approval.
 
-Выход: полный осуществимый план, статус ЧЕРНОВИК до проверки. Далее 05,
-без approval.
+Output: a complete feasible plan, status DRAFT until checked. Next 05, without
+approval.

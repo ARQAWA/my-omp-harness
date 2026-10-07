@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'compact-at-231k.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -38,7 +38,7 @@ for (const [skill, agent] of [['light-review-cycle', 'spotty'], ['blind-review-c
 }
 const [, [smartyGpt], [smartyClaude]] = route('smarty');
 for (const file of ['skills/tospec/references/review.md', '.agents/skills/finalize-work/SKILL.md']) {
-  assert.ok(read(file).includes(`GPT-родитель — ${split(smartyGpt).join(' / ')}, Claude-родитель — ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
+  assert.ok(read(file).includes(`GPT parent: ${split(smartyGpt).join(' / ')}; Claude parent: ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
 }
 const harness = read('extensions/harness.ts');
 for (const agent of ['lunatik', 'lunatron_luna_high', 'enot']) {
@@ -59,10 +59,10 @@ for (const name of agents) {
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
 for (const name of ['spotty', 'smarty', 'bossy', 'enot']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, 'read, grep, glob', name);
+  assert.equal(frontmatter(`agents/${name}.md`).tools, 'read, grep, glob, rg', name);
 }
 
-const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools', 'tospec'];
+const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools', 'tospec'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
 assert.deepEqual(skills, [...hidden, 'lunatron-delegation'].sort());

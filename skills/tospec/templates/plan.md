@@ -1,26 +1,26 @@
-# План: <задача>
+# Plan: <task>
 
-Версия: p1
-Основание: [spec.md](spec.md), vN
-Workspace: <тот же путь>
-Статус: ЧЕРНОВИК / ГОТОВ К РЕАЛИЗАЦИИ / ТРЕБУЕТ ОБНОВЛЕНИЯ
-Проверка Smarty: <не пройдена / CLEAN>
-Выполнение: не начато
+Version: p1
+Basis: [spec.md](spec.md), vN
+Workspace: <same path>
+Status: DRAFT / READY FOR IMPLEMENTATION / NEEDS UPDATE
+Smarty check: <not passed / CLEAN>
+Execution: not started
 
-## Подход
+## Approach
 
-<Механизм, образец и адаптация; основание по фактам и Gold Standard.>
+<Mechanism, model and adaptation; basis in facts and Gold Standard.>
 
-## Решения
+## Decisions
 
-- D-…: <решение>; <R/U, источники>; причина: <…>; альтернативы: <…>; влияние: <T/AC>.
+- D-...: <decision>; <R/U, sources>; reason: <...>; alternatives: <...>; impact: <T/AC>.
 
-## Задачи
+## Tasks
 
-### T-001. <блок>
+### T-001. <block>
 
-R/AC/D: …; область: <пути/символы или «создать»>; действие: …; проверка: …
+R/AC/D: ...; scope: <paths/symbols or "create">; action: ...; check: ...
 
-## Передача
+## Handoff
 
-Читай spec.md и Gold Standard (пути в заголовке spec.md). Выполняй T по порядку; изменившееся условие или недоступный обязательный источник — блокер. Статус ТРЕБУЕТ ОБНОВЛЕНИЯ или отсутствие CLEAN запрещает запуск. Выполнение запускает ответ «Запустить» в `ask` или отдельное `+++` (шаг 06); результат проверяет Bossy.
+Read spec.md and Gold Standard (paths in the spec.md header). Execute T in order; a changed condition or an unavailable mandatory source is a blocker. Status NEEDS UPDATE or the absence of CLEAN forbids launch. Execution is launched by the reply «Запустить» in `ask` or a separate `+++` (step 06); Bossy checks the result.

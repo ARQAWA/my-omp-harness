@@ -1,36 +1,36 @@
-# <Задача>
+# <Task>
 
-Ревизия: v1
-Статус: ЧЕРНОВИК / СОГЛАСОВАНО / ТРЕБУЕТ ОБНОВЛЕНИЯ
-Workspace: <путь из mkdtemp>
-Область: <объекты задачи; пути, если нужны>
-Gold Standard: <абсолютный путь полного SKILL.md>
-Применимые правила: <источники обязательных инструкций>
+Revision: v1
+Status: DRAFT / APPROVED / NEEDS UPDATE
+Workspace: <path from mkdtemp>
+Scope: <objects of the task; paths if needed>
+Gold Standard: <absolute path of the full SKILL.md>
+Applicable rules: <sources of mandatory instructions>
 
-## Поручение
+## Assignment
 
-<Проблема, результат, границы, условия.>
-- U-001: «<точные слова пользователя>»; <источник>.
+<Problem, result, boundaries, conditions.>
+- U-001: «<the user's exact words>»; <source>.
 
-## Факты
+## Facts
 
-- F-001: <факт>; <путь:строки/символ или URL>; <что прочитано или выполнено, предел вывода>.
+- F-001: <fact>; <path:lines/symbol or URL>; <what was read or run, output limit>.
 
-## Требования и приёмка
+## Requirements and acceptance
 
-### R-001. <обязательство>
+### R-001. <obligation>
 
-Основание: <U или D внутри U>. Условия, поведение, ошибки: <необходимое>.
-- AC-001 → R-001: дано <условие>, когда <действие>, тогда <исход>.
+Basis: <U or a D within U>. Conditions, behavior, errors: <what is required>.
+- AC-001 → R-001: given <condition>, when <action>, then <outcome>.
 
-## Решения
+## Decisions
 
-- D-001: <вариант>; вид: ПРЯМОЕ / ВЫНУЖДЕННОЕ / ВЫБОР; основание: <U/F>; отклонено: <альтернативы и причины>.
+- D-001: <option>; kind: DIRECT / FORCED / CHOICE; basis: <U/F>; rejected: <alternatives and reasons>.
 
-## Открытые вопросы
+## Open questions
 
-- Q-001: <чего нет>; <что блокирует, как получить>. Раздел удали, если вопросов нет.
+- Q-001: <what is missing>; <what it blocks, how to get it>. Delete the section if there are no questions.
 
-## Согласование
+## Approval
 
-<vN; вопросы ask и варианты; выбранные ответы и точные тексты пользователя; факт их учёта. До шага 03 — «не показано».>
+<vN; ask questions and options; chosen answers and the user's exact texts; the fact that they were taken into account. Before step 03 — "not shown".>

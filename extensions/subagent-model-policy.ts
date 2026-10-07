@@ -52,9 +52,6 @@ export default function subagentModelPolicy(pi: ExtensionAPI) {
 		if (parent && /^gpt[-.]/i.test(parent.id)) {
 			return { model: route.gpt, note: `GPT parent: ${label}` };
 		}
-		if (parent?.provider === "anthropic" && /^claude(?:[-.]|$)/i.test(parent.id)) {
-			return { model: route.claude, note: `Claude parent: ${label}` };
-		}
-		return { block: true, reason: "Subagents require a GPT or Claude parent under the configured model policy." };
+		return { model: route.claude, note: `Claude route: ${label}` };
 	});
 }

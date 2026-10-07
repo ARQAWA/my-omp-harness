@@ -1,77 +1,77 @@
 ---
 name: finalize-work
-description: "Обязательная финализация изменений в этом репозитории перед сдачей задачи, commit, push или завершением release. Автоматически выбирай этот skill: слепой reviewer Smarty проверяет согласованность кода и всей документации результата, устаревшие сведения, мусор и конфликты; без CLEAN завершение запрещено."
+description: "Mandatory finalization of changes in this repository before handing over a task, committing, pushing or finishing a release. Select this skill automatically: a blind Smarty reviewer checks the consistency of the code and all documentation of the result, outdated information, junk and conflicts; completion is forbidden without CLEAN."
 ---
 
-# Финализация работы
+# Work finalization
 
-Gate обязателен по постоянному поручению пользователя в `AGENTS.md`.
-Он применяется к задачам с изменениями в этом репозитории, включая изменения
-только документации. Чистое обсуждение или read-only анализ его не запускают.
-Gate не разрешает commit, push, release или установку без отдельного запроса.
+The gate is mandatory under the user's standing instruction in `AGENTS.md`.
+It applies to tasks that change this repository, including documentation-only
+changes. Pure discussion or read-only analysis does not start it.
+The gate does not permit commit, push, release or installation without a separate request.
 
-## Объект и согласованность
+## Object and consistency
 
-Определи сдаваемый результат по запросу пользователя и фактическим изменениям.
-Включи код, конфигурацию и всю документацию, описывающую этот результат,
-в том числе неизменённые связанные документы: инструкции, дизайн, описания
-skills, контракты в `AGENTS.md`, ссылки и примеры. Для нескольких компонентов
-проверь также их описанное взаимодействие. Не ограничивайся списком diff;
-не включай посторонние компоненты и чужие незавершённые изменения.
+Determine the result to be handed over from the user's request and the actual
+changes. Include code, configuration and all documentation that describes this
+result, including unchanged related documents: instructions, design, skill
+descriptions, contracts in `AGENTS.md`, links and examples. For several
+components also check their described interaction. Do not limit yourself to the
+diff list; do not include unrelated components and other people's unfinished
+changes.
 
-Сверь реализацию и документы в обе стороны с согласованным результатом.
-Устрани противоречия, неверные ссылки и примеры, устаревшие действующие
-инструкции, ненужные дубли и временный мусор в этой области. При расхождении
-кода и документа нельзя автоматически считать любой из них правильным:
-основание — актуальный запрос и принятые решения. Недостающее существенное
-решение запроси у пользователя.
+Reconcile the implementation and the documents in both directions with the agreed
+result. Eliminate contradictions, wrong links and examples, outdated standing
+instructions, unneeded duplicates and temporary junk in this area. When code and
+a document disagree, you must not automatically treat either one as right: the
+basis is the current request and the accepted decisions. Ask the user for a
+missing material decision.
 
-Если согласованная переделка делает прежнюю реализацию ненужной, удаляй её
-связанные устаревшие части в затронутой области по Золотому стандарту.
-Не создавай архивные копии или записи об отмене ради сохранения прошлого:
-история остаётся в Git. Сохраняй сведения о действующем решении, необходимые
-доказательства, чужую работу и пользовательские данные. Посторонние исторические
-материалы не входят в cleanup этой задачи. Если исправление требует
-выхода за область заказа или неоднозначного удаления, останови затронутый
-gate и назови необходимое решение. Общий рефакторинг и косметическая чистка
-не входят в эту проверку.
+If an agreed rework makes the previous implementation unnecessary, remove its
+related obsolete parts in the affected area under Gold Standard. Do not create
+archive copies or cancellation records for the sake of preserving the past:
+history stays in Git. Keep information about the standing decision, the necessary
+evidence, other people's work and user data. Unrelated historical materials are
+not part of this task's cleanup. If a fix requires going outside the order's
+scope or an ambiguous deletion, stop the affected gate and name the decision that
+is needed. General refactoring and cosmetic cleanup are not part of this check.
 
-## Слепой review Smarty
+## Blind Smarty review
 
-Прочитай [blind-review-cycle](../../../skills/blind-review-cycle/SKILL.md): это
-общий blind contract. Этот gate — постоянное явное поручение
-пользователя на такой цикл; отдельное повторное приглашение не требуется.
-Используй свежего `smarty` через `task` с `agent: smarty` без `model` и без
-истории Main: модель задаёт маршрутизация
-(GPT-родитель — gpt-6.1-sol / low, Claude-родитель — claude-sonnet-5-5 / high).
-При родителе другой семьи запуск блокируется, и gate не пройден.
-Reviewer только читает; Main либо назначенный исполнитель делегированного
-`finalize-work` исправляет принятые существенные замечания. Main сохраняет
-ответственность за финальную сдачу и CLEAN.
+Read [blind-review-cycle](../../../skills/blind-review-cycle/SKILL.md): it is the
+shared blind contract. This gate is a standing explicit assignment from the user
+for such a cycle; a separate repeated invitation is not required.
+Use a fresh `smarty` through `task` with `agent: smarty`, without `model` and
+without Main's history: routing sets the model
+(GPT parent: gpt-6.1-sol / low; Claude parent: claude-sonnet-5-5 / high; a parent of another family gets the Claude route).
+The reviewer only reads; Main, or the executor assigned the delegated
+`finalize-work`, fixes the admitted substantial remarks. Main keeps
+responsibility for the final handover and CLEAN.
 
-Передай исходные требования и уточнения, границы результата, пути к реальным
-файлам и имеющиеся доказательства. Явно задай проверку согласованности
-реализации со всей относящейся к результату документацией, отсутствия
-устаревших действующих сведений, мусора и конфликтов. Не передавай свои
-рассуждения, прошлые замечания или вердикты. Заморозь объект на время прохода
-без создания копий и служебных файлов.
-Smarty только читает файлы; содержимое, которое нельзя прочитать из файлов,
-например удалённые части, передай в поручении.
+Pass the original requirements and clarifications, the result's boundaries, the
+paths to the real files and the available evidence. Explicitly request a check of
+the consistency of the implementation with all documentation relevant to the
+result, and of the absence of outdated standing information, junk and conflicts.
+Do not pass your own reasoning, earlier remarks or verdicts. Freeze the object
+for the duration of the pass without creating copies or service files.
+Smarty only reads files; pass content that cannot be read from files, for
+example deleted parts, in the assignment.
 
-Перед commit или push используй `review_stage=pre-action`; перед сдачей
-готовой работы — `pre-completion`. Следуй общему контракту при совмещении
-этапов: CLEAN по тому же полному результату и основаниям переиспользуется,
-повторного ревью только из-за перехода к commit, push или final нет.
-Изменение результата или существенных оснований требует нового прохода.
+Before commit or push use `review_stage=pre-action`; before handing over finished
+work use `pre-completion`. Follow the shared contract when combining stages: a
+CLEAN on the same full result and bases is reused, and there is no repeated review
+merely because of the move to commit, push or the final answer. A change of the
+result or of the material bases requires a new pass.
 
-Для FINDINGS примени правила допуска из общего контракта, исправь все
-принятые существенные проблемы одним блоком и передай весь обновлённый
-результат новому слепому Smarty. Продолжай до одного CLEAN; не добавляй
-проходов для уверенности. Существующий заказанный blind review можно
-совместить с этим gate, если он покрывает весь указанный объект и критерии.
+For FINDINGS apply the admission rules of the shared contract, fix all admitted
+substantial problems as one block and pass the whole updated result to a new
+blind Smarty. Continue until one CLEAN; do not add passes for confidence. An
+existing ordered blind review can be combined with this gate if it covers the
+whole stated object and criteria.
 
-Без CLEAN не объявляй работу завершённой и не выполняй commit или push.
-Если Smarty недоступен, gate не пройден: не заменяй его самопроверкой.
-Проверка основана на чтении и логике. Gate сам по себе не требует запуска
-тестов, сборок или приложения; выполняй их только по отдельному основанию.
-В финальном ответе кратко сообщи результат gate или конкретный блокер.
+Do not declare the work complete and do not commit or push without CLEAN.
+If Smarty is unavailable, the gate is not passed: do not replace it with a
+self-check. The check is based on reading and logic. The gate itself does not
+require running tests, builds or the application; run them only on a separate
+basis. In the final answer briefly report the gate result or the concrete
+blocker.

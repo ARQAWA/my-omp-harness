@@ -5,7 +5,7 @@
 ## Состав
 
 Пакет лежит в корне клона: `package.json` (поля `omp.extensions` и
-`dependencies`), `bun.lock`, `extensions/harness.ts`,
+`dependencies`), `bun.lock`, `extensions/harness.ts`, `extensions/rg.ts`,
 `extensions/subagent-model-policy.ts`, `extensions/wrap-and-timer.ts`,
 `extensions/status-bar.ts`, `extensions/compact-at-231k.ts`,
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
@@ -19,8 +19,8 @@
 `harness.ts` на каждом запросе к модели (`before_agent_start`) дописывает к
 системному промпту:
 
-- всем агентам — полный `skills/gold-standard/SKILL.md` и
-  `skills/omp-tools/SKILL.md`;
+- всем агентам — полный `skills/gold-standard/SKILL.md`,
+  `skills/omp-tools/SKILL.md` и `skills/context-gathering/SKILL.md`;
 - Main — ещё `skills/clear-communication/SKILL.md` и блок Lunatron (ACTIVE или
   INACTIVE, с `LUNATRON_MODE`);
 - субагентам — дочерний блок и `LUNATRON_MODE=subagent`.
@@ -29,13 +29,17 @@
 добавляет `progress` — полосу подшагов текущего пункта под панелью todo;
 `diagram.ts` добавляет `diagram` — схему Mermaid PNG-картинкой во всю ширину
 терминала со ссылкой «Открыть в полный размер», в herdr через Kitty graphics.
-Субагенты этих инструментов не получают.
+Субагенты этих инструментов не получают. `rg.ts` добавляет `rg` — поиск по
+содержимому в интерфейсе Cursor поверх встроенного поиска omp без лимита в 20
+файлов на вызов; `rg` получают все агенты, в том числе `enot`, `spotty`,
+`smarty` и `bossy`. Скрытый skill `context-gathering` задаёт цикл сбора
+контекста: карта, один широкий поиск `rg`, чтение целых файлов пачкой, стоп.
 
 Gold Standard работает как рабочий контракт:
 
 - Минимизируется результат, а не чтение.
-- Лимиты вывода считаются на весь батч; система, которая помещается в контекст,
-  читается целиком; большой документ пишется за один проход.
+- Лимиты вывода считаются на весь батч; большой документ пишется за один проход.
+  Чтение системы целиком описано в `context-gathering`.
 - Существующие проверки запускаются один раз после изменения кода.
 - Временные файлы удаляются в последней команде, которая их использует.
 - Root Main автоматически ведёт список `todo` для каждой задачи из двух и более
@@ -79,8 +83,9 @@ ToSpec (`/skill:tospec`): исследование с вопросами чер�
   `write proc://<id>/kill`.
 - При ACTIVE Main читает `skill://lunatron-delegation`.
 
-`subagent-model-policy.ts` выбирает модель потомка по семейству родителя: GPT
-(id модели `gpt-*`) или Claude (провайдер `anthropic`).
+`subagent-model-policy.ts` выбирает модель потомка по семейству родителя:
+родитель GPT (id модели `gpt-*`) получает GPT-маршрут, любой другой родитель
+(Claude, Grok, Composer и прочие) — Claude-маршрут.
 
 - Именованные агенты запускаются по имени в `agent`, без `model`. Для `enot`,
   `lunatik`, `lunatron_luna_high` и `code_writer` маршрут — список: сначала
@@ -89,8 +94,7 @@ ToSpec (`/skill:tospec`): исследование с вопросами чер�
   учётные данные, поэтому без входа `cursor` эти агенты работают на модели
   семейства.
 - Остальные запуски, включая встроенные агенты omp, передают уровень
-  `@subagent_*`. Запуск без имени и без уровня блокируется, как и родитель
-  другого семейства (например, Composer).
+  `@subagent_*`. Запуск без имени и без уровня блокируется.
 - В субагентах расширение выключает `retry.modelFallback`.
 
 `wrap-and-timer.ts` переносит текст ответа ассистента по 60 колонок уже во
@@ -142,14 +146,15 @@ Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
 | `@subagent_medium` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-sonnet-5-5:high` | средние |
 | `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | сложные |
 
-Skills. Восемь скрытых (`hide: true`) вызываются через `/skill:<имя>` и
+Skills. Девять скрытых (`hide: true`) вызываются через `/skill:<имя>` и
 `skill://<имя>`; `lunatron-delegation` виден в списке.
 
 | Skill | Назначение | Видимость |
 |---|---|---|
 | `gold-standard` | полный результат самым простым прямым путём | скрытый |
 | `clear-communication` | короткие сообщения в чате | скрытый |
-| `omp-tools` | механика инструментов omp: скорость, лимиты вывода, бюджет контекста, безопасная запись | скрытый |
+| `omp-tools` | механика инструментов omp: скорость, лимиты вывода, безопасная запись | скрытый |
+| `context-gathering` | цикл сбора контекста: карта, широкий `rg`, целые файлы, стоп | скрытый |
 | `cleanup-task` | уборка временных материалов по прямому запросу | скрытый |
 | `light-review-cycle` | один слепой проход Spotty | скрытый |
 | `blind-review-cycle` | один слепой проход Smarty; общий контракт всех циклов | скрытый |
@@ -165,10 +170,6 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 | `blind-review-cycle` | `smarty` | по явному вызову, в проверке спеки и плана ToSpec и в режиме планирования omp: план перед предложением и результат выполнения утверждённого плана |
 | `high-review-cycle` | `bossy` | по явному вызову и в проверке результата ToSpec |
 
-Известное ограничение: агент на Composer не может запускать субагентов, потому
-что маршрутизация принимает только родителя GPT или Claude. Его review,
-помощники и `code_writer` не стартуют, поэтому код в такой сессии не пишется.
-
 ## Требования
 
 - [omp](omp.md) и git. В Windows нужен Git for Windows. Команды выполняются через
@@ -179,8 +180,6 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
   - `cursor` (необязательно) — для Composer 2.5 в `enot`, `lunatik`,
     `lunatron_luna_high` и `code_writer`; без него эти агенты работают на модели
     семейства.
-
-  Main должен быть GPT или Claude, иначе субагенты не запускаются.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:
   - `extensions` содержит путь клона.
   - `task.maxConcurrency` не ниже 44; более высокое значение или `0` (без
@@ -240,7 +239,7 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 1. Перечитай значения из «Требований» командой `omp config get`.
 2. Выполни `omp read skill://tospec/steps/01-research.md`. Первая строка должна
    назвать `<CLONE>/skills/tospec/steps/01-research.md`, содержимое должно
-   начинаться с `# 01. Разведка`.
+   начинаться с `# 01. Research`.
 3. Выполни одной командой вызов модели и чтение файла сессии потомка:
 
    ```bash

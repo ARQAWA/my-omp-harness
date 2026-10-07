@@ -105,6 +105,9 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set spelling.autocorrect false
    omp config set spelling.autocomplete off
    omp config set paste.largeMenuThreshold 100
+   omp config set read.summarize.enabled false
+   omp config set read.defaultLimit 3000
+   omp config set tools.artifactSpillThreshold 100
    ```
 
 5. Настройки действуют в новой сессии omp. Не прерывай текущую задачу ради
