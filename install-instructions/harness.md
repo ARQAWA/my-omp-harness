@@ -84,7 +84,7 @@ ToSpec (`/skill:tospec`): исследование с вопросами чер�
 
 - Именованные агенты запускаются по имени в `agent`, без `model`. Для `enot`,
   `lunatik`, `lunatron_luna_high` и `code_writer` маршрут — список: сначала
-  Composer 2.5 (для `code_writer` — Composer 2.5 Fast), затем модель семейства.
+  Composer 2.5, затем модель семейства.
   omp запускает потомка на первой модели списка, для которой есть рабочие
   учётные данные, поэтому без входа `cursor` эти агенты работают на модели
   семейства.
@@ -99,7 +99,8 @@ raboty: …»). `status-bar.ts` достраивает статус-строку
 трёх строк. Первая, вплотную к полю ввода, — заполнение контекста полосой во
 всю ширину в цвете сессии, как линия над полем ввода. Вторая —
 родная строка omp: модель, скорость генерации `token_rate`, которую расширение
-красит (меньше 30 ток/с — красный, меньше 60 — жёлтый, меньше 90 —
+берёт из живой оценки omp по каждому фрагменту стрима и красит (меньше 30
+ток/с — красный, меньше 60 — жёлтый, меньше 90 —
 бледно-зелёный, иначе ярко-зелёный), режимы, время текущего хода через
 `setStatus` (остаётся после конца хода), название сессии и счётчики работающих
 субагентов и фоновых задач. Третья — правые сегменты omp: папка, ветка git и PR;
@@ -107,7 +108,7 @@ raboty: …»). `status-bar.ts` достраивает статус-строку
 цвета сессии.
 Раскладку и сегменты задаёт [omp.md](omp.md). `compact-at-231k.ts`
 ставит порог автосжатия Main: 272 000 токенов для Claude Opus и Sonnet версии
-5.5 и выше, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
+5.5 и выше и для Claude Fable, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
@@ -130,7 +131,7 @@ Composer 2.5.
 | `lunatron_sol_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
 | `lunatron_sol_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-sonnet-5-5:xhigh` | очень сложный анализ |
 | `lunatron_sol_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |
-| `code_writer` | `cursor/composer-2.5-fast:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5-fast:medium` → `anthropic/claude-sonnet-5-5:low` | код и конфиги по коротким планам Main |
+| `code_writer` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | код и конфиги по коротким планам Main |
 
 Уровни сложности для остальных запусков:
 
@@ -175,9 +176,9 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 - Учётные данные провайдеров:
   - `openai-codex` — для GPT;
   - `anthropic` — для Claude;
-  - `cursor` (необязательно) — для Composer 2.5 в `enot`, `lunatik` и
-    `lunatron_luna_high` и Composer 2.5 Fast в `code_writer`; без него эти агенты
-    работают на модели семейства.
+  - `cursor` (необязательно) — для Composer 2.5 в `enot`, `lunatik`,
+    `lunatron_luna_high` и `code_writer`; без него эти агенты работают на модели
+    семейства.
 
   Main должен быть GPT или Claude, иначе субагенты не запускаются.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:

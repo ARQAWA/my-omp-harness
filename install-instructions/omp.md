@@ -11,7 +11,7 @@ omp ставится штатным установщиком с omp.sh и обн
   в `<agent-dir>/themes/` и значение `theme.dark`;
 - окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
   `<agent-dir>/models.yml`: 400 000 токенов для GPT-6.1 Sol, GPT-6 Luna, Claude
-  Opus 5.5 и Sonnet 5.5, 250 000 для Composer 2.5;
+  Opus 5.5, Sonnet 5.5 и Fable 5.1, 250 000 для Composer 2.5;
 - остальные настройки — ключи `config.yml` из шага 4 первой установки: вид
   статус-строки и поля ввода, модели и провайдеры, работа агента и интерфейс.
 
@@ -76,7 +76,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tasks.todoClearDelay 0
    omp config set symbolPreset unicode
    omp config set colorBlindMode false
-   omp config set hideThinkingBlock false
+   omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
    omp config set enabledModels '["cursor/composer-2.5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'

@@ -5,6 +5,7 @@ const FOCUS_MAX_CHARS = 4_000;
 
 export function triggerTokens(id: string): number | undefined {
 	if (/composer/i.test(id)) return 170_000;
+	if (/claude-fable/i.test(id)) return 272_000;
 	const claude = /claude-(opus|sonnet)-(\d+)(?:[-.](\d{1,2})(?!\d))?/i.exec(id);
 	if (claude) {
 		const major = Number(claude[2]);

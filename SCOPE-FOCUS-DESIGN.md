@@ -842,3 +842,12 @@ tooling из Codex против частых ошибок перенести, н
 
 Решение заменяет решения переноса, по которым `codex-tools` не переносился, а
 цель заменяли todo и `local://`.
+
+## 2026-10-07: Composer 2.5 вместо Composer 2.5 Fast
+
+Владелец поручил заменить везде в harness модель Composer 2.5 Fast на простой
+Composer 2.5. Решение заменяет модель во всех решениях выше, включая
+`code_writer`: маршруты `enot`, `lunatik`, `lunatron_luna_high` и `code_writer`
+начинаются с `cursor/composer-2.5`, список ctrl+↑/↓ содержит
+`cursor/composer-2.5`, а окно контекста 250 000 и `enabledModels` относятся к
+той же модели.

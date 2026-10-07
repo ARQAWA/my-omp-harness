@@ -93,9 +93,9 @@ Focus и Lunatron не ограничивают Main ролями Lunatron и н
 субагенту в границах его блока.
 
 Роли закреплены маршрутизацией; модели — в таблице
-`install-instructions/harness.md`, для маршрута-списка сначала Composer 2.5, затем
-модель семейства родителя. `lunatik` (Composer 2.5 medium) — свежий исполнитель
-блока; `lunatron_luna_high` (Composer 2.5 high) — сложный блок;
+`install-instructions/harness.md`, для маршрута-списка сначала Composer 2.5,
+затем модель семейства родителя. `lunatik` (Composer 2.5 medium) — свежий
+исполнитель блока; `lunatron_luna_high` (Composer 2.5 high) — сложный блок;
 `lunatron_sol_low`, `lunatron_sol_medium`, `lunatron_sol_high` (`gpt-6.1-sol` с
 соответствующим effort под GPT-родителем; Sonnet 5.5 high, Sonnet 5.5 xhigh и
 Opus 5.5 low под Claude-родителем) — блок, которому нужен более сильный анализ.
@@ -123,8 +123,8 @@ cwd, решения, которые нужно сохранить, нужные 
 `extensions/subagent-model-policy.ts` выбирает модель по семейству родителя.
 Именованные агенты берутся из таблицы `NAMED`; список в ней задаёт порядок
 запуска, и omp стартует потомка на первой модели списка с рабочими учётными
-данными (для `enot`, `lunatik` и `lunatron_luna_high` сначала Composer 2.5, для
-`code_writer` — Composer 2.5 Fast).
+данными (для `enot`, `lunatik`, `lunatron_luna_high` и `code_writer` сначала
+Composer 2.5).
 Остальные запуски требуют уровень из `ROUTES`; родитель другого семейства
 блокируется. В `agents/*.md` поля `model` нет.
 
