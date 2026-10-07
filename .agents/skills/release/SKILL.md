@@ -1,14 +1,20 @@
 ---
 name: release
-description: Release or install my-omp-harness; ordinary edits do not trigger release.
+description: Release, commit, push or install my-omp-harness; release, commit and push each order one full release (commit, push and installation on the current host); ordinary edits do not trigger release.
 ---
 
 # Release
 
 General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md).
 
-Trigger: «выпустить» (release), or «установить» (install) or «обновить» (update)
+Trigger: «release», «релиз», «выпустить», «commit», «коммит», «закоммитить»,
+«push», «пуш», «запушить», or «установить» (install) or «обновить» (update)
 harness or herdr. Ordinary editing does not trigger release.
+
+Any of the words release, commit or push orders one full release of this
+repository: finalize-work, commit, push and installation on the current host,
+all together. Do not treat them as separate partial orders. herdr (section 5)
+is released only when the herdr sources changed or herdr is named.
 
 ## 1. Scope and sources
 
@@ -17,9 +23,9 @@ Determine the ordered parts in the order of the request. Read
 other people's delta.
 
 A full release is a source commit, a push and installation on the current host.
-A partial order carries out only its own part. Analysis-only does not change
-state. Install-only follows the installation instructions, without a commit or
-push. Reuse parts that are already done.
+Analysis-only does not change state. Install-only («установить», «обновить»
+without release, commit or push) follows the installation instructions, without
+a commit or push. Reuse parts that are already done.
 
 ## 2. Version and checks
 
@@ -39,7 +45,7 @@ CLEAN while the result and bases are unchanged. The same gate is mandatory befor
 the push and before finishing the release.
 
 Run `git add` only for exact paths; do not include other people's delta. Then
-commit, and for a full release `git push origin master`.
+commit and `git push origin master`.
 
 ## 4. Installation on the current host
 
