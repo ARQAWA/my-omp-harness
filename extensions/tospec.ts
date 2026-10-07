@@ -240,7 +240,7 @@ export default function tospec(pi: ExtensionAPI) {
 						}
 						const spec = modelSpec!;
 						const resolvedName = ctx.models.resolve(spec)?.name ?? spec;
-						const levelLabel = level === "off" ? "no reasoning" : level;
+						const levelLabel = level === "off" ? "no" : level;
 						const item = (i: number, label: string) => {
 							const selected = actionIndex === i;
 							if (selected && focus === "actions") {
