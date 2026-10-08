@@ -167,29 +167,30 @@ git и PR, справа — ID сессии;
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
 Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
-GPT-6 Luna, Composer 2.5, Grok 4.7 Fast (`cursor/grok-4.7-fast`).
+GPT-6 Luna, Grok 4.7 Fast (`cursor/grok-4.7-fast`), Composer 2.5.
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; добавлен no reasoning (`off`): у Sonnet
 5.5 — `between_tools` с effort low, у Haiku 5.5 — мышление выключено
 (`thinking: disabled`) с effort low; хук запроса ставит их при отправке.
-У Composer 2.5 уровня `off` нет: Cursor не даёт ему варианта или параметра без
-reasoning.
+У Composer 2.5 уровней reasoning нет: Cursor не даёт ему варианта или параметра
+reasoning, поэтому `settings/models.yml` помечает его `reasoning: false`, а
+маршруты субагентов указывают его без уровня.
 
 Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
 модель с рабочими учётными данными.
 
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
-| `spotty` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-sonnet-5-5:medium` | Light review |
+| `spotty` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-opus-5-5:low` | Light review |
 | `smarty` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | Blind review |
-| `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | High review |
+| `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:medium` | High review |
 | `enot` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | быстрые read-only вопросы по коду и большим данным |
-| `lunatik` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:medium` → `anthropic/claude-sonnet-5-5:low` | свежий исполнитель блока |
-| `lunatik_high` | `cursor/composer-2.5:high` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5:high` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
+| `lunatik` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5` → `anthropic/claude-sonnet-5-5:low` | свежий исполнитель блока |
+| `lunatik_high` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
 | `lunatron_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
 | `lunatron_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | очень сложный анализ |
 | `lunatron_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |
-| `code_writer` | `cursor/composer-2.5:medium` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | код и конфиги по коротким планам Main |
+| `code_writer` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | код и конфиги по брифам Main |
 
 Уровни сложности для остальных запусков:
 

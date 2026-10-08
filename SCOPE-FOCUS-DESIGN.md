@@ -1194,6 +1194,46 @@ Composer 2.5 уровень `off` не получил. omp делает off у �
 `composer-2.5-fast`. Поэтому omp шлёт одинаковый запрос на любом уровне, и
 официально выключить reasoning Composer нельзя.
 
+## 2026-10-08: Composer 2.5 без уровней reasoning и в конце списка моделей
+
+Решения владельца: у Composer 2.5 нигде нет уровней reasoning — ни в выборе
+модели, ни в маршрутах; в списке ctrl+↑/↓ Composer 2.5 стоит последним, сразу
+после Grok 4.7 Fast.
+
+Выполненное изменение:
+
+- `settings/models.yml`: override `composer-2.5` получил `reasoning: false`;
+  `omp models cursor --json` показывает у него `reasoning: false` и
+  `thinking: null`, поэтому выбор модели omp и `levelsFor` не дают ему уровней.
+- `subagent-model-policy.ts`: `lunatik`, `lunatik_high` и `code_writer` идут на
+  `cursor/composer-2.5` без суффикса уровня, как уже шёл `enot`; таблицы и
+  описания агентов, `AGENTS.md`, `SYSTEM.md` и `LUNATRON-DESIGN.md` обновлены.
+- `model-arrows.js`: порядок списка — … GPT-6 Luna, Grok 4.7 Fast, Composer 2.5.
+
+Запросы Cursor от этого не меняются: уровень и раньше не доходил до модели
+(см. раздел выше).
+
+## 2026-10-08: ревьюеры на Opus 5.5 под Claude-родителем
+
+Решение владельца: под Claude-родителем `spotty` (Light review) и `smarty`
+(Blind review) работают на `claude-opus-5-5/low`, `bossy` (High review) — на
+`claude-opus-5-5/medium`. Раньше `spotty` шёл на `claude-sonnet-5-5/medium`, а
+`bossy` — на `claude-opus-5-5/low`. GPT-маршруты ревьюеров не менялись.
+Обновлены `NAMED`, таблица `install-instructions/harness.md`, описания
+`light-review-cycle` и `high-review-cycle` и `extensions/tospec/review.md`.
+
+## 2026-10-08: бриф code_writer по контракту исполнителя Lunatron
+
+Решение владельца: Main всегда даёт `code_writer` бриф в том же формате, что
+исполнителю Lunatron (`lunatik`): результат, целевые файлы, cwd, решения,
+которые нужно сохранить, включая имена, значения и интерфейсы, нужные факты,
+пути и snippets, и проверка. `code_writer` возвращает final того же контракта:
+статус, результат, изменённые пути, ключевые факты с file:line, результаты
+проверок, ошибки, неизвестное. Обновлены абзац `code_writer` в `SYSTEM.md`,
+`agents/code_writer.md`, `AGENTS.md`, `README.md` и таблица агентов
+`install-instructions/harness.md`. Роль `code_writer` не изменилась: он
+ничего не решает и при неясном брифе возвращает `DECISION_REQUIRED`.
+
 ## 2026-10-08: автосжатие Haiku на 100 000 и расширение autocompaction.ts
 
 Решения владельца: порог автосжатия Main для Claude Haiku — ровно 100 000

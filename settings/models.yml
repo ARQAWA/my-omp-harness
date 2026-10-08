@@ -19,3 +19,4 @@ providers:
     modelOverrides:
       composer-2.5:
         contextWindow: 250000
+        reasoning: false

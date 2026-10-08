@@ -6,8 +6,8 @@ export const MODELS = [
   "anthropic/claude-fable-5-1",
   "openai-codex/gpt-6.1-sol",
   "openai-codex/gpt-6-luna",
-  "cursor/composer-2.5",
   "cursor/grok-4.7-fast",
+  "cursor/composer-2.5",
 ];
 
 export default function (pi) {

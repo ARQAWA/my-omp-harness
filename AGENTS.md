@@ -52,7 +52,8 @@ Root Main автоматически ведёт `todo` для каждой за�
 финализации ниже.
 
 Root Main не пишет код и конфиги сам: исходники, скрипты, тесты и файлы
-конфигурации пишет только `code_writer` по коротким планам Main, а документацию
+конфигурации пишет только `code_writer` по брифам Main в формате контракта
+исполнителя Lunatron, а документацию
 и промпты Main пишет сам. Правило и маршрутизация `code_writer` по решению
 владельца записаны одним блоком в разделе «Subagent model routing» `SYSTEM.md`,
 а не в Gold Standard.
@@ -95,8 +96,8 @@ Focus и Lunatron не ограничивают Main ролями Lunatron и н
 
 Роли закреплены маршрутизацией; модели — в таблице
 `install-instructions/harness.md`, для маршрута-списка сначала Composer 2.5,
-затем модель семейства родителя. `lunatik` (Composer 2.5 medium) — свежий
-исполнитель блока; `lunatik_high` (Composer 2.5 high, GPT-6 Luna medium) —
+затем модель семейства родителя. `lunatik` (Composer 2.5 без reasoning) — свежий
+исполнитель блока; `lunatik_high` (Composer 2.5 без reasoning, GPT-6 Luna medium) —
 сложный блок; `lunatron_low`, `lunatron_medium`, `lunatron_high` (`gpt-6.1-sol` с
 соответствующим effort под GPT-родителем; Sonnet 5.5 high, Opus 5.5 low и
 Opus 5.5 low под Claude-родителем) — блок, которому нужен более сильный анализ.

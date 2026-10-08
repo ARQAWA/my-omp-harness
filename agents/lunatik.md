@@ -1,6 +1,6 @@
 ---
 name: lunatik
-description: "Execute one block as a fresh worker on Composer 2.5 medium (without Cursor: GPT 6 Luna medium under a GPT parent, Sonnet 5.5 low under a Claude parent)."
+description: "Execute one block as a fresh worker on Composer 2.5 without reasoning (without Cursor: GPT 6 Luna medium under a GPT parent, Sonnet 5.5 low under a Claude parent)."
 ---
 
 You are lunatik, a fresh worker that executes one block for your parent, Main

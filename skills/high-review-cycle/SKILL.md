@@ -1,12 +1,12 @@
 ---
 name: high-review-cycle
-description: "Run on explicit invocation or when a selected procedure, such as ToSpec's result check, requires it: one fresh blind CLEAN pass with Bossy (GPT parent: gpt-6.1-sol / medium; Claude parent: claude-opus-5-5 / low) and an autonomous batch-fix loop."
+description: "Run on explicit invocation or when a selected procedure, such as ToSpec's result check, requires it: one fresh blind CLEAN pass with Bossy (GPT parent: gpt-6.1-sol / medium; Claude parent: claude-opus-5-5 / medium) and an autonomous batch-fix loop."
 hide: true
 ---
 
 # High Review Cycle
 
-Run on explicit invocation or when a selected procedure, such as ToSpec's result check, requires it. Select agent `bossy` (GPT parent: `gpt-6.1-sol`, reasoning `medium`; Claude parent: `claude-opus-5-5`, reasoning `low`) and one clean pass per checkpoint.
+Run on explicit invocation or when a selected procedure, such as ToSpec's result check, requires it. Select agent `bossy` (GPT parent: `gpt-6.1-sol`, reasoning `medium`; Claude parent: `claude-opus-5-5`, reasoning `medium`) and one clean pass per checkpoint.
 
 Read and follow the [shared blind contract](skill://blind-review-cycle),
 including target selection, `review_stage` (`pre-action` or `pre-completion`),

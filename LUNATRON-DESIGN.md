@@ -20,8 +20,8 @@ omp-контракт — разделы 1–2. Датированные разд
 
 | Роль | Агент | GPT-родитель | Claude-родитель | Назначение |
 | --- | --- | --- | --- | --- |
-| **Lunatik** | `lunatik` | `composer-2.5/medium` → `gpt-6-luna/medium` | `composer-2.5/medium` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для одного блока. |
-| **Lunatik High** | `lunatik_high` | `composer-2.5/high` → `gpt-6-luna/medium` | `composer-2.5/high` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для сложного блока. |
+| **Lunatik** | `lunatik` | `composer-2.5` → `gpt-6-luna/medium` | `composer-2.5` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для одного блока. |
+| **Lunatik High** | `lunatik_high` | `composer-2.5` → `gpt-6-luna/medium` | `composer-2.5` → `claude-sonnet-5-5/low` | Свежий исполнитель с самодостаточным брифом для сложного блока. |
 | **Lunatron Low / Medium / High** | `lunatron_{low,medium,high}` | `gpt-6.1-sol/low`, `/medium`, `/high` | `claude-sonnet-5-5/high`, `claude-opus-5-5/low`, `claude-opus-5-5/low` | Свежий исполнитель с самодостаточным брифом для блока, которому нужен более сильный анализ. |
 | **Enot** | `enot`, read-only | `composer-2.5` → `gpt-6-luna/low` | `claude-sonnet-5-5/off` | Ответ на вопрос к большим данным. |
 
@@ -615,7 +615,7 @@ mode остаются действующими. Исторические cap15/m
 - `luntik` удалён; вопрос к большим данным идёт к `enot`, исследователю Scope
   Focus. Причина: решение владельца; один быстрый read-only агент обслуживает
   обе части.
-- `lunatik` и `lunatik_high` запускаются на Composer 2.5 (medium, high) под
+- `lunatik` и `lunatik_high` запускаются на Composer 2.5 без reasoning под
   обоими родителями, если доступен Cursor; иначе на GPT 6 Luna (medium)
   под GPT-родителем и на Sonnet 5.5 low под Claude-родителем. Причина: выбор
   владельца.
