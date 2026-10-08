@@ -22,9 +22,7 @@
 
 - всем агентам — полный `skills/gold-standard/SKILL.md`,
   `skills/omp-tools/SKILL.md` и `skills/context-gathering/SKILL.md`;
-- Main — ещё `skills/clear-communication/SKILL.md` и блок Lunatron (ACTIVE или
-  INACTIVE, с `LUNATRON_MODE`);
-- субагентам — дочерний блок и `LUNATRON_MODE=subagent`.
+- Main — ещё `skills/clear-communication/SKILL.md`.
 
 Инструменты Main: `harness.ts` держит включённым инструмент цели omp `goal` и
 добавляет `progress` — полосу подшагов текущего пункта под панелью todo;
@@ -70,7 +68,7 @@ Glob приходит шаблоном `.`, его список ограниче
 каталог возвращается плоским списком; мост вставляет `:raw` в адрес
 фрагмента перед последним сегментом, `read` принимает обе формы. Дочерние задачи
 режима планирования не получают расширений и остаются на встроенных `read`,
-`grep`, `glob`. `enot` получает `read, glob, rg, grep` без `bash`. Скрытый skill
+`grep`, `glob`. `enot` получает `read, glob, rg` без `bash`, `shell_runner` — `bash, read, rg`. Скрытый skill
 `context-gathering` задаёт правила Cursor: `rg` и `glob` вместо поиска в
 оболочке, независимые вызовы одной пачкой, продолжение по хвостам.
 
@@ -115,32 +113,14 @@ ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. 
 блокируется. `/tospec review` (и `/tospec` без аргумента) открывает окно в фазе
 ready, `/tospec off` выключает режим.
 
-Режим Lunatron:
-
-- По умолчанию он выключен.
-- `LNT1` и `LNT0` пишутся слитно, в любом регистре, границы — пробельный символ
-  или начало и конец сообщения. Побеждает последняя команда. Команда
-  переключает режим текущей сессии, остальная часть сообщения остаётся просьбой.
-- Режим хранится записью сессии `my-omp-harness.lunatron` и следует за веткой
-  сессии.
-- Неудачная запись даёт `LUNATRON_MODE=state-error`, Lunatron остаётся
-  неактивным.
-- На ходу с командой Main получает скрытое сообщение-подтверждение. Для `LNT0`
-  в нём ещё указание остановить помощников задачи через
-  `write proc://<id>/kill`.
-- При ACTIVE Main читает `skill://lunatron-delegation`.
-
 `subagent-model-policy.ts` выбирает модель потомка по семейству родителя:
 родитель GPT (id модели `gpt-*`) получает GPT-маршрут, любой другой родитель
 (Claude, Grok, Composer и прочие) — Claude-маршрут.
 
-- Именованные агенты запускаются по имени в `agent`, без `model`. Для `lunatik`
-  и `lunatik_high` маршрут — список: сначала Composer 2.5, затем модель
-  семейства; так же устроены `enot` и `code_writer` под GPT-родителем, а под
-  Claude-родителем они идут на одной модели Sonnet 5.5 без reasoning (`:off`).
-  omp запускает потомка на первой модели списка, для которой есть рабочие
-  учётные данные, поэтому без входа `cursor` эти агенты работают на модели
-  семейства.
+- Именованные агенты запускаются по имени в `agent`, без `model`. У каждого одна
+  модель на семейство родителя; `enot`, `code_writer` и `shell_runner` идут на
+  `anthropic/claude-haiku-5-5:xhigh` под любым родителем. Без входа `anthropic`
+  эти агенты не запускаются.
 - Остальные запуски, включая встроенные агенты omp, передают уровень
   `@subagent_*`. Запуск без имени и без уровня блокируется.
 - В субагентах расширение выключает `retry.modelFallback`.
@@ -167,30 +147,24 @@ git и PR, справа — ID сессии;
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
 Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
-GPT-6 Luna, Grok 4.7 Fast (`cursor/grok-4.7-fast`), Composer 2.5.
+GPT-6 Luna, Grok 4.7 (`cursor/grok-4.7`), Composer 2.5.
 `reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; добавлен no reasoning (`off`): у Sonnet
 5.5 — `between_tools` с effort low, у Haiku 5.5 — мышление выключено
 (`thinking: disabled`) с effort low; хук запроса ставит их при отправке.
 У Composer 2.5 уровней reasoning нет: Cursor не даёт ему варианта или параметра
-reasoning, поэтому `settings/models.yml` помечает его `reasoning: false`, а
-маршруты субагентов указывают его без уровня.
+reasoning, поэтому `settings/models.yml` помечает его `reasoning: false`.
 
-Именованные агенты. Стрелка в ячейке задаёт порядок запуска: omp берёт первую
-модель с рабочими учётными данными.
+Именованные агенты:
 
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
 | `spotty` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-opus-5-5:low` | Light review |
 | `smarty` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | Blind review |
 | `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:medium` | High review |
-| `enot` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | быстрые read-only вопросы по коду и большим данным |
-| `lunatik` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5` → `anthropic/claude-sonnet-5-5:low` | свежий исполнитель блока |
-| `lunatik_high` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:medium` | `cursor/composer-2.5` → `anthropic/claude-sonnet-5-5:low` | сложный блок |
-| `lunatron_low` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-sonnet-5-5:high` | блок с более сильным анализом |
-| `lunatron_medium` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:low` | очень сложный анализ |
-| `lunatron_high` | `openai-codex/gpt-6.1-sol:high` | `anthropic/claude-opus-5-5:low` | исключительно сложный анализ |
-| `code_writer` | `cursor/composer-2.5` → `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | код и конфиги по брифам Main |
+| `enot` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | быстрые read-only вопросы по коду и большим данным |
+| `code_writer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | код и конфиги по брифам Main |
+| `shell_runner` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | запуски программ по брифам Main |
 
 Уровни сложности для остальных запусков:
 
@@ -202,7 +176,7 @@ reasoning, поэтому `settings/models.yml` помечает его `reasoni
 | `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | сложные |
 
 Skills. Восемь скрытых (`hide: true`) вызываются через `/skill:<имя>` и
-`skill://<имя>`; `lunatron-delegation` виден в списке.
+`skill://<имя>`.
 
 | Skill | Назначение | Видимость |
 |---|---|---|
@@ -214,7 +188,6 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 | `light-review-cycle` | один слепой проход Spotty | скрытый |
 | `blind-review-cycle` | один слепой проход Smarty; общий контракт всех циклов | скрытый |
 | `high-review-cycle` | один слепой проход Bossy | скрытый |
-| `lunatron-delegation` | разрешение делегировать при активном Lunatron | виден |
 
 Каждый цикл требует один чистый проход. Модели агентов — в таблице выше.
 
@@ -230,10 +203,8 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
   bash-инструмент omp или Git Bash.
 - Учётные данные провайдеров:
   - `openai-codex` — для GPT;
-  - `anthropic` — для Claude;
-  - `cursor` (необязательно) — для Composer 2.5 в `lunatik`, `lunatik_high`,
-    а под GPT-родителем и в `enot`, `code_writer`; без него эти агенты работают
-    на модели семейства.
+  - `anthropic` — для Claude и для `enot`, `code_writer`, `shell_runner` под
+    любым родителем.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:
   - `extensions` содержит путь клона.
   - `task.maxConcurrency` не ниже 44; более высокое значение или `0` (без
@@ -302,14 +273,12 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 3. Выполни одной командой вызов модели и чтение файла сессии потомка:
 
    ```bash
-   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'LUNATRON_MODE=default-off'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: lunatron_low, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
+   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'Apply the following communication skill before every user-facing message'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: enot, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
    ```
 
    Ожидаемый вывод: `yes` (или `да`) дважды, вывод потомка, затем из файла его
-   сессии строка `model_change` с `"model":"anthropic/claude-sonnet-5-5"` и
-   строка `thinking_level_change` с `"thinkingLevel":"high"`. На машине только с
-   GPT используй `--model openai-codex/gpt-6-sol --thinking low` и ожидай
-   `"model":"openai-codex/gpt-6.1-sol"` и `"thinkingLevel":"low"`.
+   сессии строка `model_change` с `"model":"anthropic/claude-haiku-5-5"` и
+   строка `thinking_level_change` с `"thinkingLevel":"xhigh"`.
 4. Другие запросы к моделям и пробные задачи в проверку не входят.
 
 ## Обновление

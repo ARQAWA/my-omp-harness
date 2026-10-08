@@ -26,8 +26,7 @@ knowledge or an unresolved choice. The author of the plan makes the important
 decisions; local code details are left to the executor. Do not spell out lines,
 do not retell the sources or the spec, do not split what is simple. The number of
 tasks is not fixed. Resolve a material uncertainty by reading and deciding, or
-name a blocker. Executors are chosen by external rules; the plan does not enable
-delegation.
+name a blocker. Executors are chosen by external rules.
 
 Reading and logic are the ordinary check. Specify tests, builds and runs only
 when an explicit basis is in force. Preparation allows only the isolated research

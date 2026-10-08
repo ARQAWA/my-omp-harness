@@ -3,9 +3,9 @@
 Harness для omp: системный промпт, Scope Focus (Gold Standard, правила общения,
 механика инструментов omp, цикл сбора контекста с инструментом `rg` без лимита в
 20 файлов, планирование через todo и цель с полосой прогресса,
-циклы проверки, режим ToSpec (`/tospec`), cleanup-task), Lunatron (режим делегирования
-`LNT1`/`LNT0` и пять рабочих агентов), агент `code_writer`, который пишет код по
-брифам Main в формате контракта исполнителя Lunatron, и маршрутизация моделей субагентов по семейству модели
+циклы проверки, режим ToSpec (`/tospec`), cleanup-task), агенты `code_writer`
+(пишет код по брифам Main) и `shell_runner` (запускает тесты, сборки и приложения
+по брифам Main) и маршрутизация моделей субагентов по семейству модели
 родителя. Служебные расширения идут в том же пакете: схемы Mermaid выводятся
 PNG-картинкой во всю ширину терминала, ответы ассистента переносятся по 60
 колонок, над полем ввода показывается время последнего хода, порог автосжатия задан
@@ -50,5 +50,4 @@ omp другие: см. [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md).
 - [install-instructions/herdr.md](install-instructions/herdr.md) — наш herdr.
 - [AGENTS.md](AGENTS.md) — разработка и release.
 - [SCOPE-FOCUS-DESIGN.md](SCOPE-FOCUS-DESIGN.md) — концепция Scope Focus.
-- [LUNATRON-DESIGN.md](LUNATRON-DESIGN.md) — концепция Lunatron.
 - [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md) — условия рабочих окружений.

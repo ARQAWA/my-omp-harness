@@ -31,7 +31,7 @@ access, privacy or a change of method returns to approval through `ask`; changed
 T require an up-to-date plan. Smarty is not repeated: Bossy checks the result
 together with the changes. Update the plan.md "Execution" field once, at
 completion or pause. The ordinary check is reading and logic; permitted empirical
-checks require real observations. ToSpec does not enable delegation.
+checks require real observations.
 
 ## Acceptance
 

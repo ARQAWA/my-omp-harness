@@ -20,17 +20,13 @@ const ROUTES = {
 	},
 } as const;
 
-const NAMED: Record<string, { gpt: string | string[]; claude: string | string[] }> = {
+const NAMED: Record<string, { gpt: string; claude: string }> = {
 	spotty: { gpt: "openai-codex/gpt-6-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
 	smarty: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-opus-5-5:low" },
 	bossy: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:medium" },
-	enot: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:low"], claude: "anthropic/claude-sonnet-5-5:off" },
-	lunatik: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5", "anthropic/claude-sonnet-5-5:low"] },
-	lunatik_high: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:medium"], claude: ["cursor/composer-2.5", "anthropic/claude-sonnet-5-5:low"] },
-	lunatron_low: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-sonnet-5-5:high" },
-	lunatron_medium: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
-	lunatron_high: { gpt: "openai-codex/gpt-6.1-sol:high", claude: "anthropic/claude-opus-5-5:low" },
-	code_writer: { gpt: ["cursor/composer-2.5", "openai-codex/gpt-6-luna:low"], claude: "anthropic/claude-sonnet-5-5:off" },
+	enot: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
+	code_writer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
+	shell_runner: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
 };
 
 export default function subagentModelPolicy(pi: ExtensionAPI) {

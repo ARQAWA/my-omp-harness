@@ -60,7 +60,7 @@ commands that change nothing outside the workspace. Reading, temporary documents
 and an isolated experiment under step 01 are allowed. The user's explicit
 prohibitions and method are kept. Preparation does not include todo, the goal and
 the result check; execution opens step 06 with them. Cleanup follows the general
-rules. An active Lunatron keeps its own contract.
+rules.
 
 Approval, bases, revisions, statuses and checks are kept in two documents,
 without a registry, hashes or copies. Readiness requires approval of the current

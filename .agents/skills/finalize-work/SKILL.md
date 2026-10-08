@@ -66,8 +66,7 @@ for such a cycle; a separate repeated invitation is not required.
 Use a fresh `smarty` through `task` with `agent: smarty`, without `model` and
 without Main's history: routing sets the model
 (GPT parent: gpt-6.1-sol / low; Claude parent: claude-opus-5-5 / low; a parent of another family gets the Claude route).
-The reviewer only reads; Main, or the executor assigned the delegated
-`finalize-work`, fixes the admitted substantial remarks. Main keeps
+The reviewer only reads; Main fixes the admitted substantial remarks. Main keeps
 responsibility for the final handover and CLEAN.
 
 Pass the original requirements and clarifications, the result's boundaries, the

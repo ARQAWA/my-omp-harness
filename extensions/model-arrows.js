@@ -6,7 +6,7 @@ export const MODELS = [
   "anthropic/claude-fable-5-1",
   "openai-codex/gpt-6.1-sol",
   "openai-codex/gpt-6-luna",
-  "cursor/grok-4.7-fast",
+  "cursor/grok-4.7",
   "cursor/composer-2.5",
 ];
 

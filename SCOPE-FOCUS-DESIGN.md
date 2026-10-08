@@ -90,7 +90,7 @@ Communication — Main. Системный
 промпт собирается заново на каждом запросе, поэтому текст не копится в истории.
 Подача действует, пока пакет указан в `extensions`, и не гарантирует следование
 модели.
-Кроме режима Lunatron, расширение ничего не записывает. Изменение исходников не
+Расширение ничего не записывает. Изменение исходников не
 означает release, push или обновление других машин.
 
 ## 2026-09-29: Sol 6.1 для review-профилей
@@ -184,7 +184,7 @@ ToSpec — режим `/tospec` расширения `extensions/tospec.ts`, а 
 список `todo` и цель и выполняет план по полному Gold Standard; вопросы при
 выполнении идут через `ask`, статус выполнения хранит plan.md.
 Потерянный источник или конфликтующий незавершённый todo не подменяются.
-Технический источник остаётся в spec.md и plan.md. ToSpec не включает Lunatron и не задаёт worker pool.
+Технический источник остаётся в spec.md и plan.md.
 
 После выполнения свежий Bossy через High Review Cycle сверяет результат с
 требованиями и полным Gold Standard; принятые замечания исправляются, и новый
@@ -449,8 +449,8 @@ $cleanup-notebook без scope сохраняет прежнее полномо�
 
 Контракт согласован в исходниках плагина, Goal/ToSpec и действующих описаниях.
 Оба базовых системных промпта независимы от этого контракта и работают без плагина.
-Совместимые границы Lunatron и обязательный finalize-work
-сохранены; отдельного lifecycle engine, новых событий или состояния нет.
+Обязательный finalize-work
+сохранён; отдельного lifecycle engine, новых событий или состояния нет.
 Это не доказывает runtime-поведение и не обновляет установленный пакет.
 
 ## 2026-10-05: синхронизация с GPT-6.1 Sol и однократная подача
@@ -721,9 +721,9 @@ enforcement. Эффект не измерен.
 - `hide: true`, `/skill:` и ссылки `skill://`; TOML-профили заменены
   `agents/*.md`, read-only песочница — `tools: read, grep, glob`.
 - Модели выбираются по семейству родителя, значения владельца на 2026-10-06
-  лежат в `install-instructions/harness.md`; `enot`, `lunatik` и
-  `lunatik_high` запускаются на Composer 2.5, если доступен Cursor.
-  Причина: Main на GPT и на Claude работают одинаково, а Composer для этих ролей
+  лежат в `install-instructions/harness.md`; `enot` запускался на
+  Composer 2.5, если доступен Cursor.
+  Причина: Main на GPT и на Claude работают одинаково, а Composer для этой роли
   выбрал владелец.
 - 2026-10-07: родитель не на GPT (Claude, Grok, Composer и другие) получает
   маршрут Claude, блокировки по семейству нет. Причина: решение владельца,
@@ -795,15 +795,14 @@ ToSpec, записях «Gold Standard:» и отсутствии проверк
 
 - Правило и маршрутизация `code_writer` по указанию владельца записаны одним
   блоком в разделе «Subagent model routing» `SYSTEM.md`, а не в Gold Standard.
-  Правило относится к root Main: исполнители Lunatron пишут код своих блоков
-  сами.
+  Правило относится к root Main.
 - Main сначала решает устройство, затем даёт `code_writer` микрозадачи: короткий
   полный план с точными файлами, изменением, сохраняемыми именами, значениями и
   интерфейсами и проверкой. `code_writer` ничего не решает: при неясном плане он
   возвращает `DECISION_REQUIRED`, иначе — короткий отчёт об изменениях.
 - Команды shell и ячейки eval, которые запускает Main, — вызовы инструментов, а
   не файлы кода.
-- Маршрут `code_writer` — список, как у `lunatik`: Composer 2.5 medium,
+- Маршрут `code_writer` — список: Composer 2.5 medium,
   затем GPT 6 Luna medium под GPT-родителем или Sonnet 5.5 low под
   Claude-родителем.
 - 2026-10-07: Main нарушил правило и сам правил одну строку в
@@ -865,7 +864,7 @@ tooling из Codex против частых ошибок перенести, н
 
 Владелец поручил заменить везде в harness модель Composer 2.5 Fast на простой
 Composer 2.5. Решение заменяет модель во всех решениях выше, включая
-`code_writer`: маршруты `enot`, `lunatik`, `lunatik_high` и `code_writer`
+`code_writer`: маршруты `enot` и `code_writer`
 начинаются с `cursor/composer-2.5`, список ctrl+↑/↓ содержит
 `cursor/composer-2.5`, а окно контекста 250 000 и `enabledModels` относятся к
 той же модели.
@@ -890,8 +889,7 @@ Composer 2.5. Решение заменяет модель во всех реш�
   пользователю по-прежнему на простом русском. Статусы и виды решений ToSpec —
   DRAFT, APPROVED, NEEDS UPDATE, READY FOR IMPLEMENTATION, DIRECT, FORCED, CHOICE.
 - Остаются реальные условия omp (провайдеры с вызовами по одному, агенты без
-  `task`), блок INACTIVE (после LNT0 в истории остаётся прочитанный skill
-  делегирования) и модели обеих семей.
+  `task`) и модели обеих семей.
 - `AGENTS.md`, `INSTALL_FOR_AGENTS.md` и инструкции установки остаются на
   русском по выбору владельца: их читает и правит владелец, а агенты читают
   русский без потерь.
@@ -995,7 +993,7 @@ Read; omp подменяет их своими на стороне клиент�
 
 ## 2026-10-07: матрица моделей субагентов
 
-Решение владельца. Под Claude-родителем `smarty` и `bossy` работают на одной модели `claude-opus-5-5/low`; `code_writer`, `enot` и уровень `@subagent_simple` идут на `claude-sonnet-5-5:off` (без reasoning: omp шлёт `between_tools`, расширение `reasoning-arrows.js` ставит effort medium). Под GPT-родителем `code_writer` и `enot` берут `gpt-6-luna/low` после Composer 2.5, `@subagent_simple` — `gpt-6-luna/low`, `@subagent_routine` — `gpt-6-luna/medium`, `@subagent_medium` — `gpt-6-luna/xhigh`. Агент `lunatron_luna_high` стал `lunatik_high` на `composer-2.5/high` → `gpt-6-luna/medium` (меняется только Luna: high → medium), а `lunatron_sol_{low,medium,high}` — `lunatron_{low,medium,high}`; под Claude-родителем `lunatron_medium` и `lunatron_high` идут на `claude-opus-5-5/low`.
+Решение владельца. Под Claude-родителем `smarty` и `bossy` работают на одной модели `claude-opus-5-5/low`; `code_writer`, `enot` и уровень `@subagent_simple` идут на `claude-sonnet-5-5:off` (без reasoning: omp шлёт `between_tools`, расширение `reasoning-arrows.js` ставит effort medium). Под GPT-родителем `code_writer` и `enot` берут `gpt-6-luna/low` после Composer 2.5, `@subagent_simple` — `gpt-6-luna/low`, `@subagent_routine` — `gpt-6-luna/medium`, `@subagent_medium` — `gpt-6-luna/xhigh`.
 
 ## 2026-10-07: паритет с Cursor
 
@@ -1205,9 +1203,9 @@ Composer 2.5 уровень `off` не получил. omp делает off у �
 - `settings/models.yml`: override `composer-2.5` получил `reasoning: false`;
   `omp models cursor --json` показывает у него `reasoning: false` и
   `thinking: null`, поэтому выбор модели omp и `levelsFor` не дают ему уровней.
-- `subagent-model-policy.ts`: `lunatik`, `lunatik_high` и `code_writer` идут на
-  `cursor/composer-2.5` без суффикса уровня, как уже шёл `enot`; таблицы и
-  описания агентов, `AGENTS.md`, `SYSTEM.md` и `LUNATRON-DESIGN.md` обновлены.
+- `subagent-model-policy.ts`: `code_writer` идёт на `cursor/composer-2.5` без
+  суффикса уровня, как уже шёл `enot`; таблицы и описания агентов, `AGENTS.md` и
+  `SYSTEM.md` обновлены.
 - `model-arrows.js`: порядок списка — … GPT-6 Luna, Grok 4.7 Fast, Composer 2.5.
 
 Запросы Cursor от этого не меняются: уровень и раньше не доходил до модели
@@ -1222,13 +1220,11 @@ Composer 2.5 уровень `off` не получил. omp делает off у �
 Обновлены `NAMED`, таблица `install-instructions/harness.md`, описания
 `light-review-cycle` и `high-review-cycle` и `extensions/tospec/review.md`.
 
-## 2026-10-08: бриф code_writer по контракту исполнителя Lunatron
+## 2026-10-08: бриф code_writer
 
-Решение владельца: Main всегда даёт `code_writer` бриф в том же формате, что
-исполнителю Lunatron (`lunatik`): результат, целевые файлы, cwd, решения,
+Решение владельца: Main всегда даёт `code_writer` самодостаточный бриф: результат, целевые файлы, cwd, решения,
 которые нужно сохранить, включая имена, значения и интерфейсы, нужные факты,
-пути и snippets, и проверка. `code_writer` возвращает final того же контракта:
-статус, результат, изменённые пути, ключевые факты с file:line, результаты
+пути и snippets, и проверка. `code_writer` возвращает final с полями: статус, результат, изменённые пути, ключевые факты с file:line, результаты
 проверок, ошибки, неизвестное. Обновлены абзац `code_writer` в `SYSTEM.md`,
 `agents/code_writer.md`, `AGENTS.md`, `README.md` и таблица агентов
 `install-instructions/harness.md`. Роль `code_writer` не изменилась: он
@@ -1246,3 +1242,41 @@ Composer 2.5 уровень `off` не получил. omp делает off у �
 400 000, поэтому порог применяется. Обновлены `package.json`, `tests/run.mjs`,
 `install-instructions/harness.md` и `README.md`. Имя `compact-at-231k.ts` и порог
 Haiku 272 000 в разделах выше — история.
+
+## 2026-10-08: shell_runner и Haiku 5.5 xhigh для enot, code_writer и shell_runner
+
+Решения владельца: root Main не запускает программы сам, а передаёт запуски
+новому именованному агенту `shell_runner` по самодостаточному брифу; `enot`,
+`code_writer` и `shell_runner` работают на `anthropic/claude-haiku-5-5:xhigh`
+при любом родителе. Причина: механические запуски и шумный вывод уходят из
+контекста Main к быстрому агенту.
+
+- Имя `shell_runner` выбрано в стиле `code_writer`.
+- `shell_runner` выполняет всё, что исполняет программы: тесты, сборки, линтеры и
+  проверки типов, скрипты проекта, установку зависимостей, приложения и службы,
+  запуски моделей (`omp -p`), эксперименты. Он ничего не решает, не правит файлы,
+  не выполняет git и не запускает агентов; инструменты — `bash, read, rg`. Final:
+  статус, по каждой команде код выхода, время, итог, строки ошибок и ссылка на
+  полный вывод, по службе готовность, порт и строки лога при неудаче.
+- Root Main сам выполняет чтение состояния (`git status/diff/log/show`, `ls`,
+  `cmp`, `omp config get/list/path`), git и GitHub CLI, файловые операции и
+  настройки из инструкций и ячейки `eval`. Правило относится только к root Main:
+  `code_writer` сам запускает проверку брифа, reviewers ничего не запускают.
+- Вход `anthropic` обязателен: без него `enot`, `code_writer` и `shell_runner` не
+  запускаются. У каждого именованного агента одна модель на семейство родителя.
+- `enot` получает `tools: read, glob, rg`.
+- Абзац `code_writer` в `SYSTEM.md` не называет скорость генерации: она не
+  измерялась.
+
+Маршруты `enot` и `code_writer` с Composer, Luna и Sonnet в разделах выше —
+история.
+
+## 2026-10-08: Grok 4.7 вместо Grok 4.7 Fast
+
+Решение владельца: в списке ctrl+↑/↓ стоит Grok 4.7 в обычном режиме
+(`cursor/grok-4.7`) вместо Grok 4.7 Fast (`cursor/grok-4.7-fast`). Cursor отдаёт
+обе модели как варианты одной `grok-4.7` с параметром `fast`: по кэшу моделей omp
+для `cursor/grok-4.7` на каждом уровне reasoning уходит `fast=false`, для
+`-fast` — `fast=true`, и Fast стоит вдвое дороже. Проверка: `omp -p --model
+cursor/grok-4.7 --thinking low` ответил, сессия записала `cursor/grok-4.7` без
+fallback. Grok 4.7 Fast в разделах выше — история.

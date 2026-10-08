@@ -20,41 +20,30 @@ assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
-// NAMED rows as [name, gptModels, claudeModels]; a list is the start order, a single model becomes a one-item list.
-const named = [...policy.matchAll(/^\t(\w+): \{ gpt: ("[^"]+"|\[[^\]]+\]), claude: ("[^"]+"|\[[^\]]+\]) \},$/gm)]
-  .map(([, name, gpt, claude]) => [name, [JSON.parse(gpt)].flat(), [JSON.parse(claude)].flat()]);
+// NAMED rows as [name, gpt, claude]
+const named = [...policy.matchAll(/^\t(\w+): \{ gpt: "([^"]+)", claude: "([^"]+)" \},$/gm)]
+  .map(([, name, gpt, claude]) => [name, gpt, claude]);
 const tiers = [...policy.matchAll(/^\t(subagent_\w+): \{\n\t\tgpt: "([^"]+)",\n\t\tclaude: "([^"]+)",\n\t\},$/gm)];
-assert.equal(named.length, 10, 'NAMED routes');
+assert.equal(named.length, 6, 'NAMED routes');
 assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
-// 'openai-codex/gpt-6-sol:medium' -> ['gpt-6-sol', 'medium']; 'cursor/composer-2.5' -> ['composer-2.5']
+// 'openai-codex/gpt-6-sol:medium' -> ['gpt-6-sol', 'medium']
 const split = model => model.split('/')[1].split(':');
-const short = model => split(model).join('/');
 
 for (const [skill, agent] of [['light-review-cycle', 'spotty'], ['blind-review-cycle', 'smarty'], ['high-review-cycle', 'bossy']]) {
-  const [, [gpt], [claude]] = route(agent);
+  const [, gpt, claude] = route(agent);
   const [[gptId, gptEffort], [claudeId, claudeEffort]] = [split(gpt), split(claude)];
   assert.ok(read(`skills/${skill}/SKILL.md`).includes(`GPT parent: \`${gptId}\`, reasoning \`${gptEffort}\`; Claude parent: \`${claudeId}\`, reasoning \`${claudeEffort}\``), `${skill}: ${agent} models`);
 }
-const [, [smartyGpt], [smartyClaude]] = route('smarty');
+const [, smartyGpt, smartyClaude] = route('smarty');
 for (const file of ['extensions/tospec/review.md', '.agents/skills/finalize-work/SKILL.md']) {
   assert.ok(read(file).includes(`GPT parent: ${split(smartyGpt).join(' / ')}; Claude parent: ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
 }
-const harness = read('extensions/harness.ts');
-for (const agent of ['lunatik', 'lunatik_high']) {
+for (const agent of ['enot', 'code_writer', 'shell_runner']) {
   const [, gpt, claude] = route(agent);
-  assert.ok(gpt.length === 2 && claude.length === 2 && gpt[0] === claude[0] && gpt[0].startsWith('cursor/composer-'), `${agent}: Composer first`);
-  assert.ok(harness.includes(`- ${agent} (${short(gpt[0])}; ${short(gpt[1])}; ${short(claude[1])})`), `harness.ts: ${agent} models`);
+  assert.equal(gpt, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: gpt model`);
+  assert.equal(claude, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: claude model`);
 }
-{
-  const [, gpt, claude] = route('enot');
-  assert.ok(gpt.length === 2 && gpt[0].startsWith('cursor/composer-'), 'enot: Composer first');
-  assert.ok(claude.length === 1, 'enot: Claude route length');
-  assert.ok(harness.includes(`- enot (${short(gpt[0])}; ${short(gpt[1])}; ${short(claude[0])})`), 'harness.ts: enot models');
-}
-const sol = ['low', 'medium', 'high'].map(effort => [effort, ...route(`lunatron_${effort}`).slice(1).map(([model]) => split(model))]);
-for (const [effort, [gpt, gptEffort]] of sol) assert.ok(gpt === sol[0][1][0] && gptEffort === effort, `lunatron_${effort}: GPT model`);
-assert.ok(harness.includes(`(${sol[0][1][0]} at that\n  effort; ${sol.map(([, , [claude, effort]]) => `${claude}/${effort}`).join(', ')})`), 'harness.ts: Sol models');
 
 const agents = readdirSync(path.join(root, 'agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3)).sort();
 assert.deepEqual(agents, named.map(([name]) => name).sort());
@@ -64,14 +53,14 @@ for (const name of agents) {
   assert.ok(meta.description, `${name}: description`);
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
-for (const name of ['spotty', 'smarty', 'bossy', 'enot']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, name === 'enot' ? 'read, glob, rg, grep' : 'read, glob, rg', name);
+for (const name of ['spotty', 'smarty', 'bossy', 'enot', 'shell_runner']) {
+  assert.equal(frontmatter(`agents/${name}.md`).tools, name === 'shell_runner' ? 'bash, read, rg' : 'read, glob, rg', name);
 }
 
 const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
-assert.deepEqual(skills, [...hidden, 'lunatron-delegation'].sort());
+assert.deepEqual(skills, hidden);
 for (const skill of skills) {
   const meta = frontmatter(`skills/${skill}/SKILL.md`);
   assert.equal(meta.name, skill);
@@ -100,10 +89,8 @@ for (const dir of ['skills', 'agents', 'extensions']) {
 const harnessDoc = read('install-instructions/harness.md');
 const system = read('SYSTEM.md');
 assert.ok(system.includes('# Subagent model routing'));
-assert.ok(!system.includes('`luntik`'), 'SYSTEM.md: luntik removed');
-const cell = models => models.map(model => `\`${model}\``).join(' → ');
 for (const [name, gpt, claude] of named) {
-  assert.ok(harnessDoc.includes(`| \`${name}\` | ${cell(gpt)} | ${cell(claude)} |`), `harness.md: ${name}`);
+  assert.ok(harnessDoc.includes(`| \`${name}\` | \`${gpt}\` | \`${claude}\` |`), `harness.md: ${name}`);
   assert.ok(system.includes(`\`${name}\``), `SYSTEM.md: ${name}`);
 }
 for (const [, name, gpt, claude] of tiers) {
@@ -126,7 +113,7 @@ for (const doc of installDocs) {
 }
 assert.ok(read('AGENTS.md').includes('node tests/run.mjs'));
 
-const docs = ['README.md', 'AGENTS.md', 'INSTALL_FOR_AGENTS.md', 'SCOPE-FOCUS-DESIGN.md', 'LUNATRON-DESIGN.md',
+const docs = ['README.md', 'AGENTS.md', 'INSTALL_FOR_AGENTS.md', 'SCOPE-FOCUS-DESIGN.md',
   ...installDocs, '.agents/skills/release/SKILL.md', '.agents/skills/finalize-work/SKILL.md'];
 for (const doc of docs) {
   for (const [, target] of read(doc).matchAll(/\]\(([^)\s]+)\)/g)) {
