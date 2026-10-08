@@ -6,7 +6,8 @@ const FOCUS_MAX_CHARS = 4_000;
 export function triggerTokens(id: string): number | undefined {
 	if (/composer/i.test(id)) return 170_000;
 	if (/claude-fable/i.test(id)) return 272_000;
-	const claude = /claude-(opus|sonnet|haiku)-(\d+)(?:[-.](\d{1,2})(?!\d))?/i.exec(id);
+	if (/claude-haiku/i.test(id)) return 100_000;
+	const claude = /claude-(opus|sonnet)-(\d+)(?:[-.](\d{1,2})(?!\d))?/i.exec(id);
 	if (claude) {
 		const major = Number(claude[2]);
 		const minor = Number(claude[3] ?? 0);
@@ -40,7 +41,7 @@ function latestUserRequest(branch: readonly unknown[]): string | undefined {
 	return undefined;
 }
 
-export default function compactAt231k(pi: ExtensionAPI) {
+export default function autocompaction(pi: ExtensionAPI) {
 	const threshold = lookup("compaction.thresholdTokens")!;
 	let applied: number | undefined;
 

@@ -1190,3 +1190,16 @@ Composer 2.5 уровень `off` не получил. omp делает off у �
 параметра reasoning, `cursor-agent models` тоже знает только `composer-2.5` и
 `composer-2.5-fast`. Поэтому omp шлёт одинаковый запрос на любом уровне, и
 официально выключить reasoning Composer нельзя.
+
+## 2026-10-08: автосжатие Haiku на 100 000 и расширение autocompaction.ts
+
+Решения владельца: порог автосжатия Main для Claude Haiku — ровно 100 000
+токенов; расширение порога автосжатия называется `autocompaction`.
+
+Выполненное изменение: `extensions/compact-at-231k.ts` переименован в
+`extensions/autocompaction.ts`, функция расширения — `autocompaction`;
+`triggerTokens` возвращает 100 000 для любой модели `claude-haiku`, а ветка
+272 000 для Claude версии 5.5 и выше осталась у Opus и Sonnet. Окно Haiku 5.5 —
+400 000, поэтому порог применяется. Обновлены `package.json`, `tests/run.mjs`,
+`install-instructions/harness.md` и `README.md`. Имя `compact-at-231k.ts` и порог
+Haiku 272 000 в разделах выше — история.

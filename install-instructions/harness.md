@@ -7,7 +7,7 @@
 Пакет лежит в корне клона: `package.json` (поля `omp.extensions` и
 `dependencies`), `bun.lock`, `extensions/harness.ts`, `extensions/rg.ts`,
 `extensions/subagent-model-policy.ts`, `extensions/wrap-and-timer.ts`,
-`extensions/status-bar.ts`, `extensions/compact-at-231k.ts`,
+`extensions/status-bar.ts`, `extensions/autocompaction.ts`,
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
 `extensions/tospec.ts` с текстами процесса в `extensions/tospec/`,
 `extensions/diagram.ts`, `skills/` и
@@ -158,9 +158,9 @@ ready, `/tospec off` выключает режим.
 git и PR, справа — ID сессии;
 расширение переносит их сюда из линии над полем ввода, и та остаётся линией
 цвета сессии.
-Раскладку и сегменты задаёт [omp.md](omp.md). `compact-at-231k.ts`
-ставит порог автосжатия Main: 272 000 токенов для Claude Opus, Sonnet и Haiku версии
-5.5 и выше и для Claude Fable, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
+Раскладку и сегменты задаёт [omp.md](omp.md). `autocompaction.ts`
+ставит порог автосжатия Main: 272 000 токенов для Claude Opus и Sonnet версии
+5.5 и выше и для Claude Fable, 100 000 для Claude Haiku, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
 `model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
