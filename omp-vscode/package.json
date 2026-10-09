@@ -1,7 +1,7 @@
 {
   "name": "omp-vscode",
   "displayName": "omp",
-  "description": "Ставит Bun и omp в папку расширения и запускает omp в Git Bash на Windows",
+  "description": "Запускает omp, вшитый в расширение, в Git Bash на Windows",
   "version": "0.0.1",
   "publisher": "arqawa",
   "repository": {
@@ -12,12 +12,10 @@
     "vscode": "^1.86.0"
   },
   "main": "./extension.js",
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
-      { "command": "omp.prepare", "title": "Prepare Environment", "category": "OMP" },
-      { "command": "omp.newTab", "title": "New Tab", "category": "OMP" },
-      { "command": "omp.removeAll", "title": "Remove All", "category": "OMP" }
+      { "command": "omp.newTab", "title": "New Tab", "category": "OMP" }
     ]
   }
 }

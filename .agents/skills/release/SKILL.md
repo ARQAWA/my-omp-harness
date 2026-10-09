@@ -14,7 +14,8 @@ harness or herdr. Ordinary editing does not trigger release.
 Any of the words release, commit or push orders one full release of this
 repository: finalize-work, commit, push and installation on the current host,
 all together. Do not treat them as separate partial orders. herdr (section 5)
-is released only when the herdr sources changed or herdr is named.
+and omp-vscode (section 6) are released only when their sources changed or the
+owner names them.
 
 ## 1. Scope and sources
 
@@ -29,8 +30,8 @@ a commit or push. Reuse parts that are already done.
 
 ## 2. Version and checks
 
-A version is a commit: do not add numbers or tags. The only tag and release is
-`herdr` (section 5).
+A version is a commit: do not add numbers or tags. The only tags and releases
+are `herdr` (section 5) and `omp-vscode` (section 6).
 
 If files changed after the last run, run `node tests/run.mjs` once before the
 commit; rerun only after fixing a failure it revealed. Run the other checks when
@@ -73,9 +74,19 @@ D="$(mktemp -d)" && gh run download "$RUN" -R ARQAWA/herdr -D "$D" && gh release
 
 Then update herdr on the current host under `install-instructions/herdr.md`.
 
-## 6. Errors
+## 6. omp-vscode
+
+The VSIX packs `omp-vscode/` with the latest `omp-windows-x64.exe` of
+`can1357/oh-my-pi` as `bin/omp.exe` and replaces the file of the `omp-vscode`
+release:
+
+```bash
+D="$(mktemp -d)" && TAG="$(gh release view -R can1357/oh-my-pi --json tagName -q .tagName)" && cp omp-vscode/package.json omp-vscode/extension.js "$D" && gh release download "$TAG" -R can1357/oh-my-pi -p omp-windows-x64.exe -D "$D/bin" && mv "$D/bin/omp-windows-x64.exe" "$D/bin/omp.exe" && (cd "$D" && yes | npx --yes @vscode/vsce package --no-dependencies --target win32-x64 -o omp-vscode.vsix) && (gh release view omp-vscode -R ARQAWA/my-omp-harness >/dev/null 2>&1 || gh release create omp-vscode -R ARQAWA/my-omp-harness --title omp-vscode --notes "omp $TAG") && gh release upload omp-vscode -R ARQAWA/my-omp-harness --clobber "$D/omp-vscode.vsix" && gh release edit omp-vscode -R ARQAWA/my-omp-harness --notes "omp $TAG"
+```
+
+## 7. Errors
 
 On an uncertain push, build, upload or installation, first read the state
 (`git status`, `git log -1 origin/master`, `gh run list`,
-`gh release view herdr`, `omp config get …`). Do not repeat blindly. Report the
+`gh release view herdr`, `gh release view omp-vscode`, `omp config get …`). Do not repeat blindly. Report the
 unfinished stage and do not declare the release complete.
