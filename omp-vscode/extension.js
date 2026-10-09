@@ -50,7 +50,7 @@ function childEnv() {
 // Команды
 
 function activate(context) {
-  root = context.globalStorageUri.fsPath;
+  root = path.join(context.extensionPath, 'runtime');
   output = vscode.window.createOutputChannel('omp');
   context.subscriptions.push(
     output,
