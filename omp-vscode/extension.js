@@ -21,7 +21,7 @@ const ptys = new Set();
 
 function paths() {
   const npmPrefix = path.join(root, 'npm');
-  const bunDir = path.join(npmPrefix, 'node_modules', 'bun', 'bin');
+  const bunDir = path.join(npmPrefix, 'node_modules', '@oven', 'bun-windows-x64-baseline', 'bin');
   const bunInstall = path.join(root, 'bun');
   const ompDir = path.join(bunInstall, 'bin');
   return {
@@ -96,7 +96,7 @@ async function prepare() {
   const p = paths();
   try {
     await fs.promises.mkdir(p.root, { recursive: true });
-    const npmLine = 'npm install --prefix "' + p.npmPrefix + '" --no-audit --no-fund bun@latest';
+    const npmLine = 'npm install --prefix "' + p.npmPrefix + '" --no-audit --no-fund @oven/bun-windows-x64-baseline@latest';
     await runStep(npmLine, npmLine, [], { shell: true, cwd: p.root, env: childEnv() });
     const bunLine = '"' + p.bun + '" install -g ' + OMP_PACKAGE;
     await runStep(bunLine, p.bun, ['install', '-g', OMP_PACKAGE], { cwd: p.root, env: childEnv() });
