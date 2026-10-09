@@ -113,6 +113,29 @@ function makePty(nodePty) {
   };
 }
 
+function loadNodePty() {
+  const candidates = [
+    path.join(vscode.env.appRoot, 'node_modules', 'node-pty'),
+    path.join(vscode.env.appRoot, 'node_modules.asar.unpacked', 'node-pty'),
+    path.join(vscode.env.appRoot, 'node_modules.asar', 'node-pty'),
+    'node-pty',
+  ];
+  let lastErr;
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(
+    'В VS Code не найден node-pty. Проверены пути: ' +
+      candidates.join('; ') +
+      '. Последняя ошибка: ' +
+      lastErr.message
+  );
+}
+
 function newTab() {
   if (!fs.existsSync(ompExe())) {
     vscode.window.showErrorMessage('Не найден ' + ompExe() + '. Переустановите расширение.');
@@ -120,9 +143,9 @@ function newTab() {
   }
   let nodePty;
   try {
-    nodePty = require(path.join(vscode.env.appRoot, 'node_modules', 'node-pty'));
+    nodePty = loadNodePty();
   } catch (err) {
-    vscode.window.showErrorMessage('В VS Code не найден node-pty: ' + err.message);
+    vscode.window.showErrorMessage(err.message);
     return;
   }
   const terminal = vscode.window.createTerminal({
