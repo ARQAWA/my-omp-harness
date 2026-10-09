@@ -89,6 +89,8 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set disabledProviders '["openrouter"]'
    omp config set providers.streamIdleTimeoutSeconds 900
    omp config set browser.enabled false
+   omp config set computer.enabled true
+   omp config set task.agentIdleTtlMs 120000
    omp config set retry.fallbackChains '{"openai-codex/*":[]}'
    omp config set extendedContext false
    omp config set codexResets.autoRedeem no
