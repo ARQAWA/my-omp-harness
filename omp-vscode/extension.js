@@ -14,11 +14,20 @@ const GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
 let output;
 let binDir = '';
 let count = 0;
-const terminals = new Set();
 const ptys = new Set();
 
 function ompExe() {
   return path.join(binDir, 'omp.exe');
+}
+
+// Кавычки: сначала для bash (одинарные кавычки с '\''), затем для PowerShell (удвоенные ')
+
+function bashQuote(s) {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
+function psQuote(s) {
+  return "'" + s.replace(/'/g, "''") + "'";
 }
 
 // Окружение дочерних процессов
@@ -38,7 +47,6 @@ function activate(context) {
   context.subscriptions.push(
     output,
     vscode.commands.registerCommand('omp.newTab', newTab),
-    vscode.window.onDidCloseTerminal((t) => terminals.delete(t)),
   );
   update();
 }
@@ -69,11 +77,13 @@ function makePty(nodePty) {
     onDidWrite: writeEmitter.event,
     open(dims) {
       const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? os.homedir();
+      const bashExe = bashQuote(ompExe().replace(/\\/g, '/'));
+      const command = "& '" + GIT_BASH + "' --login -i -c " + psQuote(bashExe);
       let p;
       try {
         p = nodePty.spawn(
           'powershell.exe',
-          ['-NoLogo', '-NoProfile', '-Command', "& '" + GIT_BASH + "' --login -i -c omp"],
+          ['-NoLogo', '-NoProfile', '-Command', command],
           {
             name: 'xterm-256color',
             cols: dims?.columns ?? 120,
@@ -114,26 +124,12 @@ function makePty(nodePty) {
 }
 
 function loadNodePty() {
-  const candidates = [
-    path.join(vscode.env.appRoot, 'node_modules', 'node-pty'),
-    path.join(vscode.env.appRoot, 'node_modules.asar.unpacked', 'node-pty'),
-    path.join(vscode.env.appRoot, 'node_modules.asar', 'node-pty'),
-    'node-pty',
-  ];
-  let lastErr;
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (err) {
-      lastErr = err;
-    }
+  const p = path.join(vscode.env.appRoot, 'node_modules.asar', 'node-pty');
+  try {
+    return require(p);
+  } catch (err) {
+    throw new Error('В VS Code не найден node-pty (' + p + '): ' + err.message);
   }
-  throw new Error(
-    'В VS Code не найден node-pty. Проверены пути: ' +
-      candidates.join('; ') +
-      '. Последняя ошибка: ' +
-      lastErr.message
-  );
 }
 
 function newTab() {
@@ -153,7 +149,6 @@ function newTab() {
     pty: makePty(nodePty),
     location: { viewColumn: vscode.ViewColumn.Active },
   });
-  terminals.add(terminal);
   terminal.show();
 }
 
