@@ -36,6 +36,15 @@ function childEnv() {
   const env = { ...process.env };
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
   env[key] = env[key] ? binDir + path.delimiter + env[key] : binDir;
+  // omp's Anthropic transport ignores HTTPS_PROXY and only follows PI_PROXY.
+  const envKeys = (name) => Object.keys(env).filter((k) => k.toUpperCase() === name);
+  const piKey = envKeys('PI_PROXY')[0] || 'PI_PROXY';
+  if (!env[piKey]) {
+    const proxy = ['HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy', 'HTTP_PROXY', 'http_proxy']
+      .map((name) => envKeys(name.toUpperCase()).map((k) => env[k]).find((v) => v))
+      .find((v) => v);
+    if (proxy) env[piKey] = proxy;
+  }
   return env;
 }
 
