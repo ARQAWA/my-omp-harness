@@ -13,7 +13,7 @@ approval) → step `plan` after the user accepted the whole spec through `ask` �
 **plan** (04 plan with tasks, 05 Spotty check; reasoning is one level lower) →
 step `ready` after the Spotty CLEAN and READY FOR IMPLEMENTATION in plan.md,
 then end the turn → **ready** (the approval window) → **execute** in a new chat
-(06 execution and Bossy check) → step `done` after the Bossy CLEAN, together
+(06 execution and Spotty check) → step `done` after the Spotty CLEAN, together
 with the final report. `/tospec off` switches the mode off. This file is the
 only copy of the route; a rework of ToSpec reconciles it with the steps, review,
 the templates, the extension and the documentation.

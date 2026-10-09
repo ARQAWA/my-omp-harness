@@ -5,8 +5,8 @@ The executor model and reasoning were chosen in the approval window.
 
 ## Launch
 
-In the first batch read spec.md, plan.md and [Blind Review
-Cycle](skill://blind-review-cycle) and call `todo` with op `view`. Check the
+In the first batch read spec.md, plan.md and [Light Review
+Cycle](skill://light-review-cycle) and call `todo` with op `view`. Check the
 approval and the Spotty CLEAN in their headers; a missing source or lost
 readiness stops the dependent work and returns the affected stage. A repeated
 launch does not repeat what is done.
@@ -28,9 +28,9 @@ once, at completion or pause.
 ## Acceptance
 
 After the result, run the 06 check of [review](review.md) and prepare the final
-answer while Bossy works. Fix the admitted findings and repeat with a fresh
-Bossy until CLEAN. Separately selected reviews and mandatory gates of the
-environment stay; combine them when the object and criterion match. If Bossy
+answer while Spotty works. Fix the admitted findings and repeat with a fresh
+Spotty until CLEAN. Separately selected reviews and mandatory gates of the
+environment stay; combine them when the object and criterion match. If Spotty
 cannot start, keep the todo and the goal open, report the blocker and wait.
 
 ## Completion

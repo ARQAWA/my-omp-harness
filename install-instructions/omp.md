@@ -10,8 +10,9 @@ omp ставится штатным установщиком с omp.sh и обн
 - тема `titanium-arq` — копия [`settings/titanium-arq.json`](../settings/titanium-arq.json)
   в `<agent-dir>/themes/` и значение `theme.dark`;
 - окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
-  `<agent-dir>/models.yml`: 400 000 токенов для GPT-6.1 Sol, GPT-6 Luna, Claude
-  Opus 5.5, Sonnet 5.5, Haiku 5.5 и Fable 5.1, 272 000 для GPT-5.6 Luna;
+  `<agent-dir>/models.yml`: 400 000 токенов для всех моделей GPT (GPT-6.1 Sol,
+  GPT-6 Luna, GPT-5.6 Luna) и всех Claude (Opus 5.5, Sonnet 5.5, Haiku 5.5,
+  Fable 5.1);
 - клавиши — копия [`settings/keybindings.yml`](../settings/keybindings.yml) в
   `<agent-dir>/keybindings.yml`: освобождает shift+↑ (встроенное
   `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель;
@@ -89,7 +90,6 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set omitThinking false
    omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
    omp config set disabledProviders '["openrouter"]'
-   omp config set providers.streamIdleTimeoutSeconds 900
    omp config set browser.enabled false
    omp config set computer.enabled true
    omp config set task.agentIdleTtlMs 120000

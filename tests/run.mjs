@@ -42,7 +42,7 @@ for (const name of agents) {
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
 for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, rg', shell_runner: 'bash, read, rg' }[name] ?? 'read, glob, rg', name);
+  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep', shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
 }
 
 const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools'];

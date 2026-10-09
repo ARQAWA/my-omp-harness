@@ -10,10 +10,6 @@ const GOLD = join(import.meta.dir, "..", "skills", "gold-standard", "SKILL.md");
 const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL.md");
 const MAIN = join(import.meta.dir, "..", "skills", "main-workflow", "SKILL.md");
 const TOOLS = join(import.meta.dir, "..", "skills", "omp-tools", "SKILL.md");
-const CURSOR_TOOLS = `Tool names on the Cursor provider. Never call the native Cursor tools Glob and Grep, even though they are listed: they duplicate the MCP tools here. Search only with the MCP tools of server pi-agent:
-- MCP glob finds files by name. Arguments: glob_pattern (required string, for example "**/currency_sync/**/*.rs" or "**/config.toml"; a pattern without a leading **/ matches at any depth) and optional target_directory (directory to search, default the working directory). It has no pattern, path or query argument.
-- MCP rg searches file contents. Arguments: pattern (required regex string, for example "fn main|TARGETS"), optional path (file or directory), glob (file name filter such as "*.rs"), type (rust, py, ts, js, md, json, yaml, toml, sh and others), output_mode ("content", "files_with_matches" or "count"), "-i" (boolean, case insensitive), "-A", "-B", "-C" (numbers of context lines), head_limit and offset (numbers), multiline (boolean).
-Pass every argument with exactly these names and types. Your native Read, Shell, StrReplace, Write, Delete and TodoWrite are the omp tools these instructions call read, bash, edit, write, delete and todo: use the native tools for them. Read also accepts omp selectors in the path, such as file:raw:N+K and file:<line>:chars:<start>+<count>. Call the other omp tools, such as task, goal, progress, eval and lsp, as MCP tools of pi-agent. Use the MCP task for subagents and the MCP goal for goals: the native Task, AskQuestion and SwitchMode are rejected here, and the native goal tools of Cursor are not the omp goal. Here Read returns plain file lines that the Cursor server numbers itself, so the omp read markers do not appear; a Read cut by the output budget still ends with [Use offset=N to continue], and a line too long for the output ends with [Use path=<file>:<line>:chars:<start>+<count> to continue]. This mapping is complete; do not compare the tool lists.`;
 export default function harness(pi: ExtensionAPI) {
 	const z = pi.zod;
 	const PROGRESS = "my-omp-harness.progress";
@@ -89,7 +85,6 @@ export default function harness(pi: ExtensionAPI) {
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`;
-		const cursor = ctx.model?.provider === "cursor" ? [CURSOR_TOOLS] : [];
 		// A subagent works from its definition and brief: drop block 0 (SYSTEM.md and the skill list) and add only the tool mechanics.
 		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt.slice(1), tools] };
 		return {
@@ -97,7 +92,6 @@ export default function harness(pi: ExtensionAPI) {
 				...event.systemPrompt,
 				`Apply the full Gold Standard to all work. Apply silently. Source: ${GOLD}\n\n${readFileSync(GOLD, "utf8")}`,
 				tools,
-				...cursor,
 				`Apply the following root Main workflow for plan mode, todo, progress and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
 				`Apply the following communication skill before every user-facing message. Source: ${COMM}\n\n${readFileSync(COMM, "utf8")}`,
 			],

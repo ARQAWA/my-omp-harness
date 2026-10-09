@@ -4,16 +4,9 @@ import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 const FOCUS_MAX_CHARS = 4_000;
 
 export function triggerTokens(id: string): number | undefined {
-	if (/claude-fable/i.test(id)) return 272_000;
-	if (/claude-haiku/i.test(id)) return 100_000;
-	const claude = /claude-(opus|sonnet)-(\d+)(?:[-.](\d{1,2})(?!\d))?/i.exec(id);
-	if (claude) {
-		const major = Number(claude[2]);
-		const minor = Number(claude[3] ?? 0);
-		return major > 5 || (major === 5 && minor >= 5) ? 272_000 : undefined;
-	}
-	const gpt = /(?:^|[/.])gpt-(\d+)/i.exec(id);
-	return gpt !== null && Number(gpt[1]) >= 6 ? 244_800 : undefined;
+	if (/claude-/i.test(id)) return 272_000;
+	if (/(?:^|[/.])gpt-\d/i.test(id)) return 244_800;
+	return undefined;
 }
 
 function latestUserRequest(branch: readonly unknown[]): string | undefined {

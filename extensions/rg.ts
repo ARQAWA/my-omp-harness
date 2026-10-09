@@ -22,7 +22,6 @@ const TYPE_EXTENSIONS: Record<string, string[]> = {
 
 const TYPE_KEYS = Object.keys(TYPE_EXTENSIONS) as [string, ...string[]];
 
-const GLOB_CHAR_RE = /[*?[{]/;
 const READ_RESERVE = 300;
 const READ_BUDGET_BYTES = 90 * 1024;
 const READ_MAX_CHARS = 100000;
@@ -79,54 +78,12 @@ function displayPath(matchPath: string): string {
 	return matchPath.split(/[/\\]/).join("/");
 }
 
-function hookSignal(ctx: { signal?: AbortSignal; abortSignal?: AbortSignal }): AbortSignal | undefined {
-	return ctx.signal ?? ctx.abortSignal;
-}
-
-function isCursor(ctx: { model?: { provider?: string } }): boolean {
-	return ctx.model?.provider === "cursor";
-}
-
 function isDirectory(p: string): boolean {
 	try {
 		return statSync(p).isDirectory();
 	} catch {
 		return false;
 	}
-}
-
-function splitSearchPath(
-	cwd: string,
-	pathInput: string,
-): { base: string; glob?: string } | undefined {
-	if (pathInput.includes(";")) return undefined;
-	if (pathInput.includes("://")) return undefined;
-
-	const resolved = resolve(cwd, pathInput === "" ? "." : pathInput);
-	try {
-		const st = statSync(resolved);
-		if (st.isFile()) return undefined;
-		if (st.isDirectory()) return { base: resolved };
-	} catch {
-		if (!GLOB_CHAR_RE.test(pathInput)) return undefined;
-	}
-
-	const absolute = pathInput.startsWith("/");
-	const parts = pathInput.split("/").filter(p => p !== "" && p !== ".");
-	let globStart = -1;
-	for (let i = 0; i < parts.length; i++) {
-		if (GLOB_CHAR_RE.test(parts[i]!)) {
-			globStart = i;
-			break;
-		}
-	}
-	if (globStart === -1) return undefined;
-
-	const baseParts = parts.slice(0, globStart);
-	const globPart = parts.slice(globStart).join("/");
-	const joined = baseParts.join("/");
-	const base = absolute ? `/${joined}` : resolve(cwd, joined === "" ? "." : joined);
-	return { base, glob: globPart };
 }
 
 type HookFields = Record<string, unknown>;
@@ -136,16 +93,6 @@ function hookFields(value: unknown): HookFields {
 		return value as HookFields;
 	}
 	return {};
-}
-
-function inputString(input: HookFields, key: string): string | undefined {
-	const v = input[key];
-	return typeof v === "string" ? v : undefined;
-}
-
-function inputBoolean(input: HookFields, key: string): boolean | undefined {
-	const v = input[key];
-	return typeof v === "boolean" ? v : undefined;
 }
 
 function isGrepMatch(value: unknown): value is GrepMatch {
@@ -202,7 +149,7 @@ function ensureDoubleStar(globPattern: string): string {
 	return globPattern.startsWith("**/") ? globPattern : `**/${globPattern}`;
 }
 
-async function cursorSearch(opts: {
+async function runSearch(opts: {
 	cwd: string;
 	base: string;
 	glob?: string;
@@ -276,30 +223,6 @@ async function cursorSearch(opts: {
 	});
 }
 
-function contextCounts(text: string): { before: number; after: number } {
-	let before = 0;
-	let after = 0;
-	let run = 0;
-	let seenMatch = false;
-	for (const line of text.split("\n")) {
-		if (/^ \d+[:|]/.test(line)) {
-			run++;
-			continue;
-		}
-		if (/^\*\d+[:|]/.test(line)) {
-			if (!seenMatch) before = Math.max(before, run);
-			seenMatch = true;
-			run = 0;
-			continue;
-		}
-		if (seenMatch) after = Math.max(after, run);
-		run = 0;
-		seenMatch = false;
-	}
-	if (seenMatch) after = Math.max(after, run);
-	return { before, after };
-}
-
 function contentLines(files: SearchFile[]): string[] {
 	const lines: string[] = [];
 	files.forEach((f, i) => {
@@ -311,19 +234,6 @@ function contentLines(files: SearchFile[]): string[] {
 	});
 	return lines;
 }
-
-function headingText(files: SearchFile[]): string {
-	const out: string[] = [];
-	files.forEach((f, i) => {
-		if (i > 0) out.push("");
-		out.push(`# ${f.path}`);
-		for (const e of f.entries) {
-			out.push(`${e.isMatch ? "*" : " "}${e.lineNumber}:${cutLongLine(e.line)}`);
-		}
-	});
-	return out.join("\n");
-}
-
 
 function splitFileLines(text: string): string[] {
 	let body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -369,13 +279,12 @@ function readFragment(
 	line: number,
 	charStart: number,
 	charCount: number,
-	raw = false,
 ): ReadResult {
 	const total = lines.length;
 	if (line < 1 || line > total) return { text: "Error: line out of range", details: {}, error: true };
 	const s = lines[line - 1]!;
 	if (charStart >= s.length && s.length > 0) return { text: "Error: char offset out of range", details: {}, error: true };
-	const prefix = !raw && charStart === 0 && total >= 10 && line % 10 === 0 ? `${String(line).padStart(6)}|` : "";
+	const prefix = charStart === 0 && total >= 10 && line % 10 === 0 ? `${String(line).padStart(6)}|` : "";
 	const trailer = (n: number): string =>
 		charStart + n < s.length
 			? `\n[Use path=${pathLabel}:${line}:chars:${charStart + n}+${n} to continue]`
@@ -400,11 +309,11 @@ function readFragment(
 	return { text, details: readDetails(text, total, fileSize, 1, n < want) };
 }
 
-function readLocalText(abs: string, pathLabel: string, sel: ReadSel, raw: boolean): ReadResult {
+function readLocalText(abs: string, pathLabel: string, sel: ReadSel): ReadResult {
 	const lines = splitFileLines(readFileSync(abs, "utf8"));
 	const total = lines.length;
 	const fileSize = statSync(abs).size;
-	if ("line" in sel) return readFragment(lines, fileSize, pathLabel, sel.line, sel.charStart, sel.charCount, raw);
+	if ("line" in sel) return readFragment(lines, fileSize, pathLabel, sel.line, sel.charStart, sel.charCount);
 
 	let start = 1;
 	let end = total;
@@ -421,7 +330,7 @@ function readLocalText(abs: string, pathLabel: string, sel: ReadSel, raw: boolea
 	let bytes = 0;
 	for (let n = start; n <= end; n++) {
 		const body = lines[n - 1]!;
-		const text = !raw && total >= 10 && n % 10 === 0 ? `${String(n).padStart(6)}|${body}` : body;
+		const text = total >= 10 && n % 10 === 0 ? `${String(n).padStart(6)}|${body}` : body;
 		const sep = shown.length > 0 ? 1 : 0;
 		if (
 			chars + sep + text.length > READ_MAX_CHARS - READ_RESERVE ||
@@ -432,16 +341,13 @@ function readLocalText(abs: string, pathLabel: string, sel: ReadSel, raw: boolea
 		bytes += sep + Buffer.byteLength(text, "utf8");
 		shown.push(text);
 	}
-	if (shown.length === 0 && start <= end) return readFragment(lines, fileSize, pathLabel, start, 0, Number.MAX_SAFE_INTEGER, raw);
+	if (shown.length === 0 && start <= end) return readFragment(lines, fileSize, pathLabel, start, 0, Number.MAX_SAFE_INTEGER);
 
 	const fit = start - 1 + shown.length;
 	const out: string[] = [];
-	if (!raw && start > 1) out.push(`... ${start - 1} lines not shown ...`);
+	if (start > 1) out.push(`... ${start - 1} lines not shown ...`);
 	out.push(...shown);
-	if (raw) {
-		// raw: the server numbers lines itself; only a cut by the budget keeps the continuation line
-		if (fit < end) out.push(`[Use offset=${fit + 1} to continue]`);
-	} else if (fit < end) {
+	if (fit < end) {
 		out.push(`... ${total - fit} lines not shown ...`, `[Use offset=${fit + 1} to continue]`);
 	} else if (end < total) {
 		out.push(`... ${total - end} lines not shown ...`);
@@ -545,43 +451,6 @@ function treeText(dir: string, entries: TreeEntry[]): string {
 	return lines.join("\n");
 }
 
-function treeFlatLines(entries: TreeEntry[]): string {
-	const lines: string[] = [];
-	const stack: string[] = [];
-	for (const e of entries) {
-		stack.length = e.depth;
-		const rel = [...stack, e.name].join("/");
-		if (e.dir) {
-			stack[e.depth] = e.name;
-			if (!e.unexpanded) lines.push(`${rel}/`);
-		} else {
-			lines.push(rel);
-		}
-	}
-	return lines.join("\n");
-}
-
-function parseReadPath(input: string): { file: string; start: number; limit?: number } | null {
-	if (input.includes(",") || input.includes("://")) return null;
-	if (/:conflicts|:img|:-\d+/.test(input)) return null;
-
-	const rest = input.replace(/:raw/g, "");
-
-	const plus = rest.match(/^([\s\S]+):(\d+)\+(\d+)$/);
-	if (plus) return { file: plus[1]!, start: Number(plus[2]), limit: Number(plus[3]) };
-	const range = rest.match(/^([\s\S]+):(\d+)-(\d+)$/);
-	if (range) {
-		const start = Number(range[2]);
-		return { file: range[1]!, start, limit: Math.max(1, Number(range[3]) - start + 1) };
-	}
-	const open = rest.match(/^([\s\S]+):(\d+)-$/);
-	if (open) return { file: open[1]!, start: Number(open[2]) };
-	const line = rest.match(/^([\s\S]+):(\d+)$/);
-	if (line) return { file: line[1]!, start: Number(line[2]) };
-	if (!/:\d/.test(rest)) return { file: rest, start: 1 };
-	return null;
-}
-
 function hasNulInFirst8k(filePath: string): boolean {
 	let fd: number | undefined;
 	try {
@@ -616,39 +485,16 @@ function isPlainLocalPath(p: string): boolean {
 }
 
 export default function rg(pi: ExtensionAPI) {
-	const grepBases = new Map<string, { base: string; glob: string }>();
-	let grepRemoved = false; // grep is the entry of the Cursor bridge: native Grep and Glob run through it and this engine
-
-	async function syncTools(api: ExtensionAPI, ctx: { model?: { provider?: string } }): Promise<void> {
-		try {
-			const active = await api.getActiveTools();
-			let next: string[];
-			if (isCursor(ctx)) {
-				next = grepRemoved && !active.includes("grep") ? [...active, "grep"] : [...active];
-				grepRemoved = false;
-			} else {
-				next = active.filter((name: string) => name !== "grep");
-				if (next.length !== active.length) grepRemoved = true;
-			}
-			if (next.length !== active.length || next.some((n, i) => n !== active[i])) await api.setActiveTools(next);
-		} catch {}
-	}
-
-	pi.on("session_start", async (_event, ctx) => {
-		await syncTools(pi, ctx);
+	pi.on("session_start", async _event => {
 		try {
 			lookup("edit.mode")?.override(pi.pi.settings, "replace");
 			lookup("edit.modelVariants")?.override(pi.pi.settings, { gpt: "apply_patch" });
 		} catch {}
 	});
 
-	pi.on("before_agent_start", async (_event, ctx) => {
-		await syncTools(pi, ctx);
-	});
-
 	pi.on("tool_result", async (event, ctx) => {
 		try {
-			if (event.toolName !== "bash" || isCursor(ctx) || event.isError === undefined) return;
+			if (event.toolName !== "bash" || event.isError === undefined) return;
 			const details = hookFields(event.details);
 			if (details.async != null && details.async !== false) return;
 			const wall = details.wallTimeMs;
@@ -676,116 +522,20 @@ export default function rg(pi: ExtensionAPI) {
 		}
 	});
 
-	pi.on("tool_result", async (event, ctx) => {
-		try {
-			if (!isCursor(ctx) || event.isError) return;
-			if (event.toolName !== "grep") return;
-			const input = hookFields(event.input);
-			const details = hookFields(event.details);
-			const pattern = inputString(input, "pattern") ?? "";
-			const pathArg = inputString(input, "path") ?? ".";
-			const id = event.toolCallId;
-			const recorded = typeof id === "string" ? grepBases.get(id) : undefined;
-			if (typeof id === "string") grepBases.delete(id);
-			const split = recorded ?? splitSearchPath(ctx.cwd, pathArg);
-			if (!split) return;
-
-			const original = Array.isArray(event.content) ? event.content[0] : undefined;
-			const originalText =
-				typeof original === "object" && original !== null && "text" in original && typeof original.text === "string"
-					? original.text
-					: "";
-			const { before, after } = contextCounts(originalText);
-			const common = {
-				cwd: ctx.cwd,
-				base: split.base,
-				glob: inputString(input, "glob") ?? split.glob,
-				pattern,
-				ignoreCase: inputBoolean(input, "case") === false,
-				multiline: pattern.includes("\n") || pattern.includes("\\n"),
-				signal: hookSignal(ctx),
-			};
-			const skip = typeof input.skip === "number" && input.skip >= 0 ? Math.floor(input.skip) : 0;
-			const content = (await cursorSearch({ ...common, mode: "content", before, after })).slice(skip);
-			const counts = (await cursorSearch({ ...common, mode: "count" })).slice(skip);
-
-			const shownFiles: SearchFile[] = [];
-			let lineBudget = OUTPUT_CAP;
-			let cut = false;
-			for (const f of content) {
-				if (f.entries.length > lineBudget) {
-					if (lineBudget > 0) shownFiles.push({ ...f, entries: f.entries.slice(0, lineBudget) });
-					cut = true;
-					break;
-				}
-				lineBudget -= f.entries.length;
-				shownFiles.push(f);
-			}
-			const fileMatches = counts.map(f => ({ path: f.path, count: f.count }));
-			const listing = pattern === "."; // native Glob arrives as a files_with_matches search for "."
-			const { perFileLimitReached: _removed, ...rest } = details;
-			const body = headingText(shownFiles);
-			const text = cut
-				? `${body}\n[Output cut at ${OUTPUT_CAP} lines in ${shownFiles[shownFiles.length - 1]?.path ?? "the first file"}; ${content.length - shownFiles.length} more files not shown. Narrow the path or glob to see them]`
-				: body;
-			return {
-				content: [{ type: "text", text }],
-				details: {
-					...rest,
-					files: listing ? content.slice(0, OUTPUT_CAP).map(f => f.path) : content.map(f => f.path),
-					fileMatches,
-					fileCount: fileMatches.length,
-					matchCount: fileMatches.reduce((s, f) => s + f.count, 0),
-					truncated: listing ? content.length > OUTPUT_CAP : cut,
-					fileLimitReached: false,
-				},
-			};
-		} catch (err) {
-			if (event.toolName !== "grep") return undefined;
-			const message = err instanceof Error ? err.message : String(err);
-			return {
-				content: [{ type: "text", text: `Error: search failed: ${message}` }],
-				details: event.details,
-				isError: true,
-			};
-		}
-	});
-
-	pi.on("tool_call", async (event, ctx) => {
-		try {
-			if (event.toolName !== "grep" || !isCursor(ctx)) return;
-			const input = hookFields(event.input);
-			const pathInput = inputString(input, "path");
-			const id = event.toolCallId;
-			if (typeof id !== "string" || pathInput === undefined) return;
-			const split = splitSearchPath(ctx.cwd, pathInput);
-			if (!split || !split.glob) return;
-			grepBases.set(id, { base: split.base, glob: split.glob });
-			return {
-				input: {
-					...input,
-					path: split.base,
-					...(inputString(input, "glob") === undefined ? { glob: split.glob } : {}),
-				},
-			};
-		} catch {
-			return undefined;
-		}
-	});
-
 	const z = pi.zod;
 	const outputMode = z.enum(["content", "files_with_matches", "count"]);
 
 	pi.registerTool({
-		name: "rg",
-		label: "rg",
+		name: "grep",
+		label: "grep",
 		loadMode: "essential",
 		description:
 			"Ripgrep search over file contents. Parameters: pattern (regex); path (file or directory, default working directory); glob (file glob filter; without '/' it matches the base name at any depth); " +
 			"type (js, ts, py, rust, go, java, c, cpp, md, json, yaml, toml, sh); output_mode (content | files_with_matches | count, default content); " +
 			"-A, -B, -C (context lines; -C applies only when -A/-B are absent); -i (case insensitive; search is case-sensitive by default); head_limit and offset (over output lines); multiline. " +
 			"Hidden files are searched and .gitignore is respected. Files are ordered newest-modified first and output is capped at 2,000 lines or files; " +
-			"a cut result ends with a [Showing paginated results, limit=N, offset=M] line.",
+			"a cut result ends with a [Showing paginated results, limit=N, offset=M] line. " +
+			"A path with a URL scheme, such as history://, artifact:// or local://, goes to omp's native search, which uses only pattern, path and -i.",
 		parameters: z.object({
 			pattern: z.string().optional(),
 			path: z.string().optional(),
@@ -800,12 +550,18 @@ export default function rg(pi: ExtensionAPI) {
 			offset: z.number().optional(),
 			multiline: z.boolean().optional(),
 		}),
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			if (params.type !== undefined && !(params.type in TYPE_EXTENSIONS)) {
 				return { content: [{ type: "text", text: `Unknown type: ${params.type}` }] };
 			}
 			if (params.pattern === undefined || params.pattern === "") {
 				return { content: [{ type: "text", text: "pattern is required" }] };
+			}
+			if (params.path?.includes("://")) {
+				return ctx.invokeTool!(
+					{ pattern: params.pattern, path: params.path, ...(params["-i"] ? { case: false } : {}) },
+					{ signal, onUpdate },
+				);
 			}
 
 			const pathParam = params.path === "" ? undefined : params.path;
@@ -836,7 +592,7 @@ export default function rg(pi: ExtensionAPI) {
 
 			let files: SearchFile[];
 			try {
-				files = await cursorSearch({
+				files = await runSearch({
 					cwd: ctx.cwd,
 					base,
 					glob: fileGlob,
@@ -913,7 +669,7 @@ export default function rg(pi: ExtensionAPI) {
 			if (!isDirectory(target)) {
 				return { content: [{ type: "text", text: `Error: Path does not exist: ${target}` }] };
 			}
-			const files = await cursorSearch({
+			const files = await runSearch({
 				cwd: ctx.cwd,
 				base: target,
 				glob: params.glob_pattern,
@@ -952,7 +708,7 @@ export default function rg(pi: ExtensionAPI) {
 			"A local text file returns raw lines with every 10th line numbered; a partial read is bracketed by '... K lines not shown ...' lines, " +
 			"and a long file ends with an offset to continue from. A line longer than the output budget is returned in fragments ending with " +
 			"'[Use path=<file>:<line>:chars:<start>+<count> to continue]' (pass that string as path). A local directory returns a recursive tree. " +
-			"omp selectors (:raw, :50-80, :50+30, :50-) are served directly on the cursor provider; other selectors, URLs such as skill://, artifact://, local://, images, PDF, archives and databases use the native reader.",
+			"omp selectors (:raw, :50-80, :50+30, :50-), URLs such as skill://, artifact://, local://, images, PDF, archives and databases use the native reader.",
 		parameters: z.object({
 			path: z.string(),
 			offset: z.number().optional(),
@@ -968,31 +724,19 @@ export default function rg(pi: ExtensionAPI) {
 				...(r.error ? { isError: true } : {}),
 			});
 
-			const frag = pathArg.match(/^([\s\S]+?)(?::raw)?:(\d+):chars(?::raw)?:(\d+)\+(\d+)/);
+			const frag = pathArg.match(/^([\s\S]+?):(\d+):chars:(\d+)\+(\d+)/);
 			if (frag) {
 				const fragAbs = resolve(ctx.cwd, frag[1]!);
 				if (!statSync(fragAbs, { throwIfNoEntry: false })?.isFile()) return notFound;
 				return shaped(
-					readLocalText(fragAbs, frag[1]!, { line: Number(frag[2]), charStart: Number(frag[3]), charCount: Number(frag[4]) }, isCursor(ctx)),
+					readLocalText(fragAbs, frag[1]!, { line: Number(frag[2]), charStart: Number(frag[3]), charCount: Number(frag[4]) }),
 				);
 			}
 
-			let file = pathArg;
-			let selectors = false;
-			let start: number | undefined;
-			let limit: number | undefined;
-			const parsed = isCursor(ctx) ? parseReadPath(pathArg) : null;
-			if (parsed && pathArg !== parsed.file) {
-				file = parsed.file;
-				start = parsed.start;
-				limit = parsed.limit ?? params.limit;
-				selectors = true;
-			} else if (!isPlainLocalPath(pathArg)) {
-				return native(pathArg);
-			} else {
-				start = params.offset;
-				limit = params.limit;
-			}
+			if (!isPlainLocalPath(pathArg)) return native(pathArg);
+			const file = pathArg;
+			const start = params.offset;
+			const limit = params.limit;
 
 			const abs = resolve(ctx.cwd, file);
 			let st;
@@ -1003,10 +747,9 @@ export default function rg(pi: ExtensionAPI) {
 			}
 			if (st.isDirectory()) {
 				const entries = await directoryTreeEntries(abs, signal);
-				return { content: [{ type: "text", text: isCursor(ctx) ? treeFlatLines(entries) : treeText(abs, entries) }] };
+				return { content: [{ type: "text", text: treeText(abs, entries) }] };
 			}
 			if (!st.isFile() || isArchiveMemberPath(file) || readExtensionSkip(file) || hasNulInFirst8k(abs)) {
-				if (selectors) return native(pathArg);
 				const { offset, limit: nativeLimit } = params;
 				if (!st.isFile() || (offset === undefined && nativeLimit === undefined)) return native(pathArg);
 				if (offset !== undefined && offset < 0) return native(`${pathArg}:${offset}`);
@@ -1020,7 +763,7 @@ export default function rg(pi: ExtensionAPI) {
 			const off = start === 0 ? undefined : start;
 			const sel: ReadSel =
 				off !== undefined && off < 0 ? { start: 1, limit: lim, offsetNeg: -off } : { start: off ?? 1, limit: lim };
-			return shaped(readLocalText(abs, file, sel, isCursor(ctx)));
+			return shaped(readLocalText(abs, file, sel));
 		},
 	});
 }

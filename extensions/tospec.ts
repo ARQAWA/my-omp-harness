@@ -520,7 +520,7 @@ export default function tospec(pi: ExtensionAPI) {
 		label: "ToSpec",
 		loadMode: "essential",
 		description:
-			"Move the active ToSpec to its next phase. step plan: after the user accepted the whole spec through ask; lowers reasoning one level for the plan and tasks. step ready: after the Spotty CLEAN and READY FOR IMPLEMENTATION in plan.md; then end the turn, and the approval window opens. step done: in the execution chat, after the Bossy CLEAN, together with the final report.",
+			"Move the active ToSpec to its next phase. step plan: after the user accepted the whole spec through ask; lowers reasoning one level for the plan and tasks. step ready: after the Spotty CLEAN and READY FOR IMPLEMENTATION in plan.md; then end the turn, and the approval window opens. step done: in the execution chat, after the Spotty CLEAN, together with the final report.",
 		parameters: z.object({ step: z.enum(["plan", "ready", "done"]) }),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			sync(ctx);
