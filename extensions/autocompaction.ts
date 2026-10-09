@@ -1,35 +1,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 
-const FOCUS_MAX_CHARS = 4_000;
-
 export function triggerTokens(id: string): number | undefined {
-	if (/claude-/i.test(id)) return 272_000;
+	if (/claude-/i.test(id)) return 270_000;
 	if (/(?:^|[/.])gpt-\d/i.test(id)) return 244_800;
-	return undefined;
-}
-
-function latestUserRequest(branch: readonly unknown[]): string | undefined {
-	for (let i = branch.length - 1; i >= 0; i--) {
-		const entry = branch[i] as
-			| { type?: string; message?: { role?: string; attribution?: string; content?: unknown } }
-			| undefined;
-		if (entry?.type !== "message" || entry.message?.role !== "user") continue;
-		if (entry.message.attribution === "agent") continue;
-		const content = entry.message.content;
-		const text = (
-			typeof content === "string"
-				? content
-				: Array.isArray(content)
-					? (content as { type?: string; text?: string }[])
-							.filter(b => b?.type === "text")
-							.map(b => b.text ?? "")
-							.join("\n")
-					: ""
-		).trim();
-		if (!text) continue;
-		return text.length > FOCUS_MAX_CHARS ? `${text.slice(0, FOCUS_MAX_CHARS)}…` : text;
-	}
 	return undefined;
 }
 
@@ -60,16 +34,4 @@ export default function autocompaction(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => sync(ctx));
 	pi.on("turn_start", (_event, ctx) => sync(ctx));
 	pi.on("retry_fallback_applied", (_event, ctx) => sync(ctx));
-
-	pi.on("session.compacting", (_event, ctx) => {
-		const focus = latestUserRequest(ctx.sessionManager.getBranch());
-		if (!focus) return;
-		return {
-			context: [
-				"Current focus: keep the summary centered on what is needed to continue the task below — goal, decisions made, files and code touched, current state, and the immediate next step. Drop details unrelated to it.\n\n<latest-user-request>\n" +
-					focus +
-					"\n</latest-user-request>",
-			],
-		};
-	});
 }

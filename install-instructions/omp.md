@@ -97,10 +97,10 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set extendedContext false
    omp config set codexResets.autoRedeem no
    omp config set steeringMode one-at-a-time
-   omp config set contextPromotion.enabled true
+   omp config set contextPromotion.enabled false
    omp config set branchSummary.enabled false
    omp config set compaction.methodOrder '["snapcompact","handoff","shake","soft","remote"]'
-   omp config set checkpoint.enabled true
+   omp config set checkpoint.enabled false
    omp config set astGrep.enabled true
    omp config set find.enabled on
    omp config set compaction.experimentalContextManagement true
