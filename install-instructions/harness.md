@@ -10,6 +10,7 @@
 `extensions/status-bar.ts`, `extensions/autocompaction.ts`,
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
 `extensions/tospec.ts` с текстами процесса в `extensions/tospec/`,
+`extensions/default-model.ts`, `extensions/subagent-reuse.ts`,
 `extensions/diagram.ts`, `skills/` и
 `agents/`. Каталог из списка `extensions` в `config.yml` omp загружает целиком:
 расширения берёт из его `package.json`, а `skills/` и `agents/` находит рядом.
@@ -36,7 +37,7 @@
 `diagram.ts` добавляет `diagram` — схему Mermaid PNG-картинкой во всю ширину
 терминала со ссылкой «Открыть в полный размер», в herdr через Kitty graphics.
 Субагенты этих инструментов не получают. `rg.ts` даёт всем агентам, в том числе
-`codebase_explorer`, `smarty` и `bossy`, один набор сбора контекста, как в Cursor:
+`codebase_explorer`, `spotty`, `smarty` и `bossy`, один набор сбора контекста, как в Cursor:
 `glob` (подменяет встроенный; `glob_pattern`, `target_directory`, новые файлы
 первыми, скрытые включены, .gitignore применяется), `rg` (поиск по содержимому в
 интерфейсе Cursor без лимита в 20 файлов на вызов, результат в
@@ -74,7 +75,7 @@ Glob приходит шаблоном `.`, его список ограниче
 каталог возвращается плоским списком; мост вставляет `:raw` в адрес
 фрагмента перед последним сегментом, `read` принимает обе формы. Дочерние задачи
 режима планирования не получают расширений и остаются на встроенных `read`,
-`grep`, `glob`. `smarty` и `bossy` получают `read, glob, rg`, `shell_runner` —
+`grep`, `glob`. `spotty`, `smarty` и `bossy` получают `read, glob, rg`, `shell_runner` —
 `bash, read, rg`, `codebase_explorer` — `bash, read, glob, rg`, где `bash` только
 для запросов к внешним источникам. Определение `codebase_explorer` задаёт жадный
 поиск: одна альтернатива `rg` из 10–30 терминов, целые файлы параллельными
@@ -91,7 +92,7 @@ Gold Standard работает как рабочий контракт:
   только по прямому приказу пользователя или по принятой процедуре.
 - Существующие проверки запускаются один раз после изменения кода.
 - Review запускаются только по явному выбору, кроме двух проверок ToSpec (спеки,
-  плана и задач Smarty перед запуском и результата выполнения Bossy) и двух
+  плана и задач Spotty перед запуском и результата выполнения Bossy) и двух
   проверок режима планирования из `main-workflow`. Каждая проверка идёт до
   CLEAN. Других автоматических review в пакете нет; gate финализации
   репозитория harness — его локальный skill вне пакета.
@@ -114,7 +115,7 @@ Gold Standard работает как рабочий контракт:
 - Для задачи из нескольких зависимых этапов root Main сам ставит цель (`goal`) и
   завершает её только после результата и обязательных действий. Просьба
   продолжить работу или цель снимает цель с паузы.
-- В режиме планирования omp Blind Review (Smarty) проверяет план перед
+- В режиме планирования omp Light Review (Spotty) проверяет план перед
   предложением на утверждение и результат выполнения утверждённого плана.
 
 Clear Communication: Main пишет в чате не больше трёх абзацев по 2–4
@@ -130,7 +131,7 @@ ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. 
 согласование через
 `ask` (каждый выбор с рекомендацией, затем «принять спеку целиком») → переход
 `plan` (reasoning на ступень ниже) → план с задачами → проверка спеки, плана и
-задач Smarty → переход `ready` и полноэкранное окно одобрения: оглавление и
+задач Spotty → переход `ready` и полноэкранное окно одобрения: оглавление и
 прокручиваемые spec.md и plan.md, выбор модели исполнителя и reasoning
 (shift+↑↓, shift+←→), пункт `Launch in a new chat` запускает выполнение в новом
 чистом чате (последний исполнитель запоминается) → выполнение с `todo` и целью → проверка
@@ -143,13 +144,18 @@ ready, `/tospec off` выключает режим.
 (Claude и прочие) — Claude-маршрут.
 
 - Именованные агенты запускаются по имени в `agent`, без `model`. У каждого одна
-  модель на семейство родителя; все пять идут на Haiku 5.5 под любым родителем:
-  `smarty` на `anthropic/claude-haiku-5-5:high`, остальные на
+  модель на семейство родителя; все шесть идут на Haiku 5.5 под любым родителем:
+  `spotty` на `anthropic/claude-haiku-5-5:medium`, `smarty` на
+  `anthropic/claude-haiku-5-5:high`, остальные на
   `anthropic/claude-haiku-5-5:xhigh`. Без входа `anthropic` эти агенты не
   запускаются.
 - Остальные запуски, включая встроенные агенты omp, передают уровень
   `@subagent_*`. Запуск без имени и без уровня блокируется.
 - В субагентах расширение выключает `retry.modelFallback`.
+
+`default-model.ts` при запуске omp ставит root-сессии модель `anthropic/claude-opus-5-5` и reasoning medium, если сессия новая и в командной строке нет флагов выбора модели (`--model`, `--models`, `--thinking`, `--provider`) и продолжения сессии (`-c`, `--continue`, `-r`, `--resume`, `--session`). Оно срабатывает один раз при запуске omp (событие `session_start` не повторяется на `/new` и `/resume`), не трогает субагентов и сессии с историей и `config.yml` не меняет; `modelRoles.default` остаётся настройкой машины.
+
+`subagent-reuse.ts` даёт Main переиспользовать незанятого субагента со сбросом контекста: когда сообщение IRC от Main (`write agent://<id>`) начинается с маркера `[task <id>#<n>]`, расширение в сессии субагента перед каждым запросом к модели отрезает всё до последнего такого сообщения, так что модель видит только системный промпт и новую задачу. Файл сессии хранит все задачи целиком, прошлую задачу находят по маркеру в `history://<id>`. Расширение опирается только на публичное событие `context`. Правило переиспользования для Main — в разделе «Subagent model routing» `SYSTEM.md`.
 
 `wrap-and-timer.ts` переносит текст ответа ассистента по 60 колонок уже во
 время стриминга. `status-bar.ts` достраивает статус-строку omp под полем ввода до
@@ -157,8 +163,8 @@ ready, `/tospec off` выключает режим.
 справа имя сессии. Первая строка под полем, вплотную к нему, — заполнение
 контекста полосой во
 всю ширину в цвете сессии, как линия над полем ввода. Вторая —
-родная строка omp: модель, скорость генерации `token_rate`, которую расширение
-берёт из живой оценки omp по каждому фрагменту стрима и красит (меньше 30
+родная строка omp: модель, скорость генерации `token_rate`: расширение берёт встроенное значение omp (выходные токены последнего завершённого
+ответа, присланные провайдером, на время ответа) и красит (меньше 30
 ток/с — красный, меньше 60 — жёлтый, меньше 90 —
 бледно-зелёный, иначе ярко-зелёный), режимы (план и цель вместе), время текущего
 хода через `setStatus` (остаётся после конца хода), фаза ToSpec и счётчики
@@ -187,6 +193,7 @@ kitty или CSI u. shift+↑ работает благодаря `keybindings.y
 
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
+| `spotty` | `anthropic/claude-haiku-5-5:medium` | `anthropic/claude-haiku-5-5:medium` | Light review |
 | `smarty` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | Blind review |
 | `bossy` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | High review |
 | `codebase_explorer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | жадный read-only поиск по коду и внешним источникам |
@@ -202,7 +209,7 @@ kitty или CSI u. shift+↑ работает благодаря `keybindings.y
 | `@subagent_medium` | `openai-codex/gpt-6-luna:xhigh` | `anthropic/claude-sonnet-5-5:high` | средние |
 | `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | сложные |
 
-Skills. Шесть скрытых (`hide: true`) вызываются через `/skill:<имя>` и
+Skills. Семь скрытых (`hide: true`) вызываются через `/skill:<имя>` и
 `skill://<имя>`; видимый `subagent-brief` Main читает перед брифом
 `codebase_explorer`, `code_writer` или `shell_runner`.
 
@@ -213,14 +220,16 @@ Skills. Шесть скрытых (`hide: true`) вызываются через
 | `clear-communication` | короткие сообщения в чате, промежуточные сообщения и итоговый ответ | скрытый |
 | `omp-tools` | механика инструментов omp: сначала скорость результата, потом число ходов, лимиты вывода, безопасная запись, временные файлы во временной папке ОС | скрытый |
 | `subagent-brief` | брифы `codebase_explorer`, `code_writer` и `shell_runner` и приёмка их final | видимый |
-| `blind-review-cycle` | один слепой проход Smarty; общий контракт обоих циклов | скрытый |
+| `blind-review-cycle` | один слепой проход Smarty; общий контракт трёх циклов | скрытый |
+| `light-review-cycle` | один слепой проход Spotty | скрытый |
 | `high-review-cycle` | один слепой проход Bossy | скрытый |
 
 Каждый цикл требует один чистый проход. Модели агентов — в таблице выше.
 
 | Skill | Агент | Когда запускается |
 |---|---|---|
-| `blind-review-cycle` | `smarty` | по явному вызову, в проверке спеки и плана ToSpec и в режиме планирования omp: план перед предложением и результат выполнения утверждённого плана |
+| `blind-review-cycle` | `smarty` | по явному вызову |
+| `light-review-cycle` | `spotty` | по явному вызову, в проверке спеки и плана ToSpec, в режиме планирования omp (план перед предложением и результат выполнения утверждённого плана) и в gate финализации репозитория |
 | `high-review-cycle` | `bossy` | по явному вызову и в проверке результата ToSpec |
 
 ## Требования
@@ -305,7 +314,17 @@ Skills. Шесть скрытых (`hide: true`) вызываются через
    Ожидаемый вывод: `yes` (или `да`) дважды, вывод потомка, затем из файла его
    сессии строка `model_change` с `"model":"anthropic/claude-haiku-5-5"` и
    строка `thinking_level_change` с `"thinkingLevel":"xhigh"`.
-4. Другие запросы к моделям и пробные задачи в проверку не входят.
+4. Проверь переиспользование субагента со сбросом контекста одной командой:
+
+   ```bash
+   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: ReuseCheck, agent: codebase_explorer, solutionSpace: 'fixed reply', task: a text of two lines, whose very first characters are the marker [task ReuseCheck#1] (no label before it), and whose second line is: The code word is ALPHA. Reply with OK.}; wait for it. Then call write with path agent://ReuseCheck and content of two lines, whose very first characters are the marker [task ReuseCheck#2], and whose second line is: What code word were you given earlier? Reply with the word, or NONE if you do not know. Wait for the reply and print it." && f="$(ls -t "$(omp config path)"/sessions/*/*/ReuseCheck.jsonl | head -1)" && grep -q ALPHA "$f" && grep -q '"message":"\[task ReuseCheck#2\]' "$f" && test ! -e "$(dirname "$f")/ReuseCheck-2.jsonl" && echo REUSE_OK
+   ```
+
+   Ожидаемый вывод: ответ `NONE` и строка `REUSE_OK`: второй ход не видит первую
+   задачу, файл сессии `ReuseCheck.jsonl` хранит обе задачи, нового субагента
+   нет. При любом другом результате сообщи владельцу о сбое и не называй
+   переиспользование рабочим.
+5. Другие запросы к моделям и пробные задачи в проверку не входят.
 
 ## Обновление
 
@@ -321,5 +340,5 @@ Skills. Шесть скрытых (`hide: true`) вызываются через
 5. Попроси владельца перезапустить omp: открытые сессии сохраняют прежний
    контекст.
 6. Выполни проверки изменённых частей. Если изменились `extensions/` или
-   `agents/`, включи проверку 3. Полную проверку первой установки без запроса не
+   `agents/`, включи проверку 3; проверку 4 выполняй при любом обновлении пакета. Полную проверку первой установки без запроса не
    повторяй.

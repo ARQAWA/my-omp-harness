@@ -20,6 +20,6 @@ lines or retell the spec. The ordinary check is reading and logic; tests, builds
 and runs need an explicit basis. The «Execution» field is «not started».
 
 p1 is the first plan. A substantive edit raises pN and, before launch, removes
-the Smarty CLEAN and readiness; a status record does not.
+the Spotty CLEAN and readiness; a status record does not.
 
 Output: a complete plan with status DRAFT. Next 05.

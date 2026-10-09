@@ -11,5 +11,5 @@ record it and READY FOR IMPLEMENTATION in plan.md.
 Tell the user in a few lines that the plan is ready: a link to plan.md, what
 will be done and how it will end. Call `tospec` with step `ready` and end the
 turn with that message; the approval window opens when the turn ends. Do not
-read 06. When readiness is lost, return the affected stages, pass the Smarty
+read 06. When readiness is lost, return the affected stages, pass the Spotty
 check again and call step `ready` again.

@@ -10,7 +10,7 @@ These rules bind root Main. The Gold Standard governs them.
 
 ## Plan mode
 
-In omp plan mode, root Main runs two automatic checkpoints of [Blind Review Cycle](skill://blind-review-cycle); this is the owner's standing adopted procedure. Before proposing a plan for approval, review the complete plan with `review_stage=pre-action` against the user's request, amendments and binding decisions, and propose only a plan that reached CLEAN. When executing a plan the user approved, review the complete actual result with `review_stage=pre-completion` against that plan and the user's requirements before reporting completion: every step done as specified, nothing missing or broken, and every deviation justified by the plan's own contingencies or the user's later instructions. At each checkpoint, fix all admitted findings and repeat with a fresh Smarty until CLEAN. ToSpec keeps its own checkpoints.
+In omp plan mode, root Main runs two automatic checkpoints of [Light Review Cycle](skill://light-review-cycle); this is the owner's standing adopted procedure. Before proposing a plan for approval, review the complete plan with `review_stage=pre-action` against the user's request, amendments and binding decisions, and propose only a plan that reached CLEAN. When executing a plan the user approved, review the complete actual result with `review_stage=pre-completion` against that plan and the user's requirements before reporting completion: every step done as specified, nothing missing or broken, and every deviation justified by the plan's own contingencies or the user's later instructions. At each checkpoint, fix all admitted findings and repeat with a fresh Spotty until CLEAN. ToSpec keeps its own checkpoints.
 
 ## Todo
 

@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts', 'default-model.ts', 'subagent-reuse.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -24,7 +24,7 @@ const policy = read('extensions/subagent-model-policy.ts');
 const named = [...policy.matchAll(/^\t(\w+): \{ gpt: "([^"]+)", claude: "([^"]+)" \},$/gm)]
   .map(([, name, gpt, claude]) => [name, gpt, claude]);
 const tiers = [...policy.matchAll(/^\t(subagent_\w+): \{\n\t\tgpt: "([^"]+)",\n\t\tclaude: "([^"]+)",\n\t\},$/gm)];
-assert.equal(named.length, 5, 'NAMED routes');
+assert.equal(named.length, 6, 'NAMED routes');
 assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
 for (const agent of ['codebase_explorer', 'code_writer', 'shell_runner']) {
@@ -41,11 +41,11 @@ for (const name of agents) {
   assert.ok(meta.description, `${name}: description`);
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
-for (const name of ['smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
+for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
   assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, rg', shell_runner: 'bash, read, rg' }[name] ?? 'read, glob, rg', name);
 }
 
-const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'main-workflow', 'omp-tools'];
+const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools'];
 const visible = ['subagent-brief'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();

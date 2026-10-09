@@ -7,7 +7,7 @@ The executor model and reasoning were chosen in the approval window.
 
 In the first batch read spec.md, plan.md and [Blind Review
 Cycle](skill://blind-review-cycle) and call `todo` with op `view`. Check the
-approval and the Smarty CLEAN in their headers; a missing source or lost
+approval and the Spotty CLEAN in their headers; a missing source or lost
 readiness stops the dependent work and returns the affected stage. A repeated
 launch does not repeat what is done.
 

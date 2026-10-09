@@ -20,7 +20,9 @@ omp ставится штатным установщиком с omp.sh и обн
 
 Ключи `extensions`, `task.maxConcurrency` и роли `subagent_*` в `modelRoles`
 задаёт [пакет harness](harness.md). Роль `default` выбирает владелец каждой
-машины, служебный `setupVersion` ведёт сам omp; они не переносятся.
+машины, служебный `setupVersion` ведёт сам omp; они не переносятся. Новая сессия
+без флагов выбора модели и продолжения стартует на Opus 5.5 medium: это делает
+расширение пакета `default-model.ts`, а `default` действует в остальных случаях.
 
 `<agent-dir>` — каталог, который печатает `omp config path`. Переключение модели
 и reasoning shift-стрелками входит в [пакет harness](harness.md).

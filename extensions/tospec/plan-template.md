@@ -4,7 +4,7 @@ Version: p1
 Basis: [spec.md](spec.md), vN
 Workspace: <same path>
 Status: DRAFT / READY FOR IMPLEMENTATION / NEEDS UPDATE
-Smarty check: <not passed / CLEAN>
+Spotty check: <not passed / CLEAN>
 Execution: not started
 
 ## Approach

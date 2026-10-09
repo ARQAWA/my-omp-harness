@@ -10,8 +10,8 @@ tmp directory; its path is in the header of the ToSpec block.
 
 Phases and calls of the `tospec` tool: **spec** (01 research, 02 spec, 03
 approval) → step `plan` after the user accepted the whole spec through `ask` →
-**plan** (04 plan with tasks, 05 Smarty check; reasoning is one level lower) →
-step `ready` after the Smarty CLEAN and READY FOR IMPLEMENTATION in plan.md,
+**plan** (04 plan with tasks, 05 Spotty check; reasoning is one level lower) →
+step `ready` after the Spotty CLEAN and READY FOR IMPLEMENTATION in plan.md,
 then end the turn → **ready** (the approval window) → **execute** in a new chat
 (06 execution and Bossy check) → step `done` after the Bossy CLEAN, together
 with the final report. `/tospec off` switches the mode off. This file is the
@@ -40,7 +40,7 @@ Preparation has no todo, goal or result check; 06 opens them.
 After the spec is approved, the agent writes the plan itself without a separate
 approval. A new result, scope, cost, access or a change of an approved condition
 returns to the spec and its approval. Readiness is the approval of the current
-meaning plus a Smarty CLEAN, and a substantive change before launch removes it;
+meaning plus a Spotty CLEAN, and a substantive change before launch removes it;
 a CLEAN is not an approval.
 
 Only `Launch in a new chat` in the approval window starts execution. The window

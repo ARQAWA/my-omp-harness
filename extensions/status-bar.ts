@@ -8,10 +8,9 @@ let latest: any;
 let turnStart: number | undefined;
 let lastTurnMs: number | undefined;
 let turnInterval: ReturnType<typeof setInterval> | undefined;
-let liveRate: number | null = null;
 
 function rateText(ctx: any): string | undefined {
-	const rate = liveRate !== null && liveRate > 0 ? liveRate : ctx?.usageStats?.tokensPerSecond;
+	const rate = ctx?.usageStats?.tokensPerSecond;
 	if (!rate || !Number.isFinite(rate)) return undefined;
 	const [r, g, b] = rate < 30 ? [255, 71, 87] : rate < 60 ? [255, 215, 95] : rate < 90 ? [168, 230, 163] : [0, 255, 136];
 	return `\x1b[38;2;${r};${g};${b}m${rate.toFixed(1)} tok/s\x1b[39m`;
@@ -69,9 +68,6 @@ function patchStatusLine() {
 	// The rule composer would put the right segments into the line above the input; keep that line plain.
 	proto.getStandaloneTopBorder = () => ({ content: "", width: 0, revision: 0 });
 	proto.render = function (width: number) {
-		// omp's live estimator follows every streamed delta; usageStats only changes when a message ends.
-		const live = this.session?.tokenRate?.rate?.();
-		liveRate = typeof live === "number" && Number.isFinite(live) ? live : null;
 		const base: string[] = render.call(this, width);
 		const theme = latest?.ui?.theme;
 		const k = base.findIndex(line => line !== "");

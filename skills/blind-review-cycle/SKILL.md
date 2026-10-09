@@ -1,12 +1,12 @@
 ---
 name: blind-review-cycle
-description: "Review cycle with smarty on explicit invocation or when a procedure requires it, such as ToSpec, Main Workflow or a finalization gate; the shared contract of High Review Cycle."
+description: "Review cycle with smarty on explicit invocation; the shared contract of Light Review Cycle (spotty) and High Review Cycle (bossy)."
 hide: true
 ---
 
 # Blind Review Cycle
 
-Run this cycle on explicit invocation or when a procedure requires it. It uses the agent `smarty`; [High Review Cycle](skill://high-review-cycle) follows this contract with `bossy`.
+Run this cycle with the agent `smarty` on explicit invocation. Its contract is shared: [Light Review Cycle](skill://light-review-cycle) follows it with `spotty` and [High Review Cycle](skill://high-review-cycle) with `bossy`, and the procedures that require a review run those cycles.
 
 The reviewer goes through the whole object once and returns every finding of that pass at once: everything agreed is done, nothing unagreed is added, and the criterion of the check holds. Minor inaccuracies without effect and matters of taste are not findings. Every pass is blind and complete, like the first one: a reviewer can miss a problem that the next fresh pass catches. You stay responsible for the result.
 

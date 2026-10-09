@@ -21,6 +21,7 @@ const ROUTES = {
 } as const;
 
 const NAMED: Record<string, { gpt: string; claude: string }> = {
+	spotty: { gpt: "anthropic/claude-haiku-5-5:medium", claude: "anthropic/claude-haiku-5-5:medium" },
 	smarty: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
 	bossy: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
 	codebase_explorer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
