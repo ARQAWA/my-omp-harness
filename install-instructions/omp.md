@@ -11,7 +11,7 @@ omp ставится штатным установщиком с omp.sh и обн
   в `<agent-dir>/themes/` и значение `theme.dark`;
 - окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
   `<agent-dir>/models.yml`: 400 000 токенов для GPT-6.1 Sol, GPT-6 Luna, Claude
-  Opus 5.5, Sonnet 5.5, Haiku 5.5 и Fable 5.1;
+  Opus 5.5, Sonnet 5.5, Haiku 5.5 и Fable 5.1, 272 000 для GPT-5.6 Luna;
 - клавиши — копия [`settings/keybindings.yml`](../settings/keybindings.yml) в
   `<agent-dir>/keybindings.yml`: освобождает shift+↑ (встроенное
   `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель;
@@ -85,7 +85,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
-   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'
+   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
    omp config set disabledProviders '["openrouter"]'
    omp config set providers.streamIdleTimeoutSeconds 900
    omp config set browser.enabled false
@@ -111,7 +111,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tui.codexResetFireworks true
    omp config set tui.titleSpinner braille
    omp config set tui.titleState true
-   omp config set display.collapseCompacted false
+   omp config set display.collapseCompacted true
    omp config set display.showTurnTime false
    omp config set display.showTokenUsage false
    omp config set spelling.typoDetection false

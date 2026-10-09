@@ -60,7 +60,7 @@ Every subagent launch through `task`, eval `agent()`, or `workpool()` must expli
 
 Use these role aliases rather than concrete model selectors or `@default`; the routing extension selects the family from the parent chat. GPT chats may spawn only the specified GPT models; Claude chats and chats on any other model use the specified Claude tiers. Do not launch an unclassified subagent or switch its model or effort after routing.
 
-The named harness agents `smarty`, `bossy`, `codebase_explorer`, `code_writer`, and `shell_runner` are the exception: launch them by `agent` name without `model`; the routing extension sets each one's model from the parent chat's family.
+The named harness agents `smarty`, `bossy`, `codebase_explorer`, `code_writer`, and `shell_runner` are the exception: launch them by `agent` name without `model`; the routing extension runs all five on Haiku 5.5 under any parent, GPT included.
 
 Root Main hands three kinds of noisy mechanical work to fast named agents so that its own context stays clean; this priority overrides any advice to save turns or seconds.
 

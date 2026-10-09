@@ -91,7 +91,7 @@ export default function harness(pi: ExtensionAPI) {
 		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`;
 		const cursor = ctx.model?.provider === "cursor" ? [CURSOR_TOOLS] : [];
 		// A subagent works from its definition and brief: drop block 0 (SYSTEM.md and the skill list) and add only the tool mechanics.
-		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt.slice(1), tools, ...cursor] };
+		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt.slice(1), tools] };
 		return {
 			systemPrompt: [
 				...event.systemPrompt,

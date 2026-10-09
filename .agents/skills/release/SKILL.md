@@ -12,11 +12,13 @@ them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a commit or a
 push. herdr and omp-vscode are released only when their sources changed or the
 owner names them.
-Skip the steps that are already done.
+Skip the steps that are already done. Main hands every program run below (tests,
+the VSIX build, checks of the changed parts) to `shell_runner` and keeps only git,
+`gh`, `cp`, `omp config` and `eval` in its own calls.
 
 1. If files changed after the last run of `node tests/run.mjs`, run it once.
    Then run [finalize-work](../finalize-work/SKILL.md) with
-   `review_stage=pre-action` on the whole result until CLEAN.
+   `review_stage=pre-action` on the whole repository until CLEAN.
 2. `git add` only the exact paths of the result, without other people's
    changes, then commit and `git push origin master`.
 3. Install on the current host: `omp config get extensions --json` must list

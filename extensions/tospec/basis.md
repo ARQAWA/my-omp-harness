@@ -31,10 +31,11 @@ nothing.
 ## Preparation and launch
 
 During preparation (phases spec, plan and ready) spec.md, plan.md and the
-research notes live in the workspace: the extension blocks `write`, `edit` and
-`ast_edit` everywhere except the workspace and `local://`, and bash and eval run
-only commands that change nothing outside the workspace. Preparation has no
-todo, goal or result check; 06 opens them.
+research notes live in the workspace: the extension allows file writes
+only in the workspace and `local://` (the internal `agent://`, `proc://` and
+`xd://` addresses are not files) and blocks `ast_edit` entirely; in bash and
+eval run only commands that change nothing outside the workspace.
+Preparation has no todo, goal or result check; 06 opens them.
 
 After the spec is approved, the agent writes the plan itself without a separate
 approval. A new result, scope, cost, access or a change of an approved condition

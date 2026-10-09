@@ -86,6 +86,22 @@ for (const [, name, gpt, claude] of tiers) {
   assert.ok(harnessDoc.includes(`"${name}": "${gpt}"`), `harness.md modelRoles: ${name}`);
   assert.ok(system.includes(`\`@${name}\``), `SYSTEM.md: @${name}`);
 }
+// MODELS from model-arrows.js, contextWindow ids from settings/models.yml
+const modelsBlock = read('extensions/model-arrows.js').match(/MODELS = \[([^\]]*)\]/)?.[1] ?? '';
+const models = [...modelsBlock.matchAll(/"([^"]+)"/g)].map(([, id]) => id);
+assert.ok(models.length > 0, 'model-arrows.js: MODELS');
+const windowed = new Set();
+let provider = '', model = '';
+for (const line of read('settings/models.yml').split('\n')) {
+  const key = line.match(/^( {2}| {6})([\w.-]+):$/);
+  if (key?.[1].length === 2) provider = key[2];
+  else if (key) model = key[2];
+  if (/^ {8}contextWindow:/.test(line)) windowed.add(`${provider}/${model}`);
+}
+const routed = [...named.map(([, gpt, claude]) => [gpt, claude]), ...tiers.map(([, , gpt, claude]) => [gpt, claude])]
+  .flat().map(id => id.replace(/:\w+$/, ''));
+for (const id of new Set(routed)) assert.ok(models.includes(id), `model-arrows.js: ${id}`);
+for (const id of models) assert.ok(windowed.has(id), `settings/models.yml: ${id}`);
 
 const installDocs = ['omp', 'harness', 'system-prompt', 'herdr'].map(name => `install-instructions/${name}.md`);
 const headings = ['## Состав', '## Требования', '## Первая установка', '## Проверка после установки', '## Обновление'];
