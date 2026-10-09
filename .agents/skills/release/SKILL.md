@@ -5,76 +5,45 @@ description: Release, commit, push or install my-omp-harness; release, commit an
 
 # Release
 
-General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md).
-
-Trigger: «release», «релиз», «выпустить», «commit», «коммит», «закоммитить»,
-«push», «пуш», «запушить», or «установить» (install) or «обновить» (update)
-harness or herdr. Ordinary editing does not trigger release.
-
-Any of the words release, commit or push orders one full release of this
-repository: finalize-work, commit, push and installation on the current host,
-all together. Do not treat them as separate partial orders. herdr (section 5)
-and omp-vscode (section 6) are released only when their sources changed or the
+The words release, commit and push («релиз», «коммит», «пуш» and their verb
+forms) each order one full release of this repository: finalize-work, commit,
+push and installation on the current host. «Установить» or «обновить» without
+them order installation only, by
+[INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a commit or a
+push. herdr and omp-vscode are released only when their sources changed or the
 owner names them.
+Skip the steps that are already done.
 
-## 1. Scope and sources
+1. If files changed after the last run of `node tests/run.mjs`, run it once.
+   Then run [finalize-work](../finalize-work/SKILL.md) with
+   `review_stage=pre-action` on the whole result until CLEAN.
+2. `git add` only the exact paths of the result, without other people's
+   changes, then commit and `git push origin master`.
+3. Install on the current host: `omp config get extensions --json` must list
+   this clone. If `SYSTEM.md` changed, copy it by
+   [system-prompt.md](../../../install-instructions/system-prompt.md); if the
+   requirements changed, such as `modelRoles`, apply them by
+   [harness.md](../../../install-instructions/harness.md). Run the checks of
+   the changed parts and ask the owner to start a new omp session.
 
-Determine the ordered parts in the order of the request. Read
-`INSTALL_FOR_AGENTS.md` and the needed `install-instructions/*.md`. Preserve
-other people's delta.
+## herdr
 
-A full release is a source commit, a push and installation on the current host.
-Analysis-only does not change state. Install-only («установить», «обновить»
-without release, commit or push) follows the installation instructions, without
-a commit or push. Reuse parts that are already done.
-
-## 2. Version and checks
-
-A version is a commit: do not add numbers or tags. The only tags and releases
-are `herdr` (section 5) and `omp-vscode` (section 6).
-
-If files changed after the last run, run `node tests/run.mjs` once before the
-commit; rerun only after fixing a failure it revealed. Run the other checks when
-they are ordered or required by the selected instruction. Local omp settings are
-reconciled with the repository by finalize-work (section 3).
-
-## 3. Source commit
-
-Before the commit run the mandatory [finalize-work](../finalize-work/SKILL.md)
-with `review_stage=pre-action` on the full result to be handed over. Reuse the
-CLEAN while the result and bases are unchanged. The same gate is mandatory before
-the push and before finishing the release.
-
-Run `git add` only for exact paths; do not include other people's delta. Then
-commit and `git push origin master`.
-
-## 4. Installation on the current host
-
-The package is loaded from this clone: make sure with
-`omp config get extensions --json` that the clone's path is in the list. If
-`SYSTEM.md` changed, update the copy under `install-instructions/system-prompt.md`.
-If the requirements changed (for example `modelRoles`), apply them under
-`install-instructions/harness.md`. Run the checks of the changed parts and ask the
-owner to restart omp. Other machines are updated under `INSTALL_FOR_AGENTS.md`.
-
-## 5. herdr
-
-The sources are the private repository `ARQAWA/herdr`, derived from the upstream
-herdr; the ready files are the `herdr` release of this repository. In that
-repository only the manual workflow `build-artifacts-manual.yml` runs; by default
-it builds all systems with `ReleaseFast` and SIMD. Releasing herdr: commit and
-push to `master` of `ARQAWA/herdr`, then the build (about 10 minutes) and
-replacement of the release files:
+The sources are the private fork `ARQAWA/herdr`; the ready files are the
+`herdr` release of this repository. Only the manual workflow
+`build-artifacts-manual.yml` builds them, for all systems with `ReleaseFast`
+and SIMD, in about 10 minutes. Commit and push to `master` of `ARQAWA/herdr`,
+then build and replace the release files:
 
 ```bash
 RUN="$(gh workflow run build-artifacts-manual.yml -R ARQAWA/herdr | grep -o '[0-9]*$')"
 gh run watch "$RUN" -R ARQAWA/herdr --exit-status
-D="$(mktemp -d)" && gh run download "$RUN" -R ARQAWA/herdr -D "$D" && gh release upload herdr -R ARQAWA/my-omp-harness --clobber "$D"/*/herdr-* && gh release edit herdr -R ARQAWA/my-omp-harness --notes "ARQAWA/herdr $(gh run view "$RUN" -R ARQAWA/herdr --json headSha -q .headSha)"; rm -rf "$D"
+D="$(mktemp -d)" && gh run download "$RUN" -R ARQAWA/herdr -D "$D" && gh release upload herdr -R ARQAWA/my-omp-harness --clobber "$D"/*/herdr-* && gh release edit herdr -R ARQAWA/my-omp-harness --notes "ARQAWA/herdr $(gh run view "$RUN" -R ARQAWA/herdr --json headSha -q .headSha)"
 ```
 
-Then update herdr on the current host under `install-instructions/herdr.md`.
+Then update herdr on the current host by
+[herdr.md](../../../install-instructions/herdr.md).
 
-## 6. omp-vscode
+## omp-vscode
 
 The VSIX packs `omp-vscode/` with the latest `omp-windows-x64.exe` of
 `can1357/oh-my-pi` as `bin/omp.exe` and replaces the file of the `omp-vscode`
@@ -84,9 +53,9 @@ release:
 D="$(mktemp -d)" && TAG="$(gh release view -R can1357/oh-my-pi --json tagName -q .tagName)" && cp omp-vscode/package.json omp-vscode/extension.js "$D" && gh release download "$TAG" -R can1357/oh-my-pi -p omp-windows-x64.exe -D "$D/bin" && mv "$D/bin/omp-windows-x64.exe" "$D/bin/omp.exe" && (cd "$D" && yes | npx --yes @vscode/vsce package --no-dependencies --target win32-x64 -o omp-vscode.vsix) && (gh release view omp-vscode -R ARQAWA/my-omp-harness >/dev/null 2>&1 || gh release create omp-vscode -R ARQAWA/my-omp-harness --title omp-vscode --notes "omp $TAG") && gh release upload omp-vscode -R ARQAWA/my-omp-harness --clobber "$D/omp-vscode.vsix" && gh release edit omp-vscode -R ARQAWA/my-omp-harness --notes "omp $TAG"
 ```
 
-## 7. Errors
+## Errors
 
-On an uncertain push, build, upload or installation, first read the state
+When a push, build, upload or installation is uncertain, read the state first
 (`git status`, `git log -1 origin/master`, `gh run list`,
-`gh release view herdr`, `gh release view omp-vscode`, `omp config get …`). Do not repeat blindly. Report the
-unfinished stage and do not declare the release complete.
+`gh release view herdr`, `gh release view omp-vscode`, `omp config get …`) instead of repeating blindly,
+report the unfinished stage and do not declare the release complete.

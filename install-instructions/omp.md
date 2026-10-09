@@ -11,8 +11,10 @@ omp ставится штатным установщиком с omp.sh и обн
   в `<agent-dir>/themes/` и значение `theme.dark`;
 - окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
   `<agent-dir>/models.yml`: 400 000 токенов для GPT-6.1 Sol, GPT-6 Luna, Claude
-  Opus 5.5, Sonnet 5.5, Haiku 5.5 и Fable 5.1, 250 000 для Composer 2.5; там же
-  Composer 2.5 помечен моделью без reasoning (`reasoning: false`);
+  Opus 5.5, Sonnet 5.5, Haiku 5.5 и Fable 5.1;
+- клавиши — копия [`settings/keybindings.yml`](../settings/keybindings.yml) в
+  `<agent-dir>/keybindings.yml`: освобождает shift+↑ (встроенное
+  `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель;
 - остальные настройки — ключи `config.yml` из шага 4 первой установки: вид
   статус-строки и поля ввода, модели и провайдеры, работа агента и интерфейс.
 
@@ -21,7 +23,7 @@ omp ставится штатным установщиком с omp.sh и обн
 машины, служебный `setupVersion` ведёт сам omp; они не переносятся.
 
 `<agent-dir>` — каталог, который печатает `omp config path`. Переключение модели
-и reasoning ctrl-стрелками входит в [пакет harness](harness.md).
+и reasoning shift-стрелками входит в [пакет harness](harness.md).
 
 ## Требования
 
@@ -57,7 +59,8 @@ omp ставится штатным установщиком с omp.sh и обн
 3. Если `$AGENT_DIR/models.yml` нет, скопируй туда `$CLONE/settings/models.yml`.
    Если файл есть и отличается, покажи различия командой
    `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
-   замени файл только с согласия владельца.
+   замени файл только с согласия владельца. Так же поступи с
+   `$CLONE/settings/keybindings.yml` и `$AGENT_DIR/keybindings.yml`.
 4. Задай настройки владельца. Тема убирает только значок перед контекстом; три
    строки статуса под полем ввода и строку над ним собирает расширение
    `status-bar.ts` пакета harness.
@@ -79,11 +82,13 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tasks.todoClearDelay 0
    omp config set symbolPreset unicode
    omp config set colorBlindMode false
-   omp config set hideThinkingBlock false
-   omp config set proseOnlyThinking true
-   omp config set omitThinking true
-   omp config set enabledModels '["cursor/composer-2.5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'
+   omp config set hideThinkingBlock true
+   omp config set proseOnlyThinking false
+   omp config set omitThinking false
+   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5"]'
    omp config set disabledProviders '["openrouter"]'
+   omp config set providers.streamIdleTimeoutSeconds 900
+   omp config set browser.enabled false
    omp config set retry.fallbackChains '{"openai-codex/*":[]}'
    omp config set extendedContext false
    omp config set codexResets.autoRedeem no
@@ -93,7 +98,10 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set compaction.methodOrder '["snapcompact","handoff","shake","soft","remote"]'
    omp config set checkpoint.enabled true
    omp config set astGrep.enabled true
-   omp config set find.enabled auto
+   omp config set find.enabled on
+   omp config set compaction.experimentalContextManagement true
+   omp config set security.enabled false
+   omp config set externalThinking false
    omp config set tools.intentTracing false
    omp config set tui.resizeScrollback rebuild
    omp config set tui.textSizing false
@@ -120,7 +128,7 @@ omp ставится штатным установщиком с omp.sh и обн
 
 1. `omp --version` печатает версию.
 2. `cmp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/titanium-arq.json"`
-   ничего не печатает. Та же команда для `models.yml` ничего не печатает, если
+   ничего не печатает. Та же команда для `models.yml` и `keybindings.yml` ничего не печатает, если
    владелец не отказался от замены.
 3. `omp config list` показывает для каждого ключа шага 4 его значение из этого
    шага.
@@ -128,7 +136,7 @@ omp ставится штатным установщиком с omp.sh и обн
 ## Обновление
 
 1. Выполни `omp update`.
-2. Повтори проверку 2. Отличающуюся тему скопируй заново; отличающийся
-   `models.yml` заменяй, как в шаге 3 первой установки.
+2. Повтори проверку 2. Отличающуюся тему скопируй заново; отличающиеся
+   `models.yml` и `keybindings.yml` заменяй, как в шаге 3 первой установки.
 3. Если проверка 3 показывает другие значения, повтори шаг 4.
 4. Новая версия и настройки действуют в новой сессии omp.

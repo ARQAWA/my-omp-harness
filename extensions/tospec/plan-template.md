@@ -9,18 +9,14 @@ Execution: not started
 
 ## Approach
 
-<Mechanism, model and adaptation; basis in facts and Gold Standard.>
+<Mechanism and adaptation with their basis in the facts.>
 
 ## Decisions
 
-- D-...: <decision>; <R/U, sources>; reason: <...>; alternatives: <...>; impact: <T/AC>.
+- D-...: <decision>; basis: <R/U, sources>; reason: <...>; alternatives: <...>.
 
 ## Tasks
 
 ### T-001. <block>
 
-R/AC/D: ...; scope: <paths/symbols or "create">; action: ...; check: ...
-
-## Handoff
-
-Read spec.md and Gold Standard (paths in the spec.md header). Execute T in order; a changed condition or an unavailable mandatory source is a blocker. Status NEEDS UPDATE or the absence of CLEAN forbids launch. Execution is launched from the approval window in a new chat (step 06); Bossy checks the result.
+R/AC/D: ...; scope: <paths/symbols or «create»>; action: ...; check: ...

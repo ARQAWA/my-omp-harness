@@ -1,66 +1,41 @@
-# 06. Execution of the confirmed plan
+# 06. Execution of the approved plan
 
-Input: the start message of this new chat with the paths of spec.md and
-plan.md, approval and the Smarty CLEAN. The executor model and reasoning were
-already chosen in the approval window. Apply [basis.md](basis.md) and Gold
-Standard; the step fits any task and its real objects.
+Input: the start message of this new chat with the paths of spec.md and plan.md.
+The executor model and reasoning were chosen in the approval window.
 
 ## Launch
 
-In the first batch read spec.md, plan.md and
-[High Review Cycle](skill://high-review-cycle) and call `todo` with op `view`.
-Check the scope, amendments, approval and CLEAN in the headers; do not look for
-another workspace. A missing source or lost readiness holds the dependent
-transition and returns the affected stage. A repeated launch does not repeat what
-is done.
+In the first batch read spec.md, plan.md and [Blind Review
+Cycle](skill://blind-review-cycle) and call `todo` with op `view`. Check the
+approval and the Smarty CLEAN in their headers; a missing source or lost
+readiness stops the dependent work and returns the affected stage. A repeated
+launch does not repeat what is done.
 
-Launch explicitly selects todo and the goal. Reuse a matching open todo; do not
-replace a conflicting one. Otherwise call `todo` with op `init` together with the
-first working calls; the items come from the approved result and acceptance,
-without invented metrics, tests and budget. Set the goal by the goal rule of Gold
-Standard: one or two sentences from the approved result and acceptance. Do not
-copy the plan into todo. A pause with an explicit resume condition does not allow
-continuing against the user's will.
+Reuse a matching open todo and leave a conflicting one alone; otherwise call
+`todo` with op `init` together with the first work calls, with items from the
+approved result and acceptance and without copying the plan. Set the goal by the
+goal rule of Main Workflow from the approved result and acceptance.
 
 ## Execution
 
-Execute T in order under Gold Standard. Preserve user changes and mandatory
-behavior; remove what the approved rework makes obsolete within its scope. Ask
-the user questions through `ask` under basis.md. A new result, scope, cost,
-access, privacy or a change of method returns to approval through `ask`; changed
-T require an up-to-date plan. Smarty is not repeated: Bossy checks the result
-together with the changes. Update the plan.md "Execution" field once, at
-completion or pause. The ordinary check is reading and logic; permitted empirical
-checks require real observations.
+Carry out the tasks T in order. Preserve user changes and mandatory behavior,
+and remove what the approved rework makes obsolete within its scope. Ask
+questions through `ask` by basis.md; a new result, scope, cost, access or a
+change of method returns to approval, and changed tasks need an updated plan.
+The ordinary check is reading and logic. Update the «Execution» field of plan.md
+once, at completion or pause.
 
 ## Acceptance
 
-After the result, launch one fresh read-only Bossy under High Review Cycle,
-review_stage=pre-completion, without Main's history and earlier findings; while
-it works, prepare the final answer. Bases — under
-[review](review.md). The reviewer checks the result
-against the requirements and the full Gold Standard: conditions, extra scope and
-contradictions. Do not change the result during the pass.
-
-Fix the admitted substantial findings under review and repeat with a fresh Bossy
-until CLEAN. Separately selected reviews and mandatory gates of the environment
-are kept; combine them when the object, profile and criteria match. If Bossy is
-unavailable, do not complete the todo and the goal: keep the materials, report
-the blocker and wait; do not substitute another reviewer.
+After the result, run the 06 check of [review](review.md) and prepare the final
+answer while Bossy works. Fix the admitted findings and repeat with a fresh
+Bossy until CLEAN. Separately selected reviews and mandatory gates of the
+environment stay; combine them when the object and criterion match. If Bossy
+cannot start, keep the todo and the goal open, report the blocker and wait.
 
 ## Completion
 
-After the result, the mandatory evidence and a Bossy CLEAN, update "Execution".
-Leave the needed results, originals and evidence where the order requires; do not
-create permanent reports, copies of spec/plan or an archive for the sake of the
-workflow. In the final batch, together with closing the todo, completing the
-goal and calling `tospec` with step `done`, delete by exact paths the task
-workspace and the temporary files you
-created. Do not delete results, source objects, or other people's or unknown
-materials. On a pause, wait, blocker or a request to keep, leave everything. Do
-not load cleanup skills.
-
-Then give a short self-contained summary under Clear Communication: the result,
-CLEAN and material limitations. While mandatory work remains, do not close the
-todo items and the goal; a pause, cancellation and a blocker follow the todo
-rules in Gold Standard.
+After the CLEAN, update «Execution». In the final batch close the todo,
+complete the goal and call `tospec` with step `done`, then give a short
+self-contained summary by Clear Communication: the result, the CLEAN and
+material limitations.

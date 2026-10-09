@@ -1,6 +1,6 @@
 ---
 name: shell_runner
-description: "Run programs from a self-contained brief and report results: tests, builds, linters, type checks, project scripts, dependency installs, apps and servers as named services, and omp checks. Claude Haiku 5.5 with extra high reasoning under any parent."
+description: "Runs the programs a self-contained brief names, such as tests, builds, scripts, installs, apps and servers, decides nothing, and returns a terse final with the results."
 tools: bash, read, rg
 ---
 

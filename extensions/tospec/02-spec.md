@@ -1,43 +1,28 @@
 # 02. Specification
 
-Write spec.md in the workspace using the [spec template](spec-template.md).
-The document is for the agent and has no human-facing part; the explanation for
-the user goes in the chat (step 03). Describe the scope and rules for the real
-task. Put material observations from an experiment into F with the conditions
-and the limit of the conclusion, without a log and without invented runs.
+Write spec.md in the workspace by the [spec template](spec-template.md). It is a
+document for the agent; the explanation for the user goes into the chat in 03.
 
-Describe the problem, boundaries, behavior, scenarios, R requirements and AC
-acceptance. Each R rests on a U or on a decision D within U; each AC rests on an
-R. Examples and exceptions do not introduce hidden behavior. An F confirms a
-fact but does not replace the user's assignment.
+The spec holds only the original request, its amendments, the user's answers and
+the decisions approved in 03. Each requirement R rests on a U or on a decision D
+within U, and each acceptance AC rests on an R; examples and exceptions bring in
+no hidden behavior, and an F confirms a fact without replacing the user's
+assignment. Describe what the result needs: the problem, boundaries, behavior,
+conditions, data, interfaces and errors. Add no limits, migrations, security,
+fallback, tests or rare cases the user did not ask for.
 
-For each independent design decision record a D and its kind:
-- DIRECT — an exact instruction of the user U.
-- FORCED — another permissible option violates a standing condition; name it.
-  Convenience, habit and a ready-made library do not prove uniqueness.
-- CHOICE — there are alternatives; recommend the simplest sufficient option under
-  Gold Standard and briefly name the rejected ones and the reasons.
+Record each independent design decision as a D of one kind:
+- DIRECT — the user's exact instruction U.
+- FORCED — every other option breaks a standing condition; name it. Convenience,
+  habit or a ready-made library do not make a decision forced.
+- CHOICE — real alternatives exist; recommend the simplest sufficient one and
+  name the rejected ones with reasons.
 
-New decisions are only proposed so far. Do not hand the design back to the user:
-each CHOICE carries a recommendation and the real alternatives for the question
-in 03. A material unknown fact is a Q; ask through `ask` only if research cannot
-obtain it.
+New decisions stay proposals until 03. A material unknown is a Q; ask it through
+`ask` only when research cannot obtain it.
 
-Detail what the result needs: conditions, data, interfaces, errors, constraints,
-verifiable outcomes. Do not add limits, migrations, security, fallback, tests,
-infrastructure or rare cases for the sake of quality. Cite an applicable
-mandatory contract with its source. Metrics and runs for confidence are not
-needed; an experiment — only under 01.
+The first presentation is v1. One round of user amendments raises vN once; an
+internal fix does not raise it, but a new meaning removes the plan's readiness.
 
-Check the user's conditions and the bases of D while writing; do not reread the
-file in a separate pass. For a FORCED decision make sure the alternatives really
-violate the condition, otherwise it is a CHOICE.
-
-The first presentation is v1. One user round of substantive amendments raises vN
-once; several amendments before the next submission are one round. An internal
-fix does not raise the number, but a new meaning or decisive fact removes the
-plan's readiness; the old approval is kept only for the unchanged meaning.
-Re-checking the amendment is set by review.
-
-Output: a draft with the bases of all R/AC/D, without hidden scope or a work
-plan. Next 03; do not launch a reviewer before approval.
+Output: a draft where every R, AC and D has its basis, without a work plan. Next
+03; launch no reviewer before approval.

@@ -11,7 +11,7 @@ export function levelsFor(model) {
 }
 
 export default function (pi) {
-  for (const [key, direction] of [["ctrl+left", -1], ["ctrl+right", 1]]) {
+  for (const [key, direction] of [["shift+left", -1], ["shift+right", 1]]) {
     pi.registerShortcut(key, {
       description: direction < 0 ? "Decrease reasoning effort" : "Increase reasoning effort",
       handler(ctx) {
@@ -25,7 +25,7 @@ export default function (pi) {
       },
     });
   }
-  // On off Haiku gets thinking disabled and Sonnet keeps between_tools; both get effort low explicitly; with thinking disabled Anthropic rejects any effort change in history, so per-message effort inserts become low too.
+  // On off Haiku gets thinking disabled with effort high and Sonnet keeps between_tools with effort medium; with thinking disabled Anthropic rejects any effort change in history, so per-message effort inserts of Haiku become high too.
   pi.on("before_provider_request", event => {
     const payload = event.payload;
     if (payload?.model === "claude-haiku-5-5" && pi.getThinkingLevel() === "off") {
@@ -34,15 +34,15 @@ export default function (pi) {
       return {
         ...rest,
         messages: payload.messages?.map(message =>
-          message?.output_config?.effort !== undefined && message.output_config.effort !== "low"
-            ? { ...message, output_config: { ...message.output_config, effort: "low" } }
+          message?.output_config?.effort !== undefined && message.output_config.effort !== "high"
+            ? { ...message, output_config: { ...message.output_config, effort: "high" } }
             : message),
         ...(edits.length ? { context_management: { ...contextManagement, edits } } : {}),
         thinking: { type: "disabled" },
-        output_config: { ...payload.output_config, effort: "low" },
+        output_config: { ...payload.output_config, effort: "high" },
       };
     }
     if (payload?.thinking?.type !== "between_tools") return;
-    return { ...payload, output_config: { ...payload.output_config, effort: "low" } };
+    return { ...payload, output_config: { ...payload.output_config, effort: "medium" } };
   });
 }

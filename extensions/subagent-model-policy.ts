@@ -21,10 +21,9 @@ const ROUTES = {
 } as const;
 
 const NAMED: Record<string, { gpt: string; claude: string }> = {
-	spotty: { gpt: "openai-codex/gpt-6-sol:medium", claude: "anthropic/claude-opus-5-5:low" },
-	smarty: { gpt: "openai-codex/gpt-6.1-sol:low", claude: "anthropic/claude-opus-5-5:low" },
-	bossy: { gpt: "openai-codex/gpt-6.1-sol:medium", claude: "anthropic/claude-opus-5-5:medium" },
-	enot: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
+	smarty: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
+	bossy: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
+	codebase_explorer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
 	code_writer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
 	shell_runner: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
 };

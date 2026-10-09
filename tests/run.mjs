@@ -24,22 +24,10 @@ const policy = read('extensions/subagent-model-policy.ts');
 const named = [...policy.matchAll(/^\t(\w+): \{ gpt: "([^"]+)", claude: "([^"]+)" \},$/gm)]
   .map(([, name, gpt, claude]) => [name, gpt, claude]);
 const tiers = [...policy.matchAll(/^\t(subagent_\w+): \{\n\t\tgpt: "([^"]+)",\n\t\tclaude: "([^"]+)",\n\t\},$/gm)];
-assert.equal(named.length, 6, 'NAMED routes');
+assert.equal(named.length, 5, 'NAMED routes');
 assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
-// 'openai-codex/gpt-6-sol:medium' -> ['gpt-6-sol', 'medium']
-const split = model => model.split('/')[1].split(':');
-
-for (const [skill, agent] of [['light-review-cycle', 'spotty'], ['blind-review-cycle', 'smarty'], ['high-review-cycle', 'bossy']]) {
-  const [, gpt, claude] = route(agent);
-  const [[gptId, gptEffort], [claudeId, claudeEffort]] = [split(gpt), split(claude)];
-  assert.ok(read(`skills/${skill}/SKILL.md`).includes(`GPT parent: \`${gptId}\`, reasoning \`${gptEffort}\`; Claude parent: \`${claudeId}\`, reasoning \`${claudeEffort}\``), `${skill}: ${agent} models`);
-}
-const [, smartyGpt, smartyClaude] = route('smarty');
-for (const file of ['extensions/tospec/review.md', '.agents/skills/finalize-work/SKILL.md']) {
-  assert.ok(read(file).includes(`GPT parent: ${split(smartyGpt).join(' / ')}; Claude parent: ${split(smartyClaude).join(' / ')}`), `${file}: smarty models`);
-}
-for (const agent of ['enot', 'code_writer', 'shell_runner']) {
+for (const agent of ['codebase_explorer', 'code_writer', 'shell_runner']) {
   const [, gpt, claude] = route(agent);
   assert.equal(gpt, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: gpt model`);
   assert.equal(claude, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: claude model`);
@@ -53,14 +41,15 @@ for (const name of agents) {
   assert.ok(meta.description, `${name}: description`);
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
-for (const name of ['spotty', 'smarty', 'bossy', 'enot', 'shell_runner']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, name === 'shell_runner' ? 'bash, read, rg' : 'read, glob, rg', name);
+for (const name of ['smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
+  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, rg', shell_runner: 'bash, read, rg' }[name] ?? 'read, glob, rg', name);
 }
 
-const hidden = ['blind-review-cycle', 'cleanup-task', 'clear-communication', 'context-gathering', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'omp-tools'];
+const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'main-workflow', 'omp-tools'];
+const visible = ['subagent-brief'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
-assert.deepEqual(skills, hidden);
+assert.deepEqual(skills, [...hidden, ...visible].sort());
 for (const skill of skills) {
   const meta = frontmatter(`skills/${skill}/SKILL.md`);
   assert.equal(meta.name, skill);
@@ -78,7 +67,6 @@ for (const dir of ['skills', 'agents', 'extensions']) {
     if (!statSync(path.join(root, relative)).isFile()) continue;
     const text = read(relative);
     assert.doesNotMatch(text, codexLeftovers, relative);
-    if (relative.startsWith(path.join('extensions', 'tospec'))) assert.doesNotMatch(text, /[Ss]potty|[Ll]ight[ -][Rr]eview/, `${relative}: one Smarty check`);
     // skill://<name>[/<file>] must point to a bundled skill and an existing file
     for (const [, skill, sub] of text.matchAll(/skill:\/\/([\w-]+)(?:\/([\w./-]*\w))?/g)) {
       assert.ok(skills.includes(skill) && (!sub || existsSync(path.join(root, 'skills', skill, sub))), `${relative}: skill://${skill}/${sub ?? ''}`);

@@ -6,12 +6,11 @@ export const MODELS = [
   "anthropic/claude-fable-5-1",
   "openai-codex/gpt-6.1-sol",
   "openai-codex/gpt-6-luna",
-  "cursor/grok-4.7",
-  "cursor/composer-2.5",
+  "openai-codex/gpt-5.6-luna",
 ];
 
 export default function (pi) {
-  for (const [key, direction] of [["ctrl+up", -1], ["ctrl+down", 1]]) {
+  for (const [key, direction] of [["shift+up", -1], ["shift+down", 1]]) {
     pi.registerShortcut(key, {
       description: direction < 0 ? "Previous model in list" : "Next model in list",
       async handler(ctx) {

@@ -253,9 +253,9 @@ export default function tospec(pi: ExtensionAPI) {
 							focus === "toc"
 								? "↑↓ section · →/Enter open"
 								: focus === "body"
-									? "↑↓ scroll · shift faster · PgUp/PgDn page · g/G ends"
+									? "↑↓ scroll · ctrl faster · PgUp/PgDn page · g/G ends"
 									: "↑↓ select · Enter confirm";
-						const hint = areaHint + " · " + "Tab regions · ctrl+↑↓ model · ctrl+←→ reasoning · Esc close";
+						const hint = areaHint + " · " + "Tab regions · shift+↑↓ model · shift+←→ reasoning · Esc close";
 						const out: string[] = [
 							showToc ? topBorderSplit(width, "ToSpec Review", tocWidth) : topBorder(width, "ToSpec Review"),
 						];
@@ -295,13 +295,13 @@ export default function tospec(pi: ExtensionAPI) {
 							done(undefined);
 							return;
 						}
-						if (matchesKey(data, "ctrl+up")) {
+						if (matchesKey(data, "shift+up")) {
 							bumpModel(-1);
-						} else if (matchesKey(data, "ctrl+down")) {
+						} else if (matchesKey(data, "shift+down")) {
 							bumpModel(1);
-						} else if (matchesKey(data, "ctrl+left")) {
+						} else if (matchesKey(data, "shift+left")) {
 							bumpLevel(-1);
-						} else if (matchesKey(data, "ctrl+right")) {
+						} else if (matchesKey(data, "shift+right")) {
 							bumpLevel(1);
 						} else if (matchesKey(data, "shift+tab") || matchesKey(data, "tab")) {
 							const areas: Focus[] = showToc ? ["toc", "body", "actions"] : ["body", "actions"];
@@ -334,9 +334,9 @@ export default function tospec(pi: ExtensionAPI) {
 								} else if (matchesKey(data, "down")) {
 									if (view.getScrollOffset() >= view.getMaxScrollOffset()) focus = "actions";
 									else view.scroll(1);
-								} else if (matchesKey(data, "shift+up")) {
+								} else if (matchesKey(data, "ctrl+up")) {
 									view.scroll(-5);
-								} else if (matchesKey(data, "shift+down")) {
+								} else if (matchesKey(data, "ctrl+down")) {
 									view.scroll(5);
 								} else if (matchesKey(data, "pageUp")) {
 									view.page(-1);
@@ -418,7 +418,7 @@ export default function tospec(pi: ExtensionAPI) {
 		const switched = await pi.setModel(executorModel);
 		if (!switched) {
 			ctx.ui.notify(
-				`ToSpec: could not switch to ${choice.model}. Choose the executor with ctrl+↑/↓ and ctrl+←/→, then send the prepared message.`,
+				`ToSpec: could not switch to ${choice.model}. Choose the executor with shift+↑/↓ and shift+←/→, then send the prepared message.`,
 				"info",
 			);
 			ctx.ui.setEditorText(start);

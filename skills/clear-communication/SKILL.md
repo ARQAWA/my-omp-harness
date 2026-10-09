@@ -30,21 +30,27 @@ stopping; this skill changes only how messages read.
    user needs to do, if anything, and the question to the user, when one is
    needed, at the very end. Above it come the
    decisive reasons, and above them the supporting details, so the user reading
-   upward from the end gets the message in a natural order. For user-facing
-   messages this order replaces the general instruction to lead with the result.
+   upward from the end gets the message in a natural order.
 4. Do the analysis yourself: give one recommended solution with its decisive
    reason, and when a choice matters, name the viable alternatives and why you
    rejected them in a few words. Ask one focused question only when needed. It
    names the actual decision or missing fact and its consequence, answerable
    from chat alone; a filename, link or quotation does not explain it.
-5. Progress updates use the same form. Send one only for a significant result,
-   a change of approach, an important uncertainty, a blocker or needed user
-   input. Reading, searching, running a command, loading a skill and elapsed time
-   need no message; explain a long wait once.
+5. Progress updates use the same form and say what you learned, what remains
+   uncertain and what it affects, with small observations combined into one
+   update. Send one only for a significant result, a change of approach, an
+   important uncertainty, a blocker or needed user input; a long task may open
+   with one update on its scope or expected delay. Reading, searching, running
+   a command, loading a skill and elapsed time need no message, and neither
+   does the start of a short task; explain a long wait once.
 6. Reports cover only what the user asked about and state plainly any part not
-   done. Leave out work history, the verification method, advice and caveats
-   that change no decision. Stop after the last useful sentence: no recap,
-   generic offers, unsolicited next steps or promises of correctness.
+   done. The final message stands on its own: the user never needs earlier
+   updates to understand it, and when the requested answer is a file, the file
+   is the answer and the chat does not repeat it. Refer to files and sources
+   with accurate, usable links. Leave out work history, the verification
+   method, raw logs, advice and caveats that change no decision. Stop after the
+   last useful sentence: no recap, generic offers, unsolicited next steps or
+   promises of correctness.
 
 ## Detailed form (on explicit request)
 

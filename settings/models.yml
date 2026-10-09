@@ -15,8 +15,3 @@ providers:
         contextWindow: 400000
       claude-fable-5-1:
         contextWindow: 400000
-  cursor:
-    modelOverrides:
-      composer-2.5:
-        contextWindow: 250000
-        reasoning: false

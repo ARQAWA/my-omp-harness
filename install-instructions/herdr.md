@@ -37,7 +37,19 @@ mouse_scroll_lines = 1
 
 [update]
 version_check = false
+
+[keys]
+previous_workspace = "ctrl+shift+up"
+next_workspace = "ctrl+shift+down"
+new_workspace = ["prefix+shift+n", "ctrl+shift+n"]
 ```
+
+ctrl+shift+↑/↓ переходят по строкам боковой панели (чатам и окнам без агента)
+сверху вниз, как по меню, и останавливаются на самой верхней и самой нижней строке;
+строки свёрнутых проектов пропускаются. ctrl+shift+N открывает новое окно.
+ctrl+shift+N отличается от ctrl+N, только если терминал шлёт CSI u или протокол
+kitty; ctrl+shift+↑/↓ отличаются от ctrl+↑/↓, если терминал шлёт `ESC[1;6A`/`ESC[1;6B`
+или CSI u (iTerm2: Settings → Profiles → Keys → «Report keys using CSI u»).
 
 `version_check = false` выключает напоминание о новой версии обычного herdr:
 `herdr update` поставил бы её поверх нашей сборки. Интеграция `omp` — расширение

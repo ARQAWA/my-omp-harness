@@ -617,40 +617,18 @@ function isPlainLocalPath(p: string): boolean {
 
 export default function rg(pi: ExtensionAPI) {
 	const grepBases = new Map<string, { base: string; glob: string }>();
-	const CURSOR_DUPLICATES = ["rg", "glob", "edit"]; // removed only when grep is active: native Grep, Glob and StrReplace run through omp grep/write and this engine
-	const removed = new Set<string>();
+	let grepRemoved = false; // grep is the entry of the Cursor bridge: native Grep and Glob run through it and this engine
 
 	async function syncTools(api: ExtensionAPI, ctx: { model?: { provider?: string } }): Promise<void> {
 		try {
 			const active = await api.getActiveTools();
 			let next: string[];
 			if (isCursor(ctx)) {
-				next = [...active];
-				if (removed.has("grep") && !next.includes("grep")) next.push("grep");
-				removed.delete("grep");
-				if (next.includes("grep")) {
-					next = next.filter((name: string) => {
-						if (CURSOR_DUPLICATES.includes(name)) {
-							removed.add(name);
-							return false;
-						}
-						return true;
-					});
-				}
+				next = grepRemoved && !active.includes("grep") ? [...active, "grep"] : [...active];
+				grepRemoved = false;
 			} else {
-				next = active.filter((name: string) => {
-					if (name === "grep") {
-						removed.add("grep");
-						return false;
-					}
-					return true;
-				});
-				for (const name of CURSOR_DUPLICATES) {
-					if (removed.has(name)) {
-						if (!next.includes(name)) next.push(name);
-						removed.delete(name);
-					}
-				}
+				next = active.filter((name: string) => name !== "grep");
+				if (next.length !== active.length) grepRemoved = true;
 			}
 			if (next.length !== active.length || next.some((n, i) => n !== active[i])) await api.setActiveTools(next);
 		} catch {}

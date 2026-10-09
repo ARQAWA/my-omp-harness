@@ -20,16 +20,19 @@
 `harness.ts` на каждом запросе к модели (`before_agent_start`) дописывает к
 системному промпту:
 
-- всем агентам — полный `skills/gold-standard/SKILL.md`,
-  `skills/omp-tools/SKILL.md` и `skills/context-gathering/SKILL.md`;
-- Main — ещё `skills/clear-communication/SKILL.md`.
+- root Main — полный `skills/gold-standard/SKILL.md`,
+  `skills/omp-tools/SKILL.md`, `skills/main-workflow/SKILL.md` и
+  `skills/clear-communication/SKILL.md`;
+- субагенту — только `skills/omp-tools/SKILL.md`. Первый блок промпта
+  (`SYSTEM.md` и список skills) у субагента убирается: он работает по своему
+  определению и брифу.
 
 Инструменты Main: `harness.ts` держит включённым инструмент цели omp `goal` и
 добавляет `progress` — полосу подшагов текущего пункта под панелью todo;
 `diagram.ts` добавляет `diagram` — схему Mermaid PNG-картинкой во всю ширину
 терминала со ссылкой «Открыть в полный размер», в herdr через Kitty graphics.
 Субагенты этих инструментов не получают. `rg.ts` даёт всем агентам, в том числе
-`enot`, `spotty`, `smarty` и `bossy`, один набор сбора контекста, как в Cursor:
+`codebase_explorer`, `smarty` и `bossy`, один набор сбора контекста, как в Cursor:
 `glob` (подменяет встроенный; `glob_pattern`, `target_directory`, новые файлы
 первыми, скрытые включены, .gitignore применяется), `rg` (поиск по содержимому в
 интерфейсе Cursor без лимита в 20 файлов на вызов, результат в
@@ -42,13 +45,12 @@
 символов и ~90 КБ, поэтому omp не вырезает середину. Остальные пути (URL,
 `skill://`, архивы, изображения, `:conflicts`, `:img`) идут в родной `read`.
 Встроенный `grep` в активном наборе удалён у моделей на родных провайдерах. На
-провайдере `cursor` модель видит родные инструменты Cursor, поэтому `rg`, `glob` и
-`edit` убираются как дубли родных Grep, Glob и StrReplace, а `grep` возвращается:
-через него мост omp исполняет родные Grep и Glob. Роль без `grep` сохраняет `rg` и
-`glob`. `harness.ts` добавляет на этом
-провайдере таблицу имён: родные Read, Glob, Grep, Shell, StrReplace, Write, Delete и
-TodoWrite выполняют `read`, `glob`, `rg`, `bash`, `edit`, `write`, `delete` и
-`todo`, а субагенты и цели идут через MCP `task` и `goal`. Правки у моделей на родных провайдерах работают без меток `[PATH#TAG]`:
+провайдере `cursor` набор не меняется: `rg`, `glob` и `edit` остаются MCP-инструментами,
+а `grep` возвращается, потому что через него мост omp исполняет родные Grep и Glob.
+`harness.ts` добавляет на этом провайдере запрет родных Glob и Grep, точные аргументы
+MCP `glob` и `rg` с примерами и таблицу имён: родные Read, Shell, StrReplace, Write,
+Delete и TodoWrite выполняют `read`, `bash`, `edit`, `write`, `delete` и `todo`, а
+субагенты и цели идут через MCP `task` и `goal`. Правки у моделей на родных провайдерах работают без меток `[PATH#TAG]`:
 `apply_patch` для GPT, `replace` для остальных, переопределением настроек на
 время сессии без записи в `config.yml`. Результат `bash` у моделей на родных
 провайдерах приходит в обёртке Shell из Cursor (`Exit code`, `Command output`,
@@ -68,17 +70,38 @@ Glob приходит шаблоном `.`, его список ограниче
 каталог возвращается плоским списком; мост вставляет `:raw` в адрес
 фрагмента перед последним сегментом, `read` принимает обе формы. Дочерние задачи
 режима планирования не получают расширений и остаются на встроенных `read`,
-`grep`, `glob`. `enot` получает `read, glob, rg` без `bash`, `shell_runner` — `bash, read, rg`. Скрытый skill
-`context-gathering` задаёт правила Cursor: `rg` и `glob` вместо поиска в
-оболочке, независимые вызовы одной пачкой, продолжение по хвостам.
+`grep`, `glob`. `smarty` и `bossy` получают `read, glob, rg`, `shell_runner` —
+`bash, read, rg`, `codebase_explorer` — `bash, read, glob, rg`, где `bash` только
+для запросов к внешним источникам. Определение `codebase_explorer` задаёт жадный
+поиск: одна альтернатива `rg` из 10–30 терминов, целые файлы параллельными
+пачками и остановка, когда ответ подтверждён; тот же порядок действует для вики,
+трекеров, PR и чатов.
 
 Gold Standard работает как рабочий контракт:
 
-- Минимизируется результат, а не чтение.
-- Лимиты вывода считаются на весь батч; большой документ пишется за один проход.
-  Чтение системы целиком описано в `context-gathering`.
+- Агент идёт самым коротким прямым путём: собирает минимум нужных сведений,
+  углубляется только на спорном месте и только до его закрытия, а решение
+  выбирает по экспертизе, документации и логике, без опытов и замеров.
+- Тяжёлая работа (глубокий ресёрч, сравнение вариантов, опыты, замеры, новые
+  тесты, проверки сверх покрывающих изменение, лишние review и субагенты) идёт
+  только по прямому приказу пользователя или по принятой процедуре.
 - Существующие проверки запускаются один раз после изменения кода.
-- Временные файлы удаляются в последней команде, которая их использует.
+- Review запускаются только по явному выбору, кроме двух проверок ToSpec (спеки,
+  плана и задач Smarty перед запуском и результата выполнения Bossy) и двух
+  проверок режима планирования из `main-workflow`. Каждая проверка идёт до
+  CLEAN. Других автоматических review нет.
+
+`omp-tools` ставит на первое место скорость результата, на второе — число ходов:
+независимые вызовы идут в одном ответе или в JS-ячейке `eval` с `Promise.all`,
+лимиты вывода считаются на весь батч, временные файлы создаются только во
+временной папке ОС, которую чистит система. Поиск по незнакомым файлам, несколько
+раундов поиска, внешние источники и материал больше своего контекста root Main
+передаёт `codebase_explorer` по разделу маршрутизации `SYSTEM.md`, а брифы
+`codebase_explorer`, `code_writer` и `shell_runner` пишет по видимому skill
+`subagent-brief`.
+
+`main-workflow` действует только для root Main:
+
 - Root Main автоматически ведёт список `todo` для каждой задачи из двух и более
   шагов и показывает подшаги текущего пункта через `progress`. Список хранит
   этапы с черновыми решениями; находки лежат в файлах `local://<тема>.md`,
@@ -86,28 +109,25 @@ Gold Standard работает как рабочий контракт:
 - Для задачи из нескольких зависимых этапов root Main сам ставит цель (`goal`) и
   завершает её только после результата и обязательных действий. Просьба
   продолжить работу или цель снимает цель с паузы.
-- Для поиска по незнакомым файлам и для материала больше контекста стандарт
-  запускает быстрого read-only агента `enot` через `task` по имени, без `model`.
-- Review запускаются только по явному выбору, кроме двух проверок ToSpec (спеки,
-  плана и задач Smarty перед запуском и результата выполнения Bossy) и двух
-  проверок Blind Review (Smarty) в режиме планирования omp: плана перед
-  предложением на утверждение и результата выполнения утверждённого плана.
-  Каждая проверка идёт до CLEAN. Других автоматических review нет.
+- В режиме планирования omp Blind Review (Smarty) проверяет план перед
+  предложением на утверждение и результат выполнения утверждённого плана.
 
 Clear Communication: Main пишет в чате не больше трёх абзацев по 2–4
 предложения, разделённых линией `---` с пустыми строками вокруг. Вверху детали,
-ниже причины, в последнем абзаце жирный главный итог и вопрос. Блоки с жирными
+ниже причины, в последнем абзаце жирный главный итог и вопрос. Там же правила
+промежуточных сообщений и самодостаточного итогового ответа. Блоки с жирными
 подписями — подробный вид только по прямой просьбе; в ToSpec обсуждение и
 утверждение спеки могут удлинить абзац или добавить новый. HTML-отчётов в
 harness нет.
 
-ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. Исследование с
-вопросами через `ask` → спека, написанная по Gold Standard → согласование через
+ToSpec (`/tospec <задача>`): режим расширения `tospec.ts`. Исследование коротким
+путём с вопросами через `ask` → спека ровно из запрошенного и согласованного →
+согласование через
 `ask` (каждый выбор с рекомендацией, затем «принять спеку целиком») → переход
 `plan` (reasoning на ступень ниже) → план с задачами → проверка спеки, плана и
 задач Smarty → переход `ready` и полноэкранное окно одобрения: оглавление и
 прокручиваемые spec.md и plan.md, выбор модели исполнителя и reasoning
-(ctrl+↑↓, ctrl+←→), пункт `Launch in a new chat` запускает выполнение в новом
+(shift+↑↓, shift+←→), пункт `Launch in a new chat` запускает выполнение в новом
 чистом чате (последний исполнитель запоминается) → выполнение с `todo` и целью → проверка
 результата Bossy до CLEAN. В подготовке запись вне workspace и `local://`
 блокируется. `/tospec review` (и `/tospec` без аргумента) открывает окно в фазе
@@ -115,12 +135,13 @@ ready, `/tospec off` выключает режим.
 
 `subagent-model-policy.ts` выбирает модель потомка по семейству родителя:
 родитель GPT (id модели `gpt-*`) получает GPT-маршрут, любой другой родитель
-(Claude, Grok, Composer и прочие) — Claude-маршрут.
+(Claude и прочие) — Claude-маршрут.
 
 - Именованные агенты запускаются по имени в `agent`, без `model`. У каждого одна
-  модель на семейство родителя; `enot`, `code_writer` и `shell_runner` идут на
-  `anthropic/claude-haiku-5-5:xhigh` под любым родителем. Без входа `anthropic`
-  эти агенты не запускаются.
+  модель на семейство родителя; все пять идут на Haiku 5.5 под любым родителем:
+  `smarty` на `anthropic/claude-haiku-5-5:high`, остальные на
+  `anthropic/claude-haiku-5-5:xhigh`. Без входа `anthropic` эти агенты не
+  запускаются.
 - Остальные запуски, включая встроенные агенты omp, передают уровень
   `@subagent_*`. Запуск без имени и без уровня блокируется.
 - В субагентах расширение выключает `retry.modelFallback`.
@@ -142,27 +163,28 @@ git и PR, справа — ID сессии;
 цвета сессии.
 Раскладку и сегменты задаёт [omp.md](omp.md). `autocompaction.ts`
 ставит порог автосжатия Main: 272 000 токенов для Claude Opus и Sonnet версии
-5.5 и выше и для Claude Fable, 100 000 для Claude Haiku, 244 800 для GPT версии 6 и выше, 170 000 для Composer, если порог
+5.5 и выше и для Claude Fable, 100 000 для Claude Haiku, 244 800 для GPT версии 6 и выше, если порог
 ниже окна контекста, и направляет сводку сжатия на последний запрос пользователя.
 
-`model-arrows.js`: ctrl+↑ и ctrl+↓ переключают модель Main по списку Claude
+`model-arrows.js`: shift+↑ и shift+↓ переключают модель Main по списку Claude
 Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,
-GPT-6 Luna, Grok 4.7 (`cursor/grok-4.7`), Composer 2.5.
-`reasoning-arrows.js`: ctrl+← и ctrl+→ понижают и повышают reasoning среди
+GPT-6 Luna, GPT-5.6 Luna.
+`harness.ts`: ctrl+shift+P ставит активную цель на паузу, повторное нажатие
+возобновляет её (расширение подставляет `/goal pause` или `/goal resume` в пустое
+поле ввода); клавиша доходит отдельно от ctrl+P только в терминале с протоколом
+kitty или CSI u. shift+↑ работает благодаря `keybindings.yml` из [omp.md](omp.md).
+`reasoning-arrows.js`: shift+← и shift+→ понижают и повышают reasoning среди
 уровней, которые поддерживает модель; добавлен no reasoning (`off`): у Sonnet
-5.5 — `between_tools` с effort low, у Haiku 5.5 — мышление выключено
-(`thinking: disabled`) с effort low; хук запроса ставит их при отправке.
-У Composer 2.5 уровней reasoning нет: Cursor не даёт ему варианта или параметра
-reasoning, поэтому `settings/models.yml` помечает его `reasoning: false`.
+5.5 — `between_tools` с effort medium, у Haiku 5.5 — мышление выключено
+(`thinking: disabled`) с effort high; хук запроса ставит их при отправке.
 
 Именованные агенты:
 
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
-| `spotty` | `openai-codex/gpt-6-sol:medium` | `anthropic/claude-opus-5-5:low` | Light review |
-| `smarty` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | Blind review |
-| `bossy` | `openai-codex/gpt-6.1-sol:medium` | `anthropic/claude-opus-5-5:medium` | High review |
-| `enot` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | быстрые read-only вопросы по коду и большим данным |
+| `smarty` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | Blind review |
+| `bossy` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | High review |
+| `codebase_explorer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | жадный read-only поиск по коду и внешним источникам |
 | `code_writer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | код и конфиги по брифам Main |
 | `shell_runner` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | запуски программ по брифам Main |
 
@@ -175,25 +197,24 @@ reasoning, поэтому `settings/models.yml` помечает его `reasoni
 | `@subagent_medium` | `openai-codex/gpt-6-luna:xhigh` | `anthropic/claude-sonnet-5-5:high` | средние |
 | `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | сложные |
 
-Skills. Восемь скрытых (`hide: true`) вызываются через `/skill:<имя>` и
-`skill://<имя>`.
+Skills. Шесть скрытых (`hide: true`) вызываются через `/skill:<имя>` и
+`skill://<имя>`; видимый `subagent-brief` Main читает перед брифом
+`codebase_explorer`, `code_writer` или `shell_runner`.
 
 | Skill | Назначение | Видимость |
 |---|---|---|
-| `gold-standard` | полный результат самым простым прямым путём | скрытый |
-| `clear-communication` | короткие сообщения в чате | скрытый |
-| `omp-tools` | механика инструментов omp: скорость, лимиты вывода, безопасная запись | скрытый |
-| `context-gathering` | сбор контекста как в Cursor: `glob`, `rg`, `read`, `bash`, хвосты продолжения, независимые вызовы одной пачкой, передача `enot` по размеру | скрытый |
-| `cleanup-task` | уборка временных материалов по прямому запросу | скрытый |
-| `light-review-cycle` | один слепой проход Spotty | скрытый |
-| `blind-review-cycle` | один слепой проход Smarty; общий контракт всех циклов | скрытый |
+| `gold-standard` | полный результат самым коротким прямым путём, тяжёлая работа только по прямому приказу | скрытый |
+| `main-workflow` | режим планирования, `todo`, `progress` и цель root Main | скрытый |
+| `clear-communication` | короткие сообщения в чате, промежуточные сообщения и итоговый ответ | скрытый |
+| `omp-tools` | механика инструментов omp: сначала скорость результата, потом число ходов, лимиты вывода, безопасная запись, временные файлы во временной папке ОС | скрытый |
+| `subagent-brief` | брифы `codebase_explorer`, `code_writer` и `shell_runner` и приёмка их final | видимый |
+| `blind-review-cycle` | один слепой проход Smarty; общий контракт обоих циклов | скрытый |
 | `high-review-cycle` | один слепой проход Bossy | скрытый |
 
 Каждый цикл требует один чистый проход. Модели агентов — в таблице выше.
 
 | Skill | Агент | Когда запускается |
 |---|---|---|
-| `light-review-cycle` | `spotty` | только по явному вызову |
 | `blind-review-cycle` | `smarty` | по явному вызову, в проверке спеки и плана ToSpec и в режиме планирования omp: план перед предложением и результат выполнения утверждённого плана |
 | `high-review-cycle` | `bossy` | по явному вызову и в проверке результата ToSpec |
 
@@ -203,8 +224,8 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
   bash-инструмент omp или Git Bash.
 - Учётные данные провайдеров:
   - `openai-codex` — для GPT;
-  - `anthropic` — для Claude и для `enot`, `code_writer`, `shell_runner` под
-    любым родителем.
+  - `anthropic` — для Claude и для всех именованных агентов под любым
+    родителем.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:
   - `extensions` содержит путь клона.
   - `task.maxConcurrency` не ниже 44; более высокое значение или `0` (без
@@ -273,7 +294,7 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 3. Выполни одной командой вызов модели и чтение файла сессии потомка:
 
    ```bash
-   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'Apply the following communication skill before every user-facing message'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: enot, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
+   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'Apply the following communication skill before every user-facing message'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: codebase_explorer, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
    ```
 
    Ожидаемый вывод: `yes` (или `да`) дважды, вывод потомка, затем из файла его
@@ -297,6 +318,3 @@ Skills. Восемь скрытых (`hide: true`) вызываются чере
 6. Выполни проверки изменённых частей. Если изменились `extensions/` или
    `agents/`, включи проверку 3. Полную проверку первой установки без запроса не
    повторяй.
-
-
-[You have received this identical output 6 times. Re-reading '/Users/arkadijcukavin/Documents/ChatGPT/my-omp-harness/install-instructions/harness.md:raw' will not change it — use a narrower selector (path:A-B), or proceed with the edit.]
