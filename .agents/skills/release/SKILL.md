@@ -1,18 +1,24 @@
 ---
 name: release
-description: Release, commit, push or install my-omp-harness; release, commit and push each order one full release (commit, push and installation on the current host); ordinary edits do not trigger release.
+description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync each order one full release as one package (settings sync, all checks and the finalize-work gate under spotty's control, commit, push and installation on the current host); ordinary edits do not trigger release.
 ---
 
 # Release
 
-The words release, commit and push («релиз», «коммит», «пуш» and their verb
-forms) each order one full release of this repository: finalize-work, commit,
-push and installation on the current host. «Установить» or «обновить» without
+The words release, commit, push and sync («релиз», «коммит», «пуш»,
+«синхронизация» and their verb forms) each order one full release of this
+repository as one package: the settings sync, every check and the
+finalize-work gate, commit, push and installation on the current host. Spotty
+controls the package: without its CLEAN on the whole repository there is no
+commit or push, and a commit or push never runs without the rest of the
+package. «Установить» or «обновить» without
 them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a commit or a
 push. herdr and omp-vscode are released only when their sources changed or the
 owner names them.
-Skip the steps that are already done. Main hands every program run below (tests,
+Every release runs the whole package; a step counts as done only while its
+result still holds, such as a test run or a gate CLEAN after which no file
+changed. Main hands every program run below (tests,
 the VSIX build, checks of the changed parts) to `shell_runner` and keeps only git,
 `gh`, `cp`, `omp config` and `eval` in its own calls.
 
