@@ -83,6 +83,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set composer.shape rule
    omp config set composer.tokenRate false
    omp config set tasks.todoClearDelay 0
+   omp config set todo.reminders false
    omp config set symbolPreset unicode
    omp config set colorBlindMode false
    omp config set hideThinkingBlock true
