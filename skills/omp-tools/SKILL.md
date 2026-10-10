@@ -20,4 +20,5 @@ hide: true
 - Filter, slice, count, and parse output in an `eval` js cell rather than long `awk` or `sed` scripts, and call `JSON.parse` only on text known to be JSON, inside `try`. Run a multi-step script as one `eval` cell instead of nesting it in `bash -c`, a heredoc, or a temporary script file.
 - Start a long command with `async: true` and keep working; its result arrives on its own, so wait for it only before work that depends on it. Run a server as a named service with `ready`. Never poll with `sleep`, `ps`, or log tails.
 - Messages to other agents may be read by a person, so keep them legible, with proper spaces between words and numbers.
+- The `ask` panel shows only the first four lines of a question and cuts the rest. Keep each question to one or two sentences, and write what the user must read to answer, such as a requirement list or a draft, into the chat message right before the call.
 - Speed never skips required order, approvals, or permission boundaries.

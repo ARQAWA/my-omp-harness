@@ -19,8 +19,10 @@ the templates, the extension and the documentation.
 ## Questions
 
 Ask every question and request every approval through the `ask` tool, all
-questions of one moment in one call. Each question is complete without the chat
-and files; options are short, the recommended one carries `recommended`, and
+questions of one moment in one call. Each question takes one or two sentences,
+because the `ask` panel shows only four lines of a question; what the user must
+read to answer goes into the chat right before the call, never only into files;
+options are short, the recommended one carries `recommended`, and
 `ask` adds the option for the user's own text itself. Put independent reads in
 the same batch and make the dependent transition after the answer. A cancelled
 ask, an answer by timeout, a switch to discussion, a question or silence approve
