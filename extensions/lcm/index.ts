@@ -1,0 +1,465 @@
+/**
+ * pi-lcm: Lossless Context Management extension for Pi.
+ *
+ * Session lifecycle: per-event detection with no global flags.
+ *   - session_start: checks event.reason if present (new Pi), otherwise init-only (old Pi).
+ *   - session_switch / session_fork: legacy-only events (never fire on new Pi).
+ * Fix 7: closeDb() in session_start catch block.
+ * Fix H1: message_end has no entryId — always pass null.
+ */
+
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { completeSimple, type AssistantMessage } from "@mariozechner/pi-ai";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { resolveConfig, type LcmConfig } from "./src/config.js";
+import { openDb, closeDb, checkpointDb } from "./src/db/connection.js";
+import { runMigrations } from "./src/db/schema.js";
+import { LcmStore } from "./src/db/store.js";
+import { CompactionEngine, SUMMARY_MAX_OUTPUT_TOKENS, type CompactionDeps } from "./src/compaction/engine.js";
+import { SUMMARIZER_SYSTEM_PROMPT } from "./src/compaction/prompts.js";
+import { assembleSummary } from "./src/compaction/assembler.js";
+import { persistMessage, type PersistorState } from "./src/persistor.js";
+import { LCM_SYSTEM_PREAMBLE } from "./src/context.js";
+import { handleLcmCommand, type CommandState } from "./src/commands.js";
+import { updateStatus } from "./src/status.js";
+import { createLcmGrepTool } from "./src/tools/lcm-grep.js";
+import { createLcmDescribeTool } from "./src/tools/lcm-describe.js";
+import { createLcmExpandTool } from "./src/tools/lcm-expand.js";
+import { loadSettings, saveSettings, type SettingsScope } from "./src/settings.js";
+import { LcmSettingsPanel, type LcmPanelDeps } from "./src/settings-panel.js";
+
+/** Appends one JSON line per model call to costs.jsonl in the DB directory. Never throws. */
+function logCompactionCost(
+  logDir: string,
+  ctx: { sessionManager?: { getSessionId?: () => string } },
+  kind: "leaf" | "condense",
+  modelRef: string,
+  reasoning: "low" | "high" | "xhigh",
+  started: number,
+  response: AssistantMessage,
+): void {
+  try {
+    const usage = response.usage;
+    const entry = {
+      ts: new Date().toISOString(),
+      sessionId: ctx.sessionManager?.getSessionId?.() ?? null,
+      kind,
+      model: modelRef,
+      reasoning,
+      durationMs: Date.now() - started,
+      tokens: {
+        input: usage?.input ?? 0,
+        output: usage?.output ?? 0,
+        cacheRead: usage?.cacheRead ?? 0,
+        cacheWrite: usage?.cacheWrite ?? 0,
+      },
+      cost: {
+        input: usage?.cost?.input ?? 0,
+        output: usage?.cost?.output ?? 0,
+        cacheRead: usage?.cost?.cacheRead ?? 0,
+        cacheWrite: usage?.cost?.cacheWrite ?? 0,
+        total: usage?.cost?.total ?? 0,
+      },
+    };
+    mkdirSync(logDir, { recursive: true });
+    appendFileSync(join(logDir, "costs.jsonl"), JSON.stringify(entry) + "\n");
+  } catch (e: unknown) {
+    console.error("[LCM] Cost log write failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+export default function (pi: ExtensionAPI) {
+  let config = resolveConfig();
+  if (!config.enabled) return;
+
+  // ── Shared state ────────────────────────────────────────────────
+
+  let store: LcmStore | null = null;
+  let settingsScope: SettingsScope = "global";
+  let conversationId: string | null = null;
+  let hasCompactedHistory = false;
+  let cachedGuidelines: string[] = [];
+
+  const COMPACT_DEADLINE_MS = 25_000;
+  let bgRunning = false;
+  let engineCache: { store: LcmStore; engine: CompactionEngine } | null = null;
+  // One engine per store so background runs and compaction share its per-conversation lock
+  function getEngine(s: LcmStore): CompactionEngine {
+    if (!engineCache || engineCache.store !== s) engineCache = { store: s, engine: new CompactionEngine(s, config) };
+    return engineCache.engine;
+  }
+
+  const getStore = () => store;
+  const getConversationId = () => conversationId;
+  const getGuidelines = () => cachedGuidelines;
+
+  function updateGuidelines(): void {
+    if (!store || !conversationId) { cachedGuidelines = []; return; }
+    const stats = store.getStats(conversationId);
+    cachedGuidelines = [
+      `LCM has ${stats.messages} stored messages across ${stats.summaries} summaries (max depth ${stats.maxDepth}).`,
+      "Use lcm_grep when you need to find something specific from earlier in the conversation.",
+      "Use lcm_expand to recover exact details from compressed summaries.",
+    ];
+  }
+
+  // Fix 6: Shared initialization logic
+  function initializeSession(ctx: any): void {
+    const sessionId = ctx.sessionManager.getSessionId();
+    const sessionFile = ctx.sessionManager.getSessionFile?.() ?? null;
+    const cwd = ctx.cwd;
+
+    if (!sessionId || !cwd) return;
+
+    // Reload config (may have been changed via /lcm-settings)
+    config = resolveConfig();
+    const loaded = loadSettings(cwd);
+    settingsScope = loaded.source === "project" ? "project" : "global";
+
+    const db = openDb(config.dbDir, cwd);
+    runMigrations(db);
+
+    store = new LcmStore(db);
+    const conv = store.getOrCreateConversation(sessionId, sessionFile, cwd);
+    conversationId = conv.id;
+
+    const stats = store.getStats(conversationId);
+    hasCompactedHistory = stats.summaries > 0;
+
+    updateGuidelines();
+    updateStatus(store, conversationId, ctx);
+
+    if (config.debugMode) {
+      ctx.ui.notify(`LCM: Initialized (${stats.messages} msgs, ${stats.summaries} summaries)`, "info");
+    }
+  }
+
+  function resetState(): void {
+    closeDb();
+    store = null;
+    conversationId = null;
+    hasCompactedHistory = false;
+    cachedGuidelines = [];
+  }
+
+  // ── Register tools ──────────────────────────────────────────────
+
+  pi.registerTool(createLcmGrepTool(getStore, getConversationId, getGuidelines) as any);
+  pi.registerTool(createLcmDescribeTool(getStore, getConversationId) as any);
+  pi.registerTool(createLcmExpandTool(getStore, getConversationId) as any);
+
+  pi.registerCommand("lcm", {
+    description: "Lossless Context Management: stats, tree, compact, settings",
+    handler: async (args: string | undefined, ctx: any) => {
+      const sub = args?.split(" ")[0];
+      if (sub === "settings") {
+        await openSettingsPanel(ctx);
+        return;
+      }
+      handleLcmCommand({ store, conversationId, config }, args, ctx);
+    },
+  });
+
+  pi.registerCommand("lcm-settings", {
+    description: "Open LCM settings panel",
+    handler: async (_args: string | undefined, ctx: any) => {
+      await openSettingsPanel(ctx);
+    },
+  });
+
+  async function openSettingsPanel(ctx: any): Promise<void> {
+    const loaded = loadSettings(ctx.cwd);
+    settingsScope = loaded.source === "project" ? "project" : "global";
+
+    const panelDeps: LcmPanelDeps = {
+      config: { ...config },
+      scope: settingsScope,
+      cwd: ctx.cwd,
+      stats: store && conversationId ? store.getStats(conversationId) : null,
+      save: (cfg: LcmConfig, scope: SettingsScope, cwd: string) => {
+        // Persist to settings.json
+        const { enabled, leafChunkTokens, condensationThreshold, maxDepth,
+                maxSummaryTokens, minMessagesForCompaction, leafPassConcurrency,
+                debugMode } = cfg;
+        saveSettings(
+          { enabled, leafChunkTokens, condensationThreshold, maxDepth,
+            maxSummaryTokens, minMessagesForCompaction, leafPassConcurrency, debugMode },
+          scope,
+          cwd,
+        );
+        // Update live config
+        config = resolveConfig();
+        settingsScope = scope;
+        ctx.ui.notify("LCM: Settings saved", "success");
+      },
+    };
+
+    const panel = new LcmSettingsPanel(panelDeps);
+
+    // Pi's ctx.ui.custom API: (tui, theme, keybindings, done) => Component
+    // done() closes the overlay. Wire panel.onClose to done().
+    await ctx.ui.custom(
+      (_tui: any, _theme: any, _kb: any, done: () => void) => {
+        panel.onClose = () => done();
+        return panel;
+      },
+      {
+        overlay: true,
+        overlayOptions: {
+          width: "60%",
+          minWidth: 36,
+          maxHeight: "70%",
+          anchor: "center",
+        },
+      },
+    );
+  }
+
+  // ── Session lifecycle ───────────────────────────────────────────
+
+  pi.on("session_start", async (event: any, ctx: any) => {
+    try {
+      // New Pi API: event.reason tells us why this session started
+      if (typeof event.reason === "string" && event.reason !== "startup") {
+        resetState();
+      }
+      initializeSession(ctx);
+    } catch (e: any) {
+      console.error("[LCM] Failed to initialize:", e.message);
+      ctx.ui.notify(`LCM init failed: ${e.message}`, "warning");
+      resetState();
+    }
+  });
+
+  // Legacy handlers: only fire on old Pi (removed in new Pi, never called)
+  pi.on("session_switch", async (_event: any, ctx: any) => {
+    resetState();
+    try {
+      initializeSession(ctx);
+    } catch (e: any) {
+      console.error("[LCM] Re-init failed on session switch:", e.message);
+      resetState();
+    }
+  });
+
+  pi.on("session_fork", async (_event: any, ctx: any) => {
+    resetState();
+    try {
+      initializeSession(ctx);
+    } catch (e: any) {
+      console.error("[LCM] Re-init failed on session fork:", e.message);
+      resetState();
+    }
+  });
+
+  pi.on("session_shutdown", async (_event: any, _ctx: any) => {
+    resetState();
+  });
+
+  // ── Message persistence ─────────────────────────────────────────
+
+  pi.on("message_end", async (event: any, ctx: any) => {
+    if (!store || !conversationId) return;
+
+    // Fix H1: message_end has no entryId field — always null
+    const state: PersistorState = { store, conversationId };
+    persistMessage(state, event.message, null);
+
+    const count = store.getMessageCount(conversationId);
+    if (count % 10 === 0) updateStatus(store, conversationId, ctx);
+
+    // Background summaries: fire-and-forget, at most one run at a time
+    if (bgRunning) return;
+    const s = store;
+    const convId = conversationId;
+    const uncompacted = s.getUncompactedMessages(convId);
+    let tokens = 0;
+    for (const m of uncompacted) tokens += m.token_estimate;
+    if (tokens <= config.leafChunkTokens) return;
+
+    bgRunning = true;
+    const engine = getEngine(s);
+    const deps: CompactionDeps = {
+      summarize: (prompt: string, sig?: AbortSignal, reasoning?: "low" | "high" | "xhigh", kind?: "leaf" | "condense") => callCompactionModel(ctx, config, prompt, sig, reasoning, kind),
+      notify: (message: string, type?: string) => { try { ctx.ui.notify(message, type ?? "info"); } catch {} },
+    };
+    engine
+      .backgroundRun(convId, deps)
+      .catch((e: unknown) => console.error("[LCM] Background summarization failed:", e instanceof Error ? e.message : e))
+      .finally(() => { bgRunning = false; });
+  });
+
+  // ── Custom compaction ───────────────────────────────────────────
+
+  pi.on("session_before_compact", async (event: any, ctx: any) => {
+    if (!store || !conversationId) return;
+
+    const { preparation, signal } = event;
+
+    // Persist branchEntries messages we may have missed (also uses content-based dedup)
+    const allMessages =
+      event.branchEntries
+        ?.filter((e: any) => e.type === "message" && e.message)
+        .map((e: any) => ({ message: e.message })) ?? [];
+
+    for (const { message } of allMessages) {
+      persistMessage({ store, conversationId }, message, null);
+    }
+
+    const engine = getEngine(store);
+    const convId = conversationId;
+    const s = store;
+
+    // Too few messages and no summaries — Pi's default handles it
+    if (
+      s.getLatestSummaryPerDepth(convId).length === 0 &&
+      s.getUncompactedMessages(convId).length < config.minMessagesForCompaction
+    ) {
+      return;
+    }
+
+    // The hook waits at most 25 s for the background run and the top-up; unfinished work
+    // continues in the background and its summaries are used at the next compaction.
+    const deadline = new AbortController();
+    const onAbort = () => deadline.abort();
+    signal?.addEventListener?.("abort", onAbort);
+    const timer = setTimeout(() => deadline.abort(), COMPACT_DEADLINE_MS);
+    const timedOut = new Promise<void>((resolve) =>
+      deadline.signal.addEventListener("abort", () => resolve(), { once: true }),
+    );
+
+    const deps: CompactionDeps = {
+      summarize: async (prompt: string, sig?: AbortSignal, reasoning?: "low" | "high" | "xhigh", kind?: "leaf" | "condense") => {
+        return await callCompactionModel(ctx, config, prompt, sig, reasoning, kind);
+      },
+      notify: (message: string, type?: string) => ctx.ui.notify(message, type ?? "info"),
+    };
+
+    try {
+      // finalize queues behind a running background run on the engine's per-conversation lock
+      const work = engine.finalize(convId, deps).catch((e: unknown) => {
+        console.error("[LCM] Compaction top-up failed:", e instanceof Error ? e.message : e);
+      });
+      await Promise.race([work, timedOut]);
+      clearTimeout(timer);
+      signal?.removeEventListener?.("abort", onAbort);
+
+      if (signal?.aborted) return;
+      if (s.getLatestSummaryPerDepth(convId).length === 0) return; // nothing to switch to
+
+      const summary = assembleSummary(s, convId, config.maxSummaryTokens);
+
+      hasCompactedHistory = true;
+      updateGuidelines();
+      checkpointDb();
+      updateStatus(store, conversationId, ctx);
+
+      return {
+        compaction: {
+          summary,
+          firstKeptEntryId: preparation.firstKeptEntryId,
+          tokensBefore: preparation.tokensBefore,
+          details: { lcm: true, stats: store.getStats(conversationId) },
+        },
+      };
+    } catch (e: any) {
+      console.error("[LCM] Compaction failed:", e.message);
+      ctx.ui.notify(`LCM compaction failed: ${e.message}. Falling back to default.`, "warning");
+      return;
+    }
+  });
+
+  // ── System prompt injection (STATIC — cache-safe) ───────────────
+
+  pi.on("before_agent_start", async (event: any, _ctx: any) => {
+    if (!hasCompactedHistory) return;
+    return { systemPrompt: event.systemPrompt + LCM_SYSTEM_PREAMBLE };
+  });
+}
+
+// ── LLM call for compaction ─────────────────────────────────────
+
+async function callCompactionModel(ctx: any, config: LcmConfig, prompt: string, signal?: AbortSignal, reasoning: "low" | "high" | "xhigh" = "low", kind: "leaf" | "condense" = "leaf"): Promise<string> {
+  for (const cfg of config.compactionModels) {
+    const model = ctx.modelRegistry.find?.(cfg.provider, cfg.id)
+      ?? ctx.modelRegistry.getAll().find((m: any) => m.provider === cfg.provider && m.id === cfg.id);
+    if (!model) continue;
+
+    let apiKey: string | undefined;
+    let headers: Record<string, string> | undefined;
+    if (typeof ctx.modelRegistry.getApiKeyAndHeaders === "function") {
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+      if (!auth || typeof auth.ok !== "boolean") {
+        console.error("[LCM] Unexpected auth response shape");
+        continue;
+      }
+      if (!auth.ok) continue;
+      if (typeof auth.apiKey !== "string" || auth.apiKey.length === 0) {
+        console.error("[LCM] Auth succeeded but apiKey is missing");
+        continue;
+      }
+      apiKey = auth.apiKey;
+      headers = auth.headers != null && typeof auth.headers === "object" ? auth.headers : undefined;
+    } else {
+      apiKey = await ctx.modelRegistry.getApiKey(model);
+    }
+    if (!apiKey) continue;
+
+    try {
+      const started = Date.now();
+      const response = await completeSimple(
+        model,
+        {
+          systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
+          messages: [{ role: "user" as const, content: [{ type: "text" as const, text: prompt }], timestamp: Date.now() }],
+        },
+        { apiKey, headers, signal, reasoning, maxTokens: SUMMARY_MAX_OUTPUT_TOKENS, cacheRetention: "none" },
+      );
+
+      logCompactionCost(config.dbDir, ctx, kind, `${model.provider}/${model.id}`, reasoning, started, response);
+      const text = response.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
+      if (text.length > 0) return text;
+    } catch (e: any) {
+      if (signal?.aborted) throw e;
+      continue;
+    }
+  }
+
+  // Fall back to session model
+  if (ctx.model) {
+    let fallbackApiKey: string | undefined;
+    let fallbackHeaders: Record<string, string> | undefined;
+    if (typeof ctx.modelRegistry.getApiKeyAndHeaders === "function") {
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+      if (!auth || typeof auth.ok !== "boolean") {
+        console.error("[LCM] Unexpected auth response shape for fallback model");
+      } else if (auth.ok) {
+        if (typeof auth.apiKey !== "string" || auth.apiKey.length === 0) {
+          console.error("[LCM] Fallback auth succeeded but apiKey is missing");
+        } else {
+          fallbackApiKey = auth.apiKey;
+          fallbackHeaders = auth.headers != null && typeof auth.headers === "object" ? auth.headers : undefined;
+        }
+      }
+    } else {
+      fallbackApiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+    }
+    if (fallbackApiKey) {
+      const started = Date.now();
+      const response = await completeSimple(
+        ctx.model,
+        {
+          systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
+          messages: [{ role: "user" as const, content: [{ type: "text" as const, text: prompt }], timestamp: Date.now() }],
+        },
+        { apiKey: fallbackApiKey, headers: fallbackHeaders, signal, reasoning, maxTokens: SUMMARY_MAX_OUTPUT_TOKENS, cacheRetention: "none" },
+      );
+      logCompactionCost(config.dbDir, ctx, kind, `${ctx.model.provider}/${ctx.model.id}`, reasoning, started, response);
+      const text = response.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
+      if (text.length > 0) return text;
+    }
+  }
+
+  throw new Error("No model available for compaction summarization");
+}

@@ -3,7 +3,7 @@ import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 
 export function triggerTokens(id: string): number | undefined {
 	if (/claude-/i.test(id)) return 270_000;
-	if (/(?:^|[/.])gpt-\d/i.test(id)) return 244_800;
+	if (/(?:^|[/.])gpt-\d/i.test(id)) return 231_200;
 	return undefined;
 }
 

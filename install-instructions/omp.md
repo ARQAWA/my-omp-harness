@@ -100,11 +100,13 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set steeringMode one-at-a-time
    omp config set contextPromotion.enabled false
    omp config set branchSummary.enabled false
-   omp config set compaction.methodOrder '["snapcompact","handoff","shake","soft","remote"]'
+   omp config set compaction.methodOrder '["soft"]'
+   omp config set compaction.supersedeReads false
+   omp config set compaction.dropUseless false
    omp config set checkpoint.enabled false
    omp config set astGrep.enabled true
    omp config set find.enabled on
-   omp config set compaction.experimentalContextManagement true
+   omp config set compaction.experimentalContextManagement false
    omp config set security.enabled false
    omp config set externalThinking false
    omp config set tools.intentTracing false
@@ -116,6 +118,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tui.titleState true
    omp config set tui.autoGraph smart
    omp config set tui.reactions false
+   omp config set tui.mouse false
    omp config set title.icons boring
    omp config set display.collapseCompacted true
    omp config set display.showTurnTime true

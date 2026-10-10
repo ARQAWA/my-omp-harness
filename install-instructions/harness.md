@@ -11,7 +11,8 @@
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
 `extensions/tospec.ts` с текстами процесса в `extensions/tospec/`,
 `extensions/default-model.ts`, `extensions/subagent-reuse.ts`,
-`extensions/diagram.ts`, `skills/` и
+`extensions/diagram.ts`, `extensions/lcm/index.ts` с модулями в
+`extensions/lcm/src/`, `skills/` и
 `agents/`. Каталог из списка `extensions` в `config.yml` omp загружает целиком:
 расширения берёт из его `package.json`, а `skills/` и `agents/` находит рядом.
 Зависимость `diagram.ts`, библиотека `beautiful-mermaid`, ставится из `bun.lock`
@@ -47,20 +48,15 @@
 передаётся как `path`; каталог возвращается деревом). Вывод не превышает 100 000
 символов и ~90 КБ, поэтому omp не вырезает середину. Остальные пути (URL,
 `skill://`, архивы, изображения, селекторы omp вроде `:raw`, `:50-80`,
-`:conflicts`, `:img`) идут в родной `read`. Поиск называется `grep`, поэтому
-работает сжатие контекста omp с блокнотом и новым окном
-(`compaction.experimentalContextManagement` из [omp.md](omp.md)), которому нужны
-активные `read` и `grep`. Правки работают без меток `[PATH#TAG]`: `apply_patch` для
+`:conflicts`, `:img`) идут в родной `read`. Правки работают без меток `[PATH#TAG]`: `apply_patch` для
 GPT, `replace` для остальных, переопределением настроек на время сессии без
 записи в `config.yml`. Результат `bash` приходит в обёртке Shell (`Exit code`,
 `Command output`, `Command completed in N ms.`). Дочерние задачи режима
 планирования не получают расширений и остаются на встроенных `read`, `grep`,
 `glob`. `spotty`, `smarty` и `bossy` получают
-`read, glob, grep, context_notes, new_context`, `shell_runner` —
-`bash, read, grep, context_notes, new_context`, `codebase_explorer` —
-`bash, read, glob, grep, context_notes, new_context`; `context_notes` и
-`new_context` ведут блокнот и переход на новое окно контекста, а `bash` у
-`codebase_explorer` только для запросов к внешним источникам. Определение `codebase_explorer` задаёт жадный
+`read, glob, grep`, `shell_runner` — `bash, read, grep`, `codebase_explorer` —
+`bash, read, glob, grep`; `bash` у `codebase_explorer` только для запросов к
+внешним источникам. Определение `codebase_explorer` задаёт жадный
 поиск: одна альтернатива `grep` из 10–30 терминов, целые файлы параллельными
 пачками и остановка, когда ответ подтверждён; тот же порядок действует для вики,
 трекеров, PR и чатов.
@@ -163,9 +159,33 @@ git и PR, справа — ID сессии;
 расширение переносит их сюда из линии над полем ввода, и та остаётся линией
 цвета сессии.
 Раскладку и сегменты задаёт [omp.md](omp.md). `autocompaction.ts`
-ставит порог автосжатия Main: 270 000 токенов для всех моделей Claude и 244 800
-для всех GPT, если порог ниже окна контекста. От этого порога omp считает
-напоминание о блокноте и переход на новое окно (`new_context`).
+ставит порог автосжатия Main: 270 000 токенов для всех моделей Claude и 231 200
+(272 000 минус 15%) для всех GPT, если порог ниже окна контекста.
+
+`lcm/index.ts` — единственное сжатие контекста: копия pi-lcm 0.1.3 с нашими
+правками (лицензия MIT в `extensions/lcm/LICENSE`). Оно сохраняет каждое
+сообщение в SQLite через `bun:sqlite`, встроенный в omp, поэтому ничего не
+ставится и не собирается, в том числе в Windows. Когда несжатых сообщений
+набирается больше 30 000 токенов, LCM в фоне пишет сводки порций на
+`anthropic/claude-haiku-5-5` с reasoning low: до 15 параллельно, без кэша
+промптов, не больше 100 000 токенов на вызов. На пороге автосжатия omp вызывает
+хук `session_before_compact`: LCM до 25 с дописывает сводки и отдаёт omp текст
+нового окна до 32 000 токенов из всех ещё не свёрнутых сводок. Пока сводок LCM
+нет, работает обычная сводка omp (`soft`). Промпты требуют переносить сведения
+как есть, ничего не выдумывая и не выбрасывая. Инструменты `lcm_grep`,
+`lcm_describe` и `lcm_expand` ищут и раскрывают исходные сообщения, команды
+`/lcm` и `/lcm-settings` показывают состояние и настройки. Базы `<хеш cwd>.db`,
+журнал расходов `costs.jsonl` и общие настройки `/lcm-settings` (`settings.json`)
+лежат в папке `lcm` рядом с исполняемым файлом omp: путь берётся из
+`process.execPath`, переменная `LCM_DB_DIR` заменяет его для баз и журнала;
+у omp, поставленного через bun, это папка исполняемого файла bun, а у
+`omp-vscode/` — `bin/lcm` внутри папки расширения, которую стирает его
+переустановка. Остальные виды сжатия выключены ключами шага 4
+[omp.md](omp.md): `compaction.methodOrder` `["soft"]` оставляет только обычную
+сводку, которую заменяет хук LCM; `compaction.experimentalContextManagement
+false` убирает блокнот, `context_notes` и `new_context`;
+`compaction.supersedeReads false` и `compaction.dropUseless false` выключают
+обрезку выводов инструментов.
 
 `model-arrows.js`: shift+↑ и shift+↓ переключают модель Main по списку Claude
 Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol,

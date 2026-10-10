@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts', 'default-model.ts', 'subagent-reuse.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'wrap-and-timer.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts', 'default-model.ts', 'subagent-reuse.ts', 'lcm/index.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -42,7 +42,7 @@ for (const name of agents) {
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
 for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep, context_notes, new_context', shell_runner: 'bash, read, grep, context_notes, new_context' }[name] ?? 'read, glob, grep, context_notes, new_context', name);
+  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep', shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
 }
 
 const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools'];
@@ -65,6 +65,7 @@ for (const dir of ['skills', 'agents', 'extensions']) {
   for (const file of readdirSync(path.join(root, dir), { recursive: true })) {
     const relative = path.join(dir, file);
     if (!statSync(path.join(root, relative)).isFile()) continue;
+    if (relative.split(path.sep).slice(0, 2).join('/') === 'extensions/lcm') continue;
     const text = read(relative);
     assert.doesNotMatch(text, codexLeftovers, relative);
     // skill://<name>[/<file>] must point to a bundled skill and an existing file
