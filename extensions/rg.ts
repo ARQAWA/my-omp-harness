@@ -155,6 +155,7 @@ async function runSearch(opts: {
 	cwd: string;
 	base: string;
 	glob?: string;
+	exclude?: string;
 	pattern: string;
 	mode: SearchMode;
 	ignoreCase?: boolean;
@@ -165,6 +166,7 @@ async function runSearch(opts: {
 	signal?: AbortSignal;
 }): Promise<SearchFile[]> {
 	const nativeGlob = opts.glob ? ensureDoubleStar(opts.glob) : undefined;
+	const excluded = opts.exclude !== undefined ? new Bun.Glob(ensureDoubleStar(opts.exclude)) : undefined;
 	const nativeMode = opts.mode === "files" ? "filesWithMatches" : opts.mode;
 	const result = await grep({
 		pattern: opts.pattern,
@@ -187,6 +189,7 @@ async function runSearch(opts: {
 		const abs = resolve(opts.base, m.path);
 		const rel = displayPath(relative(opts.cwd, abs));
 		if (!withoutGit(rel)) continue;
+		if (excluded?.match(displayPath(relative(opts.base, abs)))) continue;
 		if (opts.type !== undefined && !pathMatchesType(rel, opts.type)) continue;
 		let slot = byPath.get(rel);
 		if (!slot) {
@@ -542,7 +545,7 @@ export default function rg(pi: ExtensionAPI) {
 		...sharedRender("grep"),
 		loadMode: "essential",
 		description:
-			"Ripgrep search over file contents. Parameters: pattern (regex); path (file or directory, default working directory); glob (file glob filter; without '/' it matches the base name at any depth); " +
+			"Ripgrep search over file contents. Parameters: pattern (regex); path (file or directory, default working directory); glob (file glob filter; without '/' it matches the base name at any depth; a leading ! excludes the matching files); " +
 			"type (js, ts, py, rust, go, java, c, cpp, md, json, yaml, toml, sh); output_mode (content | files_with_matches | count, default content); " +
 			"-A, -B, -C (context lines; -C applies only when -A/-B are absent); -i (case insensitive; search is case-sensitive by default); head_limit and offset (over output lines); multiline. " +
 			"Hidden files are searched and .gitignore is respected. Files are ordered newest-modified first and output is capped at 2,000 lines or files; " +
@@ -586,6 +589,7 @@ export default function rg(pi: ExtensionAPI) {
 			}
 			const base = isFile ? resolve(searchPath, "..") : searchPath;
 			const fileGlob = isFile ? searchPath.slice(base.length + 1) : params.glob === "" ? undefined : params.glob;
+			const excludeGlob = fileGlob?.startsWith("!") ? fileGlob.slice(1) : undefined;
 
 			let before = params["-B"];
 			let after = params["-A"];
@@ -607,7 +611,8 @@ export default function rg(pi: ExtensionAPI) {
 				files = await runSearch({
 					cwd: ctx.cwd,
 					base,
-					glob: fileGlob,
+					glob: excludeGlob === undefined ? fileGlob : undefined,
+					exclude: excludeGlob,
 					pattern: params.pattern,
 					mode,
 					ignoreCase: params["-i"],
