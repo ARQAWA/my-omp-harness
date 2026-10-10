@@ -61,13 +61,15 @@ assert.deepEqual(readdirSync(path.join(root, 'extensions/tospec')).sort(),
 for (const step of ['03-approve.md']) assert.ok(read(`extensions/tospec/${step}`).includes('`ask`'), `${step}: ask`);
 
 const codexLeftovers = /Goal|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
+const feedLeftovers = /Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 for (const dir of ['skills', 'agents', 'extensions']) {
   for (const file of readdirSync(path.join(root, dir), { recursive: true })) {
     const relative = path.join(dir, file);
     if (!statSync(path.join(root, relative)).isFile()) continue;
     if (relative.split(path.sep).slice(0, 2).join('/') === 'extensions/lcm') continue;
     const text = read(relative);
-    assert.doesNotMatch(text, codexLeftovers, relative);
+    const feed = relative.split(path.sep).slice(0, 2).join('/') === 'extensions/cursor-feed';
+    assert.doesNotMatch(text, feed ? feedLeftovers : codexLeftovers, relative);
     // skill://<name>[/<file>] must point to a bundled skill and an existing file
     for (const [, skill, sub] of text.matchAll(/skill:\/\/([\w-]+)(?:\/([\w./-]*\w))?/g)) {
       assert.ok(skills.includes(skill) && (!sub || existsSync(path.join(root, 'skills', skill, sub))), `${relative}: skill://${skill}/${sub ?? ''}`);

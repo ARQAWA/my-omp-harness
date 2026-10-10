@@ -21,16 +21,18 @@ Write the objective in the user's language, with these sections in this order:
 - `## Stop conditions`: the attempt cap in turns or tries, and when to stop and ask the user: ambiguity the agreement does not settle, a risky or irreversible operation, the cap reached. Each line with its quotes.
 - `## Review`: the class and the completion rule, from the template below.
 
-An item the user did not say, such as a check or a cap you propose, carries `Quotes: proposed`; it binds once the user accepts the draft.
+An item the user did not say, such as a check or a cap you propose, carries `Quotes: proposed`; it binds once the user accepts the retelling that names it.
 
 Review template; the class follows the work-class table of Main Workflow, small for up to 5 requirements and up to 5 changed files and large for more, where each success criterion counts as one requirement:
 
     ## Review
-    Class: <small | large>. Before `goal` op `complete`, run every Check once and save the outputs to a `local://` file. Then run <[Light Review Cycle](skill://light-review-cycle) for small | [Blind Review Cycle](skill://blind-review-cycle) for large> with `review_stage=pre-completion`: the agreement is the Quotes, Success criteria, Boundaries and Stop conditions of this objective, verbatim; the object is the changed files and the check outputs; the criterion is that every success criterion holds by its check, every boundary holds, and nothing outside the agreement was added. Fix every admitted finding and repeat until CLEAN. Complete the goal only after CLEAN.
+    Class: <small | large>. Before `goal` op `complete`, run every Check once and save the outputs to a `local://` file. Then run <[Light Review Cycle](skill://light-review-cycle) for small | [Blind Review Cycle](skill://blind-review-cycle) for large> with `review_stage=pre-completion`: the agreement is the Quotes, Success criteria, Boundaries and Stop conditions of this objective, verbatim; the object is the changed files and the check outputs; the criterion is that every success criterion holds by its check, every boundary holds, and nothing outside the agreement was added. When the repository's instructions add a mandatory gate, run it in parallel, each in its own cycle. Fix every admitted finding and repeat until every cycle returns CLEAN. Complete the goal only after CLEAN.
 
 ## 4. Confirm
 
-Write the whole draft in the chat message, then call `ask` with a one-sentence question such as «Принять цель выше?» and the options «Принять» (recommended) and «Поправить». The `ask` panel shows only four lines of a question, so the draft stays in the chat. A correction changes the draft and adds the user's new words to Quotes; show the new draft and ask again. The accepted draft replaces the requirement step of Main Workflow.
+The objective is for the agent and the reviewer; never show it to the user. First check it against the user's words: every agreed requirement, value, constraint and prohibition is in it, nothing is lost or distorted, and nothing the user did not say is added except items marked `Quotes: proposed`. You may run [Light Review Cycle](skill://light-review-cycle) with `review_stage=pre-action` for this check.
+
+Then write in the chat a short retelling in the user's language: numbered items of one line each with the exact values the user accepts, including every proposed item, then the sections «Границы», «Остановка» and «Проверка», a line or two each. Call `ask` with a one-sentence question such as «Принять цель выше?» and the options «Принять» (recommended) and «Поправить»; the `ask` panel shows only four lines of a question, so the retelling stays in the chat. A correction changes the objective and adds the user's new words to Quotes; check it again, show the new retelling and ask again. Acceptance of the retelling accepts the objective and replaces the requirement step of Main Workflow.
 
 ## 5. Set and work
 

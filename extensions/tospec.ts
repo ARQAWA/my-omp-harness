@@ -379,6 +379,8 @@ export default function tospec(pi: ExtensionAPI) {
 			},
 		);
 
+		const record = (globalThis as Record<symbol, unknown>)[Symbol.for("my-omp-harness.cursor-feed.dialog")];
+		if (typeof record === "function") record("ToSpec Review", choice ? `Launch in a new chat · ${choice.model} · ${choice.level}` : undefined);
 		if (!choice) return;
 
 		const executorModel = ctx.models.resolve(choice.model);

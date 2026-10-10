@@ -32,6 +32,21 @@ export const readGroups = new WeakMap<object, Map<string, ReadAction>>();
 export const assistantMessages = new WeakMap<object, { content?: unknown; stopReason?: unknown; timestamp?: unknown }>();
 export const toolActivityVisible = new WeakMap<object, boolean>();
 export const allocations = new WeakMap<object, number>();
+/** Transcript rows added by cursor-feed itself (dialog answers, goal events); a turn fold never hides them. */
+export const pinnedRows = new WeakSet<object>();
+/** Trimmed goal objectives seen in this session. */
+export const goalObjectives = new Set<string>();
+let toolNameResolver: ((component: object) => string | undefined) | undefined;
+
+/** Sets the function that names a tool block by its tool. */
+export function setToolNameResolver(resolver: (component: object) => string | undefined): void {
+	toolNameResolver = resolver;
+}
+
+/** The tool name of a tool block; undefined until a resolver is set. */
+export function toolNameOf(component: object): string | undefined {
+	return toolNameResolver?.(component);
+}
 
 /** One subagent of a task call: its latest progress, or its settled result. */
 export interface AgentRecord {

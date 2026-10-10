@@ -1,6 +1,7 @@
 import { AssistantMessageComponent, ReadToolGroupComponent, ToolExecutionComponent, UserMessageComponent } from "@oh-my-pi/pi-coding-agent";
 import { theme, truncateToWidth } from "@oh-my-pi/pi-tui";
-import { assistantMessages, enabled, expandedNow, parents, recordExpanded } from "./state";
+import { userGoalCard } from "./cards";
+import { assistantMessages, enabled, expandedNow, parents, pinnedRows, recordExpanded, toolNameOf } from "./state";
 
 type Render = (width: number) => readonly string[];
 
@@ -8,17 +9,22 @@ interface Container {
 	readonly children: readonly object[];
 }
 
-/** One turn: the final answer and the blocks folded between the user message and it. */
+/** A run of folded blocks between pinned rows: one fold row and one expanded body. */
+interface Segment {
+	/** The folded blocks, in transcript order. */
+	readonly children: readonly object[];
+	/** The assistant block that ends the segment's duration: the first one after it, up to the final answer. */
+	readonly next?: object;
+}
+
+/** One turn: the final answer and the segments folded between the user message and it. */
 interface Turn {
 	readonly final: object;
-	/** The first assistant block of the turn, the start of a replayed duration. */
-	readonly first?: object;
-	/** Blocks strictly between the user message and the final answer. */
-	readonly middle: readonly object[];
+	readonly segments: readonly Segment[];
 	readonly closed: boolean;
 }
 
-type Role = { kind: "final" } | { kind: "middle"; index: number; turn: Turn };
+type Role = { kind: "final" } | { kind: "middle"; index: number; segment: Segment };
 
 interface Model {
 	readonly roles: WeakMap<object, Role>;
@@ -101,6 +107,14 @@ function isToolRow(child: object): boolean {
 	return child instanceof ToolExecutionComponent || child instanceof ReadToolGroupComponent;
 }
 
+/** Tool names whose rows stay visible outside the fold. */
+const PINNED_TOOLS: Record<string, true> = { ask: true, goal: true };
+
+/** A row that stays visible: cursor-feed's own rows and the ask and goal tool blocks. */
+function isPinned(child: object): boolean {
+	return pinnedRows.has(child) || (child instanceof ToolExecutionComponent && PINNED_TOOLS[toolNameOf(child) ?? ""] === true);
+}
+
 function formatSpan(ms: number): string {
 	const total = Math.max(0, Math.round(ms / 1000));
 	if (total < 60) return `${total}s`;
@@ -169,6 +183,30 @@ function finalIndex(children: readonly object[], start: number, end: number): nu
 	return -1;
 }
 
+/** The folded segments between a user message (start) and the final answer: runs of non-pinned children, split by pinned rows. */
+function segmentsOf(children: readonly object[], start: number, final: number): Segment[] {
+	const groups: Array<{ children: object[]; last: number }> = [];
+	let open = false;
+	for (let index = start + 1; index < final; index++) {
+		const child = children[index]!;
+		if (isPinned(child)) {
+			open = false;
+			continue;
+		}
+		if (!open) {
+			groups.push({ children: [], last: index });
+			open = true;
+		}
+		const group = groups[groups.length - 1]!;
+		group.children.push(child);
+		group.last = index;
+	}
+	return groups.map(group => ({
+		children: group.children,
+		next: children.slice(group.last + 1, final + 1).find(child => child instanceof AssistantMessageComponent),
+	}));
+}
+
 function buildModel(children: readonly object[]): Model {
 	const roles = new WeakMap<object, Role>();
 	const turns: Turn[] = [];
@@ -178,19 +216,19 @@ function buildModel(children: readonly object[]): Model {
 		if (start >= 0) {
 			const final = finalIndex(children, start, index);
 			if (final >= 0) {
-				const middle = children.slice(start + 1, final);
-				const first = children.slice(start + 1, final + 1).find(child => child instanceof AssistantMessageComponent);
+				const segments = segmentsOf(children, start, final);
 				const turn: Turn = {
 					final: children[final]!,
-					first,
-					middle,
+					segments,
 					// A later user message ends the turn; otherwise only the end of the main run does.
 					closed: index < children.length || !running,
 				};
 				turns.push(turn);
-				if (turn.closed && middle.length > 0) {
+				if (turn.closed && segments.length > 0) {
 					roles.set(turn.final, { kind: "final" });
-					middle.forEach((child, position) => roles.set(child, { kind: "middle", index: position, turn }));
+					for (const segment of segments) {
+						segment.children.forEach((child, position) => roles.set(child, { kind: "middle", index: position, segment }));
+					}
 				}
 			}
 		}
@@ -219,14 +257,15 @@ function stampOf(child: object): number | undefined {
 	return typeof timestamp === "number" ? timestamp : undefined;
 }
 
-function durationOf(turn: Turn): number | undefined {
-	const first = turn.first === undefined ? undefined : stampOf(turn.first);
-	const last = stampOf(turn.final);
-	return first !== undefined && last !== undefined && last >= first ? last - first : undefined;
+function durationOf(segment: Segment): number | undefined {
+	const first = segment.children.find(child => child instanceof AssistantMessageComponent);
+	const begin = first === undefined ? undefined : stampOf(first);
+	const end = segment.next === undefined ? undefined : stampOf(segment.next);
+	return begin !== undefined && end !== undefined && end >= begin ? end - begin : undefined;
 }
 
-function foldLine(turn: Turn, width: number): string {
-	const span = durationOf(turn);
+function foldLine(segment: Segment, width: number): string {
+	const span = durationOf(segment);
 	const label = span === undefined ? "Worked" : `Worked for ${formatSpan(span)}`;
 	return truncateToWidth(paint(`${label} ${expandedNow() ? "˅" : "›"}`), width);
 }
@@ -244,9 +283,9 @@ function trimBlank(rows: readonly string[]): readonly string[] {
 }
 
 /** The expanded body: the original views of every folded block, in order, without the blank edges between them. */
-function bodyOf(turn: Turn, width: number): string[] {
+function bodyOf(segment: Segment, width: number): string[] {
 	const out: string[] = [];
-	for (const child of turn.middle) {
+	for (const child of segment.children) {
 		const original = originals.get(child);
 		if (!original) continue;
 		for (const row of trimBlank(original.call(child, width))) out.push(row);
@@ -259,8 +298,50 @@ function foldRows(child: object, width: number): readonly string[] | undefined {
 	const role = roleOf(child);
 	if (!role || role.kind !== "middle") return undefined;
 	if (role.index > 0) return EMPTY;
-	const head = foldLine(role.turn, width);
-	return expandedNow() ? [head, ...bodyOf(role.turn, width)] : [head];
+	const head = foldLine(role.segment, width);
+	return expandedNow() ? [head, ...bodyOf(role.segment, width)] : [head];
+}
+
+/** Text of each user message, read once from its describe tree; null when it has none. */
+const userTexts = new WeakMap<object, string | null>();
+
+/** The first markdown text in a describe tree (nodes are { k, p, c }), depth first. */
+function markdownTextOf(node: unknown): string | undefined {
+	if (typeof node !== "object" || node === null) return undefined;
+	const kind = "k" in node ? node.k : undefined;
+	const props = "p" in node ? node.p : undefined;
+	const children = "c" in node ? node.c : undefined;
+	const text = typeof props === "object" && props !== null && "text" in props ? props.text : undefined;
+	if (kind === "md" && typeof text === "string") return text;
+	if (!Array.isArray(children)) return undefined;
+	for (const item of children) {
+		const found = markdownTextOf(item);
+		if (found !== undefined) return found;
+	}
+	return undefined;
+}
+
+/** The text of a user message, computed once per message. */
+function userTextOf(child: object): string | undefined {
+	const cached = userTexts.get(child);
+	if (cached !== undefined) return cached ?? undefined;
+	let text: string | null;
+	try {
+		const describeChild = "describe" in child ? child.describe : undefined;
+		text = markdownTextOf(typeof describeChild === "function" ? describeChild.call(child) : undefined) ?? null;
+	} catch {
+		// Fail safe: the message keeps its original view.
+		text = null;
+	}
+	userTexts.set(child, text);
+	return text ?? undefined;
+}
+
+/** The goal card of a user message, or undefined for the original view. */
+function goalCardRows(child: object, width: number): readonly string[] | undefined {
+	if (!enabled() || !(child instanceof UserMessageComponent)) return undefined;
+	const text = userTextOf(child);
+	return text === undefined ? undefined : userGoalCard(text, width, expandedNow());
 }
 
 /** Wraps a transcript child's own render once so that a folded turn renders as its fold row. */
@@ -273,6 +354,8 @@ export function wrapChild(child: object): void {
 	originals.set(child, original);
 	target.render = (width: number): readonly string[] => {
 		try {
+			const card = goalCardRows(child, width);
+			if (card !== undefined) return card;
 			const folded = foldRows(child, width);
 			if (folded !== undefined) return folded;
 		} catch {

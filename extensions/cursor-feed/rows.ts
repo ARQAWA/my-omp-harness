@@ -91,20 +91,6 @@ function editPaths(args: Record<string, unknown>, results: CallResult[]): string
 	return [...input.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map(match => (match[1] ?? "").trim());
 }
 
-function inProgressTask(results: CallResult[]): string {
-	for (const result of results) {
-		const phases = asRecord(result.details).phases;
-		if (!Array.isArray(phases)) continue;
-		for (const phase of phases) {
-			const tasks = asRecord(phase).tasks;
-			if (!Array.isArray(tasks)) continue;
-			const task = tasks.find(item => asRecord(item).status === "in_progress");
-			if (task) return str(asRecord(task).content);
-		}
-	}
-	return "";
-}
-
 function search(verb: string, detail: string): Row {
 	return { verb, detail, files: 0, searches: 1 };
 }
@@ -161,20 +147,6 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 			return search("Inspected", [str(a.action), str(a.symbol) || str(a.file) || str(a.path)].filter(Boolean).join(" "));
 		case "web_search":
 			return search("Searched web", str(a.query));
-		case "todo":
-			return { verb: "Updated progress", detail: inProgressTask(results), files: 0, searches: 0 };
-		case "ask": {
-			const first = Array.isArray(a.questions) ? a.questions[0] : undefined;
-			const question = typeof first === "object" && first !== null ? asRecord(first).question : a.question;
-			return { verb: "Asked", detail: str(question), files: 0, searches: 0 };
-		}
-		case "goal":
-			return {
-				verb: "Updated goal",
-				detail: [str(a.op), str(a.objective).trim()].filter(Boolean).join(" "),
-				files: 0,
-				searches: 0,
-			};
 		case "think":
 			return { verb: "Noted", detail: str(a.thoughts).split("\n", 1)[0] ?? "", files: 0, searches: 0 };
 		case "wait":

@@ -14,6 +14,7 @@ import {
 	readGroups,
 	type ReadAction,
 	recordExpanded,
+	setToolNameResolver,
 	type Timing,
 	timings,
 	toolActivityVisible,
@@ -30,6 +31,7 @@ import {
 	type Status,
 	statusOf,
 } from "./rows";
+import { askCardLines, goalToolLines, type TodoPhase, todoRowLine } from "./cards";
 import { wrapChild } from "./turn";
 
 /** One render-time view of a tool block: the call or one of its results. */
@@ -327,7 +329,53 @@ function rowLine(action: Action, withElapsed: boolean): string {
 	return head + time;
 }
 
+/** Settled todo blocks' phases, cached per owner once the owner's own call has settled. */
+const todoPhaseCache = new WeakMap<object, { phases: TodoPhase[] | undefined }>();
+const toolNames = new WeakMap<object, string>();
+
+/** The phases of a result's details, when they are an array. */
+function phasesOf(result: CallResult): TodoPhase[] | undefined {
+	const details = result.details;
+	if (typeof details !== "object" || details === null) return undefined;
+	const phases = (details as { phases?: unknown }).phases;
+	return Array.isArray(phases) ? (phases as TodoPhase[]) : undefined;
+}
+
+/** Phases of the nearest earlier todo block that has them. */
+function previousTodoPhases(owner: object): TodoPhase[] | undefined {
+	const cached = todoPhaseCache.get(owner);
+	if (cached) return cached.phases;
+	let found: TodoPhase[] | undefined;
+	const siblings = parents.get(owner)?.children;
+	const index = siblings ? siblings.indexOf(owner) : -1;
+	for (let i = index - 1; siblings && i >= 0 && found === undefined; i--) {
+		const sibling = siblings[i]!;
+		if (!(sibling instanceof ToolExecutionComponent)) continue;
+		const units = collect(sibling, 80);
+		if (units[0]?.toolName !== "todo") continue;
+		const result = callOf(units).results.find(item => item.isError !== true && phasesOf(item) !== undefined);
+		if (result) found = phasesOf(result);
+	}
+	const own = callOf(collect(owner, 80));
+	if (own.results.length > 0 && !own.isPartial) todoPhaseCache.set(owner, { phases: found });
+	return found;
+}
+
+/** Tool name of a transcript block, cached once known. */
+function resolveToolName(component: object): string | undefined {
+	if (!(component instanceof ToolExecutionComponent)) return undefined;
+	const cached = toolNames.get(component);
+	if (cached !== undefined) return cached;
+	const name = collect(component, 80)[0]?.toolName;
+	if (name !== undefined) toolNames.set(component, name);
+	return name;
+}
+
 function standaloneLines(owner: object, call: Call, width: number): string[] {
+	const status = statusOf(call.results, call.isPartial);
+	if (call.toolName === "todo") return [todoRowLine(call.args, call.results, previousTodoPhases(owner), status, width)];
+	if (call.toolName === "ask") return askCardLines(call.args, call.results, status, isExpanded(owner), width);
+	if (call.toolName === "goal") return goalToolLines(call.args, call.results, status, isExpanded(owner), width);
 	const out = [rowLine(actionOf(call, owner), true)];
 	if (isExpanded(owner)) {
 		const body = bodyOf(call.toolName, call.args, call.results);
@@ -541,4 +589,5 @@ export function installCursorFeed(): void {
 	patchAssistant();
 	patchReadGroup();
 	patchToolExecution();
+	setToolNameResolver(resolveToolName);
 }
