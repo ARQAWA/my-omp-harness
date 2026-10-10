@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { getSessionAccentAnsi, getSessionAccentHex, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
 import { truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 
 const TITLE = "my-omp-harness.title";
@@ -9,11 +10,14 @@ let turnStart: number | undefined;
 let lastTurnMs: number | undefined;
 let turnInterval: ReturnType<typeof setInterval> | undefined;
 
+const lastRateInvalidate = new WeakMap<object, number>();
+
 function rateText(ctx: any): string | undefined {
-	const rate = ctx?.usageStats?.tokensPerSecond;
-	if (!rate || !Number.isFinite(rate)) return undefined;
+	const rate = ctx?.session?.tokenRate?.rate?.();
+	if (!Number.isFinite(rate)) return undefined;
 	const [r, g, b] = rate < 30 ? [255, 71, 87] : rate < 60 ? [255, 215, 95] : rate < 90 ? [168, 230, 163] : [0, 255, 136];
-	return `\x1b[38;2;${r};${g};${b}m${rate.toFixed(1)} tok/s\x1b[39m`;
+	const icon = latest?.ui?.theme?.icon?.throughput ?? "";
+	return `\x1b[38;2;${r};${g};${b}m${icon}${rate.toFixed(1)} tok/s\x1b[39m`;
 }
 
 function patchTokenRate() {
@@ -68,6 +72,13 @@ function patchStatusLine() {
 	// The rule composer would put the right segments into the line above the input; keep that line plain.
 	proto.getStandaloneTopBorder = () => ({ content: "", width: 0, revision: 0 });
 	proto.render = function (width: number) {
+		if (turnStart !== undefined) {
+			const now = Date.now();
+			if (now - (lastRateInvalidate.get(this) ?? 0) >= 80) {
+				lastRateInvalidate.set(this, now);
+				this.invalidate();
+			}
+		}
 		const base: string[] = render.call(this, width);
 		const theme = latest?.ui?.theme;
 		const k = base.findIndex(line => line !== "");
@@ -184,6 +195,15 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchTokenRate();
 	patchMode();
 	patchStatusLine();
+
+	pi.registerShortcut("alt+i", {
+		description: "Copy session id as omp-session://<id>",
+		async handler(ctx) {
+			const id = ctx.sessionManager?.getSessionId?.();
+			if (!id) return;
+			await copyToClipboard(`omp-session://${id}`);
+		},
+	});
 
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
