@@ -1,6 +1,5 @@
 /**
- * SQLite connection management with WAL mode, busy timeout, and cwd tracking.
- * Fix 8: Track currentCwd, close+reopen on mismatch.
+ * SQLite connection management with WAL mode and busy timeout.
  * Fix 15: PASSIVE checkpoint on close, TRUNCATE after compaction.
  */
 
@@ -19,25 +18,16 @@ export class Database extends BunDatabase {
   }
 }
 
-let db: Database | null = null;
-let currentCwd: string | null = null;
-
 export function getDbPath(dbDir: string, cwd: string): string {
   return join(dbDir, `${hashCwd(cwd)}.db`);
 }
 
 export function openDb(dbDir: string, cwd: string): Database {
-  // Fix 8: If already open for a different cwd, close first
-  if (db && currentCwd !== cwd) {
-    closeDb();
-  }
-  if (db) return db;
-
   // Fix 14: Secure directory permissions
   mkdirSync(dbDir, { recursive: true, mode: 0o700 });
   const dbPath = getDbPath(dbDir, cwd);
 
-  db = new Database(dbPath);
+  const db = new Database(dbPath);
 
   // Fix 14: Secure file permissions
   try { chmodSync(dbPath, 0o600); } catch { /* may fail on some FS */ }
@@ -49,13 +39,11 @@ export function openDb(dbDir: string, cwd: string): Database {
   db.pragma("synchronous = NORMAL");
 
   ensureMetadata(db, cwd);
-  currentCwd = cwd;
 
   return db;
 }
 
-export function closeDb(): void {
-  if (!db) return;
+export function closeDb(db: Database): void {
   try {
     // Fix 15: PASSIVE on close (non-blocking, won't fail if readers exist)
     db.pragma("wal_checkpoint(PASSIVE)");
@@ -63,13 +51,10 @@ export function closeDb(): void {
   try {
     db.close();
   } catch { /* ignore close errors */ }
-  db = null;
-  currentCwd = null;
 }
 
 /** TRUNCATE checkpoint after compaction (safe — called under mutex). */
-export function checkpointDb(): void {
-  if (!db) return;
+export function checkpointDb(db: Database): void {
   try {
     db.pragma("wal_checkpoint(TRUNCATE)");
   } catch { /* non-fatal */ }

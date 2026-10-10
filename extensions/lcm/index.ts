@@ -13,7 +13,7 @@ import { completeSimple, type AssistantMessage } from "@mariozechner/pi-ai";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, type LcmConfig } from "./src/config.js";
-import { openDb, closeDb, checkpointDb } from "./src/db/connection.js";
+import { openDb, closeDb, checkpointDb, type Database } from "./src/db/connection.js";
 import { runMigrations } from "./src/db/schema.js";
 import { LcmStore } from "./src/db/store.js";
 import { CompactionEngine, SUMMARY_MAX_OUTPUT_TOKENS, type CompactionDeps } from "./src/compaction/engine.js";
@@ -76,6 +76,7 @@ export default function (pi: ExtensionAPI) {
   // ── Shared state ────────────────────────────────────────────────
 
   let store: LcmStore | null = null;
+  let db: Database | null = null;
   let settingsScope: SettingsScope = "global";
   let conversationId: string | null = null;
   let hasCompactedHistory = false;
@@ -117,7 +118,8 @@ export default function (pi: ExtensionAPI) {
     const loaded = loadSettings(cwd);
     settingsScope = loaded.source === "project" ? "project" : "global";
 
-    const db = openDb(config.dbDir, cwd);
+    if (db) { closeDb(db); db = null; }
+    db = openDb(config.dbDir, cwd);
     runMigrations(db);
 
     store = new LcmStore(db);
@@ -136,7 +138,8 @@ export default function (pi: ExtensionAPI) {
   }
 
   function resetState(): void {
-    closeDb();
+    if (db) closeDb(db);
+    db = null;
     store = null;
     conversationId = null;
     hasCompactedHistory = false;
@@ -352,7 +355,7 @@ export default function (pi: ExtensionAPI) {
 
       hasCompactedHistory = true;
       updateGuidelines();
-      checkpointDb();
+      if (db) checkpointDb(db);
       updateStatus(store, conversationId, ctx);
 
       return {
