@@ -1,6 +1,6 @@
 /**
- * Settings persistence: load/save LCM config from settings.json (global: lcm/settings.json next to the omp executable; project: <cwd>/.pi/settings.json).
- * Follows the pi-voice pattern: project > global > defaults.
+ * Settings persistence: load/save LCM config from settings.json (global: lcm/settings.json next to the omp executable; project: <cwd>/.omp/lcm/settings.json).
+ * Order: project > global > defaults.
  * Atomic writes via temp file + rename.
  */
 
@@ -34,7 +34,7 @@ export function getGlobalSettingsPath(): string {
 }
 
 export function getProjectSettingsPath(cwd: string): string {
-  return path.join(cwd, ".pi", "settings.json");
+  return path.join(cwd, ".omp", "lcm", "settings.json");
 }
 
 export function loadSettings(cwd: string): LoadedConfig {
@@ -64,7 +64,10 @@ export function saveSettings(
     : getGlobalSettingsPath();
 
   const settings = readJsonFile(settingsPath);
-  settings[SETTINGS_KEY] = config;
+  const existing = settings[SETTINGS_KEY];
+  settings[SETTINGS_KEY] = existing && typeof existing === "object" && !Array.isArray(existing)
+    ? { ...(existing as Record<string, unknown>), ...config }
+    : config;
 
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
 

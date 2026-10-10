@@ -109,10 +109,6 @@ export class LcmStore {
     })();
   }
 
-  getConversation(id: string): Conversation | null {
-    return (this.db.prepare("SELECT * FROM conversations WHERE id = ?").get(id) as Conversation) ?? null;
-  }
-
   // ── Messages ────────────────────────────────────────────────────
 
   /**
@@ -156,18 +152,6 @@ export class LcmStore {
       content_text: contentText, content_json: contentJson, tool_name: toolName,
       token_estimate: tokenEst, timestamp, seq, is_compacted: 0,
     };
-  }
-
-  getMessages(conversationId: string, opts?: { from?: number; to?: number; role?: string }): StoredMessage[] {
-    let sql = "SELECT * FROM messages WHERE conversation_id = ?";
-    const params: any[] = [conversationId];
-
-    if (opts?.from !== undefined) { sql += " AND seq >= ?"; params.push(opts.from); }
-    if (opts?.to !== undefined) { sql += " AND seq < ?"; params.push(opts.to); }
-    if (opts?.role) { sql += " AND role = ?"; params.push(opts.role); }
-
-    sql += " ORDER BY seq ASC";
-    return this.db.prepare(sql).all(...params) as StoredMessage[];
   }
 
   getMessagesByIds(ids: string[]): StoredMessage[] {
@@ -411,27 +395,6 @@ export class LcmStore {
          ORDER BY s.created_at ASC`,
       )
       .all(conversationId, depth) as Summary[];
-  }
-
-  getUnconsumedSummaryCount(conversationId: string, depth: number): number {
-    const row = this.db
-      .prepare(
-        `SELECT COUNT(*) as count FROM summaries s
-         WHERE s.conversation_id = ? AND s.depth = ?
-           AND NOT EXISTS (
-             SELECT 1 FROM summary_sources ss
-             WHERE ss.source_id = s.id AND ss.source_type = 'summary'
-           )`,
-      )
-      .get(conversationId, depth) as { count: number };
-    return row.count;
-  }
-
-  getSummaryCount(conversationId: string, depth: number): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) as count FROM summaries WHERE conversation_id = ? AND depth = ?")
-      .get(conversationId, depth) as { count: number };
-    return row.count;
   }
 
   getMaxDepth(conversationId: string): number {

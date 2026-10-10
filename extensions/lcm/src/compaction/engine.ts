@@ -15,7 +15,6 @@ import {
   buildCondensedD2PlusPrompt,
   serializeMessagesForPrompt,
 } from "./prompts.js";
-import { assembleSummary } from "./assembler.js";
 
 const MAX_CONDENSE_PASSES = 10;
 
@@ -40,24 +39,6 @@ export class CompactionEngine {
   constructor(store: LcmStore, config: LcmConfig) {
     this.store = store;
     this.config = config;
-  }
-
-  /** Fix 9: Serialize compaction calls per conversation. */
-  async compact(
-    conversationId: string,
-    deps: CompactionDeps,
-    signal?: AbortSignal,
-  ): Promise<string | null> {
-    const prev = this.locks.get(conversationId) ?? Promise.resolve(null);
-    const current = prev.then(() => this.doCompact(conversationId, deps, signal));
-    this.locks.set(conversationId, current);
-    try {
-      return await current;
-    } finally {
-      if (this.locks.get(conversationId) === current) {
-        this.locks.delete(conversationId);
-      }
-    }
   }
 
   private enqueue(conversationId: string, job: () => Promise<void>): Promise<void> {
@@ -92,30 +73,6 @@ export class CompactionEngine {
       if (signal?.aborted) return;
       await this.condensedPass(conversationId, deps, signal);
     });
-  }
-
-  private async doCompact(
-    conversationId: string,
-    deps: CompactionDeps,
-    signal?: AbortSignal,
-  ): Promise<string | null> {
-    const uncompacted = this.store.getUncompactedMessages(conversationId);
-
-    if (uncompacted.length < this.config.minMessagesForCompaction) {
-      deps.notify(`LCM: Only ${uncompacted.length} uncompacted messages, skipping DAG compaction`, "info");
-      return null;
-    }
-
-    deps.notify(`LCM: Compacting ${uncompacted.length} messages into leaf summaries...`, "info");
-    await this.leafPass(conversationId, uncompacted, deps, signal);
-
-    if (signal?.aborted) return null;
-
-    await this.condensedPass(conversationId, deps, signal);
-
-    if (signal?.aborted) return null;
-
-    return assembleSummary(this.store, conversationId, this.config.maxSummaryTokens);
   }
 
   // ── Leaf Pass ─────────────────────────────────────────────────

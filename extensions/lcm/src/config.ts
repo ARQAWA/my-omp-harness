@@ -1,10 +1,10 @@
 /**
- * Configuration resolution: env vars > settings.json > defaults
+ * Configuration resolution: env vars > settings.json (project > global) > defaults
  */
 
 import { join, resolve, normalize, dirname } from "path";
 import { readFileSync } from "fs";
-import { getGlobalSettingsPath } from "./settings.js";
+import { getGlobalSettingsPath, loadSettings } from "./settings.js";
 
 export interface LcmConfig {
   enabled: boolean;
@@ -65,8 +65,8 @@ function validateDbDir(dir: string): string {
   return resolved;
 }
 
-export function resolveConfig(): LcmConfig {
-  const file = readSettingsLcm();
+export function resolveConfig(cwd?: string): LcmConfig {
+  const file = cwd !== undefined ? loadSettings(cwd).config : readSettingsLcm();
 
   return {
     enabled: envBool("LCM_ENABLED") ?? file.enabled ?? DEFAULTS.enabled,

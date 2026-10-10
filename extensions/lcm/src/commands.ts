@@ -28,7 +28,7 @@ export function handleLcmCommand(
     case "help":
     default:
       ctx.ui.notify(
-        "LCM commands: /lcm stats | /lcm tree | /lcm compact | /lcm help",
+        "LCM commands: /lcm stats | /lcm tree | /lcm compact | /lcm settings | /lcm help",
         "info",
       );
   }

@@ -1,6 +1,8 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { glob, grep } from "@oh-my-pi/pi-natives";
+import type { Component } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
@@ -484,6 +486,15 @@ function isPlainLocalPath(p: string): boolean {
 	return true;
 }
 
+/** The tool draws through omp's renderer for its name, so display extensions that patch that renderer apply to it. */
+function sharedRender(name: string) {
+	const host = toolRenderers[name]!;
+	return {
+		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>) => host.renderCall(...args) as Component,
+		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>) => host.renderResult(...args) as Component,
+	};
+}
+
 export default function rg(pi: ExtensionAPI) {
 	pi.on("session_start", async _event => {
 		try {
@@ -528,6 +539,7 @@ export default function rg(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "grep",
 		label: "grep",
+		...sharedRender("grep"),
 		loadMode: "essential",
 		description:
 			"Ripgrep search over file contents. Parameters: pattern (regex); path (file or directory, default working directory); glob (file glob filter; without '/' it matches the base name at any depth); " +
@@ -655,6 +667,7 @@ export default function rg(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "glob",
 		label: "glob",
+		...sharedRender("glob"),
 		loadMode: "essential",
 		description:
 			"Find files by glob pattern, recursively. Parameters: glob_pattern (required; a pattern without a leading **/ matches at any depth; braces work); target_directory (default working directory). " +
@@ -701,6 +714,7 @@ export default function rg(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "read",
 		label: "read",
+		...sharedRender("read"),
 		loadMode: "essential",
 		readsSkillUris: true,
 		description:

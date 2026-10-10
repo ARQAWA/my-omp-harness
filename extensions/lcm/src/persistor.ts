@@ -11,7 +11,7 @@ export interface PersistorState {
 
 /**
  * Handle a message_end event by persisting the message to the store.
- * Returns the stored message, or null if skipped (duplicate/not initialized).
+ * Returns true when the message was stored, false when it was skipped (duplicate/not initialized).
  */
 export function persistMessage(
   state: PersistorState,
@@ -20,7 +20,7 @@ export function persistMessage(
 ): boolean {
   if (!state.store || !state.conversationId) return false;
 
-  // Skip messages with no meaningful content
+  // Skip messages without a role
   if (!message || !message.role) return false;
 
   const stored = state.store.appendMessage(state.conversationId, entryId, message);

@@ -2,8 +2,8 @@
  * pi-lcm: Lossless Context Management extension for Pi.
  *
  * Session lifecycle: per-event detection with no global flags.
- *   - session_start: checks event.reason if present (new Pi), otherwise init-only (old Pi).
- *   - session_switch / session_fork: legacy-only events (never fire on new Pi).
+ *   - session_start: initializes LCM for the session.
+ *   - session_switch: omp event; re-initializes LCM for the switched session.
  * Fix 7: closeDb() in session_start catch block.
  * Fix H1: message_end has no entryId — always pass null.
  */
@@ -70,7 +70,7 @@ function logCompactionCost(
 }
 
 export default function (pi: ExtensionAPI) {
-  let config = resolveConfig();
+  let config = resolveConfig(process.cwd());
   if (!config.enabled) return;
 
   // ── Shared state ────────────────────────────────────────────────
@@ -114,7 +114,9 @@ export default function (pi: ExtensionAPI) {
     if (!sessionId || !cwd) return;
 
     // Reload config (may have been changed via /lcm-settings)
-    config = resolveConfig();
+    config = resolveConfig(cwd);
+    // Disabled in settings: no database, so hooks and tools do nothing
+    if (!config.enabled) { resetState(); return; }
     const loaded = loadSettings(cwd);
     settingsScope = loaded.source === "project" ? "project" : "global";
 
@@ -192,7 +194,17 @@ export default function (pi: ExtensionAPI) {
           cwd,
         );
         // Update live config
-        config = resolveConfig();
+        config = resolveConfig(cwd);
+        if (!config.enabled) {
+          resetState();
+        } else if (!store) {
+          try {
+            initializeSession(ctx);
+          } catch (e: any) {
+            console.error("[LCM] Re-init failed after settings change:", e.message);
+            resetState();
+          }
+        }
         settingsScope = scope;
         ctx.ui.notify("LCM: Settings saved", "success");
       },
@@ -221,12 +233,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── Session lifecycle ───────────────────────────────────────────
 
-  pi.on("session_start", async (event: any, ctx: any) => {
+  pi.on("session_start", async (_event: unknown, ctx: any) => {
     try {
-      // New Pi API: event.reason tells us why this session started
-      if (typeof event.reason === "string" && event.reason !== "startup") {
-        resetState();
-      }
       initializeSession(ctx);
     } catch (e: any) {
       console.error("[LCM] Failed to initialize:", e.message);
@@ -235,23 +243,13 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // Legacy handlers: only fire on old Pi (removed in new Pi, never called)
+  // omp emits session_switch when the session is switched
   pi.on("session_switch", async (_event: any, ctx: any) => {
     resetState();
     try {
       initializeSession(ctx);
     } catch (e: any) {
       console.error("[LCM] Re-init failed on session switch:", e.message);
-      resetState();
-    }
-  });
-
-  pi.on("session_fork", async (_event: any, ctx: any) => {
-    resetState();
-    try {
-      initializeSession(ctx);
-    } catch (e: any) {
-      console.error("[LCM] Re-init failed on session fork:", e.message);
       resetState();
     }
   });
