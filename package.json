@@ -1,6 +1,6 @@
 {
   "name": "my-omp-harness",
   "private": true,
-  "omp": { "extensions": ["./extensions/harness.ts", "./extensions/subagent-model-policy.ts", "./extensions/status-bar.ts", "./extensions/autocompaction.ts", "./extensions/model-arrows.js", "./extensions/reasoning-arrows.js", "./extensions/diagram.ts", "./extensions/rg.ts", "./extensions/tospec.ts", "./extensions/default-model.ts", "./extensions/subagent-reuse.ts", "./extensions/cursor-feed.ts", "./extensions/lcm/index.ts"] },
+  "omp": { "extensions": ["./extensions/harness.ts", "./extensions/subagent-model-policy.ts", "./extensions/status-bar.ts", "./extensions/autocompaction.ts", "./extensions/model-arrows.js", "./extensions/reasoning-arrows.js", "./extensions/diagram.ts", "./extensions/rg.ts", "./extensions/default-model.ts", "./extensions/subagent-reuse.ts", "./extensions/cursor-feed.ts", "./extensions/lcm/index.ts"] },
   "dependencies": { "beautiful-mermaid": "1.1.3" }
 }

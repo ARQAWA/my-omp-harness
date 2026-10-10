@@ -11,7 +11,7 @@ const GOLD = join(import.meta.dir, "..", "skills", "gold-standard", "SKILL.md");
 const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL.md");
 const MAIN = join(import.meta.dir, "..", "skills", "main-workflow", "SKILL.md");
 const TOOLS = join(import.meta.dir, "..", "skills", "omp-tools", "SKILL.md");
-const GUIDED = join(import.meta.dir, "guided-goal.md");
+const DEFINE = join(import.meta.dir, "define-goal.md");
 const SLOT = Symbol.for("my-omp-harness.progress");
 type ProgressSlot = {
 	state?: { item: string; steps: string[]; current: number };
@@ -39,12 +39,12 @@ export default function harness(pi: ExtensionAPI) {
 	const z = pi.zod;
 	let progressItem: string | undefined;
 
-	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped; subagents get no progress or tospec tools.
+	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped; subagents get no progress tool.
 	const syncTools = async (kind: string) => {
 		const active = await pi.getActiveTools();
 		const next =
 			kind === "sub"
-				? active.filter(name => name !== "progress" && name !== "tospec")
+				? active.filter(name => name !== "progress")
 				: active.includes("goal")
 					? active
 					: [...active, "goal"];
@@ -125,19 +125,34 @@ export default function harness(pi: ExtensionAPI) {
 			mode = undefined;
 		}
 		const text = event.text.trim();
-		const guided = text.match(/^\/guided-goal(?:\s+([\s\S]*))?$/);
-		// The guided command becomes a visible prompt that carries the procedure; when plan mode or a goal is active or paused, omp's own command runs and shows its message.
-		if (guided) {
-			if (mode === "plan" || mode === "plan_paused" || mode === "goal" || mode === "goal_paused") return undefined;
-			const rough = guided[1]?.trim() ?? "";
-			return { text: rough ? `Guided goal: ${rough}` : "Guided goal" };
-		}
 		// A follow-up typed while the goal is paused resumes the goal through omp's /goal resume; the text is delivered once the goal is active again.
 		if (event.source === "interactive" && mode === "goal_paused" && text !== "" && !text.startsWith("/") && !text.startsWith("!")) {
 			pendingFollowUp = { text: event.text, images: event.images };
 			return { text: "/goal resume", images: [] };
 		}
 		return undefined;
+	});
+	pi.registerCommand("define-goal", {
+		description: "Define a goal: interview, verbatim quotes, success criteria with checks, blind review before completion",
+		handler: async (args, ctx) => {
+			let mode: string | undefined;
+			try {
+				mode = ctx.sessionManager.buildSessionContext().mode;
+			} catch {
+				mode = undefined;
+			}
+			if (mode === "plan" || mode === "plan_paused") {
+				ctx.ui.notify("/define-goal is unavailable in plan mode. Leave plan mode first.", "info");
+				return;
+			}
+			if (mode === "goal" || mode === "goal_paused") {
+				ctx.ui.notify("A goal is already set. Complete or drop it with /goal before /define-goal.", "info");
+				return;
+			}
+			await ctx.waitForIdle();
+			const rough = args.trim();
+			pi.sendUserMessage(rough ? `Define goal: ${rough}` : "Define goal");
+		},
 	});
 	pi.on("goal_updated", (event, ctx) => {
 		const status = event.goal?.status;
@@ -154,7 +169,7 @@ export default function harness(pi: ExtensionAPI) {
 		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`;
 		// A subagent works from its definition and brief: drop block 0 (SYSTEM.md and the skill list) and add only the tool mechanics.
 		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt.slice(1), tools] };
-		const guided = /^Guided goal(?::|$)/.test(event.prompt.trimStart());
+		const define = /^Define goal(?::|$)/.test(event.prompt.trimStart());
 		return {
 			systemPrompt: [
 				...event.systemPrompt,
@@ -163,11 +178,11 @@ export default function harness(pi: ExtensionAPI) {
 				`Apply the following root Main workflow for plan mode, todo, progress and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
 				`Apply the following communication skill before every user-facing message. Source: ${COMM}\n\n${readFileSync(COMM, "utf8")}`,
 			],
-			...(guided
+			...(define
 				? {
 						message: {
-							customType: "my-omp-harness.guided-goal",
-							content: `Follow this procedure for the guided goal the user just started. Source: ${GUIDED}\n\n${readFileSync(GUIDED, "utf8")}`,
+							customType: "my-omp-harness.define-goal",
+							content: `Follow this procedure for the goal the user just started with /define-goal. Source: ${DEFINE}\n\n${readFileSync(DEFINE, "utf8")}`,
 							display: false,
 						},
 					}

@@ -241,14 +241,14 @@ export function goalToolLines(
 	return fit(out, width);
 }
 
-/** The card of a user message that is a guided or session goal; undefined for other text. */
+/** The card of a user message that is a /define-goal start or session goal; undefined for other text. */
 export function userGoalCard(text: string, width: number, expanded: boolean): string[] | undefined {
 	const t = text.trim();
-	const m = /^Guided goal(?::\s*([\s\S]*))?$/.exec(t);
+	const m = /^Define goal(?::\s*([\s\S]*))?$/.exec(t);
 	let title: string;
 	let body: string;
 	if (m) {
-		title = "Guided goal";
+		title = "Define goal";
 		body = (m[1] ?? "").trim();
 	} else if (goalObjectives.has(t)) {
 		title = "Goal";

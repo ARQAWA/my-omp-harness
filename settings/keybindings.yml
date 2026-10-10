@@ -1,2 +1,3 @@
 app.message.dequeue:
   - alt+up
+app.model.cycleForward: []

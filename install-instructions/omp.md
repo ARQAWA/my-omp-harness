@@ -15,7 +15,8 @@ omp ставится штатным установщиком с omp.sh и обн
   Fable 5.1);
 - клавиши — копия [`settings/keybindings.yml`](../settings/keybindings.yml) в
   `<agent-dir>/keybindings.yml`: освобождает shift+↑ (встроенное
-  `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель;
+  `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель, и
+  отключает переключение модели по ctrl+P (`app.model.cycleForward: []`);
 - остальные настройки — ключи `config.yml` из шага 4 первой установки: вид
   статус-строки и поля ввода, модели и провайдеры, работа агента и интерфейс.
 
@@ -66,7 +67,8 @@ omp ставится штатным установщиком с omp.sh и обн
    `$CLONE/settings/keybindings.yml` и `$AGENT_DIR/keybindings.yml`.
 4. Задай настройки владельца. Тема убирает только значок перед контекстом; три
    строки статуса под полем ввода и строку над ним собирает расширение
-   `status-bar.ts` пакета harness.
+   `status-bar.ts` пакета harness. `startup.quiet true` убирает стартовый блок
+   omp: логотип с подсказкой и строку «Model scope».
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -119,6 +121,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tui.autoGraph smart
    omp config set tui.reactions false
    omp config set tui.mouse false
+   omp config set startup.quiet true
    omp config set tui.tight false
    omp config set title.icons boring
    omp config set display.collapseCompacted true

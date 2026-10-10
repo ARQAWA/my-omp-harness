@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'tospec.ts', 'default-model.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'default-model.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -56,10 +56,6 @@ for (const skill of skills) {
   assert.ok(meta.description, `${skill}: description`);
   assert.equal(meta.hide === 'true', hidden.includes(skill), `${skill}: hide`);
 }
-assert.deepEqual(readdirSync(path.join(root, 'extensions/tospec')).sort(),
-  ['01-research.md', '02-spec.md', '03-approve.md', '04-execute.md', 'basis.md', 'review.md', 'spec-template.md']);
-for (const step of ['03-approve.md']) assert.ok(read(`extensions/tospec/${step}`).includes('`ask`'), `${step}: ask`);
-
 const codexLeftovers = /Goal|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 const feedLeftovers = /Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 for (const dir of ['skills', 'agents', 'extensions']) {
@@ -120,7 +116,7 @@ for (const doc of installDocs) {
 }
 assert.ok(read('AGENTS.md').includes('node tests/run.mjs'));
 
-const docs = ['README.md', 'AGENTS.md', 'INSTALL_FOR_AGENTS.md', 'SCOPE-FOCUS-DESIGN.md',
+const docs = ['README.md', 'AGENTS.md', 'INSTALL_FOR_AGENTS.md', 'HARNESS-DESIGN.md',
   ...installDocs, '.agents/skills/release/SKILL.md', '.agents/skills/finalize-work/SKILL.md'];
 for (const doc of docs) {
   for (const [, target] of read(doc).matchAll(/\]\(([^)\s]+)\)/g)) {

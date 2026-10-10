@@ -60,12 +60,6 @@ one to five short connected sentences and opens with a bold label of one to four
 words, such as **Память**; usually two to five blocks, separated like the
 paragraphs above. The main point and the question still close the last block.
 
-## ToSpec
-
-In ToSpec, discussion of questions and approval of the spec use the short form,
-but when the content the user must see does not fit, lengthen a paragraph or add
-a paragraph. Other messages, in ToSpec and outside it, keep the limits above.
-
 ## Preserve meaning
 
 Brevity never hides a decision, approval, check result or real limitation.

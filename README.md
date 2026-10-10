@@ -1,10 +1,10 @@
 # my-omp-harness
 
-Harness для omp: системный промпт, Scope Focus (Gold Standard, правила общения,
+Harness для omp: системный промпт, Gold Standard, правила общения,
 механика инструментов omp, поиск `grep` на движке `rg` без лимита в 20 файлов, планирование
-через todo и цель с полосой прогресса, три цикла проверки, режим ToSpec
-(`/tospec`), интервью цели `/guided-goal` с дословными цитатами пользователя и
-обязательной проверкой результата ревьюером, снятие цели с паузы следующим сообщением),
+через todo и цель с полосой прогресса, три цикла проверки, интервью цели
+`/define-goal` с дословными цитатами пользователя и
+обязательной проверкой результата ревьюером, снятие цели с паузы следующим сообщением,
 агенты `codebase_explorer` (ищет по коду и внешним источникам),
 `code_writer` (пишет код) и `shell_runner` (запускает тесты, сборки и приложения)
 по брифам Main, ревьюеры `spotty`, `smarty` и `bossy` и маршрутизация моделей субагентов по семейству модели
@@ -54,5 +54,6 @@ omp другие: см. [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md).
 - [install-instructions/system-prompt.md](install-instructions/system-prompt.md) — системный промпт.
 - [install-instructions/herdr.md](install-instructions/herdr.md) — наш herdr.
 - [AGENTS.md](AGENTS.md) — разработка и release.
-- [SCOPE-FOCUS-DESIGN.md](SCOPE-FOCUS-DESIGN.md) — концепция Scope Focus.
+- [WORKFLOW-CONCEPT.md](WORKFLOW-CONCEPT.md) — ядро harness.
+- [HARNESS-DESIGN.md](HARNESS-DESIGN.md) — концепция и история решений harness.
 - [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md) — условия рабочих окружений.

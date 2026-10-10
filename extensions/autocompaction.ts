@@ -21,14 +21,6 @@ export default function autocompaction(pi: ExtensionAPI) {
 		if (want !== undefined) threshold.override(pi.pi.settings, want);
 		else threshold.clearOverride(pi.pi.settings);
 		applied = want;
-		if (ctx.hasUI) {
-			ctx.ui.notify(
-				want !== undefined
-					? `Auto-compaction at ${want / 1000}k tokens (${model!.id})`
-					: "Auto-compaction: default threshold",
-				"info",
-			);
-		}
 	};
 
 	pi.on("session_start", (_event, ctx) => sync(ctx));

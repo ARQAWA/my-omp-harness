@@ -1,6 +1,6 @@
-# Guided goal
+# Define goal
 
-The user started `/guided-goal`. Their message after `Guided goal:` is the rough objective: a description of the task, not yet an order to act. If there is none, ask what they want to achieve. Agree on one goal with the user, set it with the `goal` tool, carry it out, and finish only after a blind reviewer returns CLEAN. A goal runs across many turns and outlives context compaction, and omp repeats its objective in every goal turn, so the objective alone must carry everything the work and its review need, including the user's own words.
+The user started `/define-goal`. Their message after `Define goal:` is the rough objective: a description of the task, not yet an order to act. If there is none, ask what they want to achieve. Agree on one goal with the user, set it with the `goal` tool, carry it out, and finish only after a blind reviewer returns CLEAN. A goal runs across many turns and outlives context compaction, and omp repeats its objective in every goal turn, so the objective alone must carry everything the work and its review need, including the user's own words.
 
 ## 1. Explore first
 
