@@ -6,8 +6,7 @@
 
 Пакет лежит в корне клона: `package.json` (поля `omp.extensions` и
 `dependencies`), `bun.lock`, `extensions/harness.ts`, `extensions/rg.ts`,
-`extensions/subagent-model-policy.ts`, `extensions/wrap-and-timer.ts`,
-`extensions/status-bar.ts`, `extensions/autocompaction.ts`,
+`extensions/subagent-model-policy.ts`, `extensions/status-bar.ts`, `extensions/autocompaction.ts`,
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
 `extensions/tospec.ts` с текстами процесса в `extensions/tospec/`,
 `extensions/default-model.ts`, `extensions/subagent-reuse.ts`,
@@ -166,8 +165,7 @@ M searches», правка показывается как «Edited путь +N 
 `display.hideToolActivity: false` (при `true` omp прячет вызовы целиком) и
 `hideThinkingBlock: true`.
 
-`wrap-and-timer.ts` переносит текст ответа ассистента по 60 колонок уже во
-время стриминга. `status-bar.ts` достраивает статус-строку omp под полем ввода до
+`status-bar.ts` достраивает статус-строку omp под полем ввода до
 трёх строк и строку над линией акцента: слева «Worked …» за последний ход,
 справа имя сессии. Первая строка под полем, вплотную к нему, — заполнение
 контекста полосой во

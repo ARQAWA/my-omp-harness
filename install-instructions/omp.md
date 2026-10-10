@@ -119,15 +119,16 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tui.autoGraph smart
    omp config set tui.reactions false
    omp config set tui.mouse false
+   omp config set tui.tight false
    omp config set title.icons boring
    omp config set display.collapseCompacted true
-   omp config set display.showTurnTime true
-   omp config set display.showTokenUsage true
-   omp config set display.subagentLivePreview true
-   omp config set display.pinnedAgents collapsed
+   omp config set display.showTurnTime false
+   omp config set display.showTokenUsage false
+   omp config set display.subagentLivePreview false
+   omp config set display.pinnedAgents off
    omp config set display.smoothStreaming true
    omp config set display.hideToolActivity false
-   omp config set display.cacheMissMarker true
+   omp config set display.cacheMissMarker false
    omp config set task.showResolvedModelBadge false
    omp config set spelling.typoDetection false
    omp config set spelling.autocorrect false
