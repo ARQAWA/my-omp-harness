@@ -29,8 +29,8 @@ assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
 for (const agent of ['codebase_explorer', 'code_writer', 'shell_runner']) {
   const [, gpt, claude] = route(agent);
-  assert.equal(gpt, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: gpt model`);
-  assert.equal(claude, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: claude model`);
+  assert.equal(gpt, 'anthropic/claude-haiku-5-5:high', `${agent}: gpt model`);
+  assert.equal(claude, 'anthropic/claude-haiku-5-5:high', `${agent}: claude model`);
 }
 
 const agents = readdirSync(path.join(root, 'agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3)).sort();

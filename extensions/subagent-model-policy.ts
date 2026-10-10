@@ -21,12 +21,12 @@ const ROUTES = {
 } as const;
 
 const NAMED: Record<string, { gpt: string; claude: string }> = {
-	spotty: { gpt: "anthropic/claude-haiku-5-5:medium", claude: "anthropic/claude-haiku-5-5:medium" },
-	smarty: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
-	bossy: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
-	codebase_explorer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
-	code_writer: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
-	shell_runner: { gpt: "anthropic/claude-haiku-5-5:xhigh", claude: "anthropic/claude-haiku-5-5:xhigh" },
+	spotty: { gpt: "anthropic/claude-haiku-5-5:low", claude: "anthropic/claude-haiku-5-5:low" },
+	smarty: { gpt: "anthropic/claude-haiku-5-5:medium", claude: "anthropic/claude-haiku-5-5:medium" },
+	bossy: { gpt: "anthropic/claude-sonnet-5-5:low", claude: "anthropic/claude-sonnet-5-5:low" },
+	codebase_explorer: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
+	code_writer: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
+	shell_runner: { gpt: "anthropic/claude-haiku-5-5:high", claude: "anthropic/claude-haiku-5-5:high" },
 };
 
 export default function subagentModelPolicy(pi: ExtensionAPI) {

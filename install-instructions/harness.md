@@ -128,10 +128,11 @@ ready, `/tospec off` выключает режим.
 (Claude и прочие) — Claude-маршрут.
 
 - Именованные агенты запускаются по имени в `agent`, без `model`. У каждого одна
-  модель на семейство родителя; все шесть идут на Haiku 5.5 под любым родителем:
-  `spotty` на `anthropic/claude-haiku-5-5:medium`, `smarty` на
-  `anthropic/claude-haiku-5-5:high`, остальные на
-  `anthropic/claude-haiku-5-5:xhigh`. Без входа `anthropic` эти агенты не
+  модель на семейство родителя, одинаковая под любым родителем: `spotty` на
+  `anthropic/claude-haiku-5-5:low`, `smarty` на
+  `anthropic/claude-haiku-5-5:medium`, `bossy` на
+  `anthropic/claude-sonnet-5-5:low`, остальные на
+  `anthropic/claude-haiku-5-5:high`. Без входа `anthropic` эти агенты не
   запускаются.
 - Остальные запуски, включая встроенные агенты omp, передают уровень
   `@subagent_*`. Запуск без имени и без уровня блокируется.
@@ -203,12 +204,12 @@ kitty или CSI u. shift+↑ работает благодаря `keybindings.y
 
 | Агент | GPT-родитель | Claude-родитель | Роль |
 |---|---|---|---|
-| `spotty` | `anthropic/claude-haiku-5-5:medium` | `anthropic/claude-haiku-5-5:medium` | Light review |
-| `smarty` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | Blind review |
-| `bossy` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | High review |
-| `codebase_explorer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | жадный read-only поиск по коду и внешним источникам |
-| `code_writer` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | код и конфиги по брифам Main |
-| `shell_runner` | `anthropic/claude-haiku-5-5:xhigh` | `anthropic/claude-haiku-5-5:xhigh` | запуски программ по брифам Main |
+| `spotty` | `anthropic/claude-haiku-5-5:low` | `anthropic/claude-haiku-5-5:low` | Light review |
+| `smarty` | `anthropic/claude-haiku-5-5:medium` | `anthropic/claude-haiku-5-5:medium` | Blind review |
+| `bossy` | `anthropic/claude-sonnet-5-5:low` | `anthropic/claude-sonnet-5-5:low` | High review |
+| `codebase_explorer` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | жадный read-only поиск по коду и внешним источникам |
+| `code_writer` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | код и конфиги по брифам Main |
+| `shell_runner` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | запуски программ по брифам Main |
 
 Уровни сложности для остальных запусков:
 
@@ -323,7 +324,7 @@ Skills. Семь скрытых (`hide: true`) вызываются через `
 
    Ожидаемый вывод: `yes` (или `да`) дважды, вывод потомка, затем из файла его
    сессии строка `model_change` с `"model":"anthropic/claude-haiku-5-5"` и
-   строка `thinking_level_change` с `"thinkingLevel":"xhigh"`.
+   строка `thinking_level_change` с `"thinkingLevel":"high"`.
 4. Проверь переиспользование субагента со сбросом контекста одной командой:
 
    ```bash

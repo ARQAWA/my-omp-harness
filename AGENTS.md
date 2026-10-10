@@ -111,9 +111,9 @@ gate для неизменённого результата и основани�
 
 `extensions/subagent-model-policy.ts` выбирает модель по семейству родителя.
 Именованные агенты берутся из таблицы `NAMED`, у каждого одна модель на
-семейство родителя; все шесть идут на Haiku 5.5 при любом родителе: `spotty` на
-medium, `smarty` на high, `bossy`, `codebase_explorer`, `code_writer` и
-`shell_runner` на xhigh.
+семейство родителя, одинаковая при любом родителе: `spotty` — Haiku 5.5 low,
+`smarty` — Haiku 5.5 medium, `bossy` — Sonnet 5.5 low, `codebase_explorer`,
+`code_writer` и `shell_runner` — Haiku 5.5 high.
 Остальные запуски требуют уровень из `ROUTES`. Родитель GPT получает GPT-маршрут,
 любой другой — Claude-маршрут. В `agents/*.md` поля `model` нет.
 
