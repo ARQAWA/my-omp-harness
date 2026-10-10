@@ -129,9 +129,9 @@ medium, `smarty` на high, `bossy`, `codebase_explorer`, `code_writer` и
   и `install-instructions/harness.md`;
 - `enabledModels` в шаге 4 `install-instructions/omp.md` и локальную настройку.
 
-`node tests/run.mjs` сверяет расширение с перечисленным, кроме читаемых
-названий моделей в `SYSTEM.md`, `model-arrows.js` и `settings/models.yml`,
-порогов автосжатия и `enabledModels`: их обновляют вручную. После смены на машине
+`node tests/run.mjs` сверяет расширение с перечисленным, включая ID моделей в
+`model-arrows.js` и `settings/models.yml`, кроме читаемых названий моделей в
+`SYSTEM.md`, порогов автосжатия и `enabledModels`: их обновляют вручную. После смены на машине
 разработки нужно обновить `modelRoles` по `harness.md`, копию `SYSTEM.md` и начать
 новую сессию omp.
 
