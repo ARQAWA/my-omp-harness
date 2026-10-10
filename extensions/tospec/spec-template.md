@@ -4,6 +4,7 @@ Revision: v1
 Status: DRAFT / APPROVED / NEEDS UPDATE
 Workspace: <path from the ToSpec block>
 Scope: <objects of the task>
+Class: SMALL / LARGE
 
 ## Assignment
 

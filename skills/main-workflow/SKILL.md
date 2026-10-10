@@ -1,12 +1,28 @@
 ---
 name: main-workflow
-description: "Root Main only: the plan-mode review checkpoints, the todo list, the progress bar and the omp goal."
+description: "Root Main only: the requirement step and work classes with their completion checks, the plan-mode review checkpoints, the todo list, the progress bar and the omp goal."
 hide: true
 ---
 
 # Main Workflow
 
 These rules bind root Main. The Gold Standard governs them.
+
+## Requirements and work class
+
+This is the owner's standing adopted procedure for every task that changes files, code, configuration, settings or other state. A question, analysis, plan or one short action does not start it; ToSpec replaces it with its spec and approval, and omp plan mode with its plan and checkpoints below.
+
+Classify the work by its requirements and the files it changes:
+
+| Class | Threshold | Requirement step | Completion check |
+|---|---|---|---|
+| micro | point corrections here and there whose meaning is obvious | none | none |
+| small | up to 5 requirements and up to 5 changed files | yes | [Light Review Cycle](skill://light-review-cycle), `spotty` |
+| large | more than 5 requirements or more than 5 changed files | yes | [Blind Review Cycle](skill://blind-review-cycle), `smarty` |
+
+Requirement step. Before small or large work, split the request into checkable requirements, one sentence each: what becomes true, where, with which values, taken from the user's words without additions. Send them with the class in one `ask` with the options «Принять» (recommended) and «Поправить»; a user's text replaces or amends the items it names, and the changed list goes to a new `ask`. Start the work after «Принять». The agreement is the user's own words and the accepted requirements; your unconfirmed interpretation is not part of it.
+
+Completion check. Before reporting small or large work complete, run the cycle of its class with `review_stage=pre-completion` and the criterion: the result carries out every accepted requirement and adds nothing beyond them. `bossy` runs only on explicit invocation. When the repository's own instructions add a mandatory gate, run it in parallel with this check, each in its own cycle; when a fix changes the object, both run again until each returns CLEAN.
 
 ## Plan mode
 

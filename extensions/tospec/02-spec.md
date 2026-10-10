@@ -18,11 +18,15 @@ Record each independent design decision as a D of one kind:
 - CHOICE — real alternatives exist; recommend the simplest sufficient one and
   name the rejected ones with reasons.
 
+Record the work class by the thresholds of [Main Workflow](skill://main-workflow):
+small for up to 5 requirements R and up to 5 changed files, large above either;
+it selects the result check in 04.
+
 New decisions stay proposals until 03. A material unknown is a Q; ask it through
 `ask` only when research cannot obtain it.
 
 The first presentation is v1. One round of user amendments raises vN once; an
-internal fix does not raise it, but a new meaning removes the plan's readiness.
+internal fix does not raise it, but a new meaning removes the readiness.
 
-Output: a draft where every R, AC and D has its basis, without a work plan. Next
-03; launch no reviewer before approval.
+Output: a draft where every R, AC and D has its basis, with the work class and
+without a work plan. Next 03.

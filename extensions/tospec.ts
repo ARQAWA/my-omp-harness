@@ -16,23 +16,19 @@ const PREP_FILES = [
 	"01-research.md",
 	"02-spec.md",
 	"03-approve.md",
-	"04-plan.md",
-	"05-plan-check.md",
 	"review.md",
 	"spec-template.md",
-	"plan-template.md",
 ];
-const EXEC_FILES = ["basis.md", "06-execute.md", "review.md"];
-const PREP_PHASE: Record<string, true> = { spec: true, plan: true, ready: true };
+const EXEC_FILES = ["basis.md", "04-execute.md", "review.md"];
+const PREP_PHASE: Record<string, true> = { spec: true, ready: true };
 const LABEL: Record<string, string> = {
 	spec: "ToSpec: spec",
-	plan: "ToSpec: plan",
 	ready: "ToSpec: ready",
 	execute: "ToSpec: run",
 };
 const EXECUTOR = join(getAgentDir(), "my-omp-harness-tospec.json");
 
-type Phase = "spec" | "plan" | "ready" | "launched" | "execute" | "done";
+type Phase = "spec" | "ready" | "launched" | "execute" | "done";
 
 let phase: Phase | undefined;
 let workspace: string | undefined;
@@ -111,10 +107,8 @@ export default function tospec(pi: ExtensionAPI) {
 			return;
 		}
 		let specText: string;
-		let planText: string;
 		try {
 			specText = readFileSync(join(workspace, "spec.md"), "utf8");
-			planText = readFileSync(join(workspace, "plan.md"), "utf8");
 		} catch (e) {
 			ctx.ui.notify(String(e instanceof Error ? e.message : e), "error");
 			return;
@@ -167,7 +161,7 @@ export default function tospec(pi: ExtensionAPI) {
 			flush();
 			return out;
 		};
-		let sections = [...split(specText, "spec.md"), ...split(planText, "plan.md")];
+		let sections = [...split(specText, "spec.md")];
 		if (!sections.length) sections = [{ level: 1, title: "empty", text: "" }];
 		const minLevel = Math.min(...sections.map(s => s.level));
 
@@ -394,7 +388,7 @@ export default function tospec(pi: ExtensionAPI) {
 		}
 		writeFileSync(EXECUTOR, JSON.stringify(choice));
 		const ws = workspace;
-		const start = `Execute the approved ToSpec plan. spec.md: ${join(ws, "spec.md")}; plan.md: ${join(ws, "plan.md")}.`;
+		const start = `Execute the approved ToSpec spec. spec.md: ${join(ws, "spec.md")}.`;
 		await save("launched", ctx);
 		await ctx.waitForIdle();
 		try {
@@ -473,12 +467,12 @@ export default function tospec(pi: ExtensionAPI) {
 		if (commandCtx) {
 			setTimeout(() => openApproval(commandCtx!).catch(e => commandCtx!.ui.notify(String(e), "error")), 0);
 		} else {
-			ctx.ui.notify("ToSpec plan is ready: run /tospec review to review and launch it.", "info");
+			ctx.ui.notify("ToSpec spec is ready: run /tospec review to review and launch it.", "info");
 		}
 	});
 
 	pi.registerCommand("tospec", {
-		description: "ToSpec: research, spec and plan; approve and launch in a new chat; review reopens the window",
+		description: "ToSpec: research and spec; approve and launch in a new chat; review reopens the window",
 		handler: async (args, ctx) => {
 			commandCtx = ctx;
 			sync(ctx);
@@ -520,39 +514,16 @@ export default function tospec(pi: ExtensionAPI) {
 		label: "ToSpec",
 		loadMode: "essential",
 		description:
-			"Move the active ToSpec to its next phase. step plan: after the user accepted the whole spec through ask; lowers reasoning one level for the plan and tasks. step ready: after the Spotty CLEAN and READY FOR IMPLEMENTATION in plan.md; then end the turn, and the approval window opens. step done: in the execution chat, after the Spotty CLEAN, together with the final report.",
-		parameters: z.object({ step: z.enum(["plan", "ready", "done"]) }),
+			"Move the active ToSpec to its next phase. step ready: after the user accepted the whole spec through ask; then end the turn, and the approval window opens. step done: in the execution chat, after the result check reached CLEAN, together with the final report.",
+		parameters: z.object({ step: z.enum(["ready", "done"]) }),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			sync(ctx);
-			if (params.step === "plan") {
-				if (phase !== "spec") {
-					return { content: [{ type: "text", text: `Step plan is not available in phase ${phase ?? "none"}.` }] };
-				}
-				const levels = levelsFor(ctx.model).filter(level => level !== "off");
-				const cur = pi.getThinkingLevel();
-				const lower = levels.filter(level => ORDER.indexOf(level) < ORDER.indexOf(cur)).at(-1);
-				if (lower) pi.setThinkingLevel(lower);
-				await save("plan", ctx);
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Phase plan. Reasoning: ${cur} → ${lower ?? cur}. Write plan.md (04) and run the Spotty check (05).`,
-						},
-					],
-				};
-			}
 			if (params.step === "ready") {
-				if (phase !== "plan" && phase !== "ready") {
+				if (phase !== "spec" && phase !== "ready") {
 					return { content: [{ type: "text", text: `Step ready is not available in phase ${phase ?? "none"}.` }] };
 				}
-				if (!workspace || !existsSync(join(workspace, "spec.md")) || !existsSync(join(workspace, "plan.md"))) {
-					const missing = !workspace
-						? "workspace"
-						: !existsSync(join(workspace, "spec.md"))
-							? join(workspace, "spec.md")
-							: join(workspace, "plan.md");
-					return { content: [{ type: "text", text: `ToSpec ready requires spec.md and plan.md in the workspace. Missing: ${missing}` }] };
+				if (!workspace || !existsSync(join(workspace, "spec.md"))) {
+					return { content: [{ type: "text", text: `ToSpec ready requires spec.md in the workspace. Missing: ${!workspace ? "workspace" : join(workspace, "spec.md")}` }] };
 				}
 				await save("ready", ctx);
 				approvalPending = true;

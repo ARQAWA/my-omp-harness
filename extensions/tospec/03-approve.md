@@ -3,7 +3,8 @@
 Input: the spec draft with its decisions D. Write by [Clear
 Communication](skill://clear-communication).
 
-Before the `ask` call, give in the chat the problem and the result, the DIRECT
+Before the `ask` call, give in the chat the problem and the result, the work
+class with its result check, the DIRECT
 and FORCED decisions with short bases, and for each CHOICE the situation and the
 reason for the recommendation. Leave R, AC and F to the link to spec.md, but
 make the chat and the questions show everything being accepted without opening
@@ -28,5 +29,9 @@ questions, the revision, the chosen options and the user's exact texts in the
 «Approval» section of spec.md and update the status of D. Explain your own
 change of meaning after approval and get it approved through `ask`.
 
-Output: the whole current meaning is approved. Call `tospec` with step `plan`
-and go to 04.
+Output: the whole current meaning is approved. Tell the user in a few lines that
+the spec is ready: a link to spec.md, what will be done and how it will be
+checked. Call `tospec` with step `ready` and end the turn with that message;
+the approval window opens when the turn ends. Do not read 04. When readiness is
+lost, return to the affected stage, get the spec accepted again and call step
+`ready` again.

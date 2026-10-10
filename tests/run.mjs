@@ -42,7 +42,7 @@ for (const name of agents) {
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
 for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep', shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
+  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep, context_notes, new_context', shell_runner: 'bash, read, grep, context_notes, new_context' }[name] ?? 'read, glob, grep, context_notes, new_context', name);
 }
 
 const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools'];
@@ -57,8 +57,8 @@ for (const skill of skills) {
   assert.equal(meta.hide === 'true', hidden.includes(skill), `${skill}: hide`);
 }
 assert.deepEqual(readdirSync(path.join(root, 'extensions/tospec')).sort(),
-  ['01-research.md', '02-spec.md', '03-approve.md', '04-plan.md', '05-plan-check.md', '06-execute.md', 'basis.md', 'plan-template.md', 'review.md', 'spec-template.md']);
-for (const step of ['03-approve.md', '05-plan-check.md']) assert.ok(read(`extensions/tospec/${step}`).includes('`ask`'), `${step}: ask`);
+  ['01-research.md', '02-spec.md', '03-approve.md', '04-execute.md', 'basis.md', 'review.md', 'spec-template.md']);
+for (const step of ['03-approve.md']) assert.ok(read(`extensions/tospec/${step}`).includes('`ask`'), `${step}: ask`);
 
 const codexLeftovers = /Goal|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 for (const dir of ['skills', 'agents', 'extensions']) {

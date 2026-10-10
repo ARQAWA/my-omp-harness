@@ -75,7 +75,8 @@ function patchStatusLine() {
 		// omp draws the running subagent and background job counters only with the right segments; move them to the model row.
 		const agentCount = this.subagentCount;
 		const jobCount = this.runningBackgroundJobCount();
-		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
+		const ompAgents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
+		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `🤖 ${agentCount}`) : "";
 		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
 		const sep = ` ${theme.getFgAnsi("statusLineSep")}·${theme.getFgAnsi("text")} `;
 		let model = base[k];
@@ -83,10 +84,10 @@ function patchStatusLine() {
 		model = model.replace(`${theme.status.disabled} off`, "\x1b[38;2;255;176;0mno");
 		for (const [level, short] of [["low", "lo"], ["medium", "md"], ["high", "hi"], ["xhigh", "xh"], ["max", "mx"]] as const) { const full = theme.thinking?.[level]; if (full) model = model.replace(full, "\x1b[38;2;255;176;0m" + short); }
 		let place: string = rightPart.call(this, width)?.content ?? "";
-		for (const badge of [agents, jobs]) {
+		for (const [badge, omp] of [[agents, ompAgents], [jobs, jobs]] as const) {
 			if (!badge) continue;
 			model += `${theme.fg("statusLineSep", "·")} ${badge}`;
-			place = place.replace(badge + sep, "");
+			place = place.replace(omp + sep, "");
 		}
 		// Drop omp's blank gap row so the context bar sits right under the input.
 		const name = this.session?.sessionManager?.getSessionName?.();
