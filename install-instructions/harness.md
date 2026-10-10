@@ -193,7 +193,7 @@ git и PR, справа — ID сессии;
 `anthropic/claude-haiku-5-5` с reasoning low: до 15 параллельно, без кэша
 промптов, не больше 100 000 токенов на вызов. На пороге автосжатия omp вызывает
 хук `session_before_compact`: LCM до 25 с дописывает сводки и отдаёт omp текст
-нового окна до 32 000 токенов из всех ещё не свёрнутых сводок. Пока сводок LCM
+нового окна до 48 000 токенов из всех ещё не свёрнутых сводок. Пока сводок LCM
 нет, работает обычная сводка omp (`soft`). Промпты требуют переносить сведения
 как есть, ничего не выдумывая и не выбрасывая. Инструменты `lcm_grep`,
 `lcm_describe` и `lcm_expand` ищут и раскрывают исходные сообщения, команды
@@ -275,8 +275,8 @@ Skills. Семь скрытых (`hide: true`) вызываются через `
     родителем.
 - Глобальные значения `config.yml`; остальные ключи сохраняются:
   - `extensions` содержит путь клона.
-  - `task.maxConcurrency` не ниже 44; более высокое значение или `0` (без
-    предела) сохраняется.
+  - `task.maxConcurrency` равен `0` (без предела). Сверх ненулевого предела omp
+    ставит запуски в очередь, а `proc://` показывает их как `running`.
   - `tools.artifactSpillThreshold` не ниже 100 (по умолчанию omp ставит 50), иначе
     omp вырезает середину у чтений кусками по ~90 КБ; `read.defaultLimit`
     предполагается равным 3000.
@@ -309,8 +309,8 @@ Skills. Семь скрытых (`hide: true`) вызываются через `
 2. Выполни `omp config get extensions --json`. Если в массиве нет `CLONE` (или
    записи с `~` для того же пути), выполни
    `omp config set extensions '<JSON-массив из прежних элементов и значения $CLONE>'`.
-3. Выполни `omp config get task.maxConcurrency`. Если значение ниже 44 и не `0`,
-   выполни `omp config set task.maxConcurrency 44`.
+3. Выполни `omp config get task.maxConcurrency`. Если значение не `0`, выполни
+   `omp config set task.maxConcurrency 0`.
    Выполни `omp config get tools.artifactSpillThreshold`. Если значение ниже 100,
    выполни `omp config set tools.artifactSpillThreshold 100`.
 4. Выполни `omp config get modelRoles --json`. Перезапиши четыре ключа

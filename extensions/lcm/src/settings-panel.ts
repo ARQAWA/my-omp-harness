@@ -36,7 +36,7 @@ const ROWS: SettingRow[] = [
   { key: "leafChunkTokens", label: "Chunk Size", type: "number", description: "Tokens per leaf chunk", min: 500, max: 30000, step: 500 },
   { key: "condensationThreshold", label: "Condense At", type: "number", description: "Summaries before condensation", min: 2, max: 20, step: 1 },
   { key: "maxDepth", label: "Max Depth", type: "number", description: "Maximum DAG depth", min: 1, max: 10, step: 1 },
-  { key: "maxSummaryTokens", label: "Budget", type: "number", description: "Summary token budget", min: 1000, max: 32000, step: 1000 },
+  { key: "maxSummaryTokens", label: "Budget", type: "number", description: "Summary token budget", min: 1000, max: 48000, step: 1000 },
   { key: "minMessagesForCompaction", label: "Min Msgs", type: "number", description: "Min messages for DAG compaction", min: 2, max: 50, step: 1 },
   { key: "leafPassConcurrency", label: "Workers", type: "number", description: "Parallel leaf workers", min: 1, max: 15, step: 1 },
   { key: "debugMode", label: "Debug", type: "boolean", description: "Verbose logging" },

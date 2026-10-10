@@ -27,7 +27,6 @@ export function assembleSummary(
   );
   parts.push("");
 
-  // Fill from deepest summaries first (broadest coverage)
   let tokensUsed = estimateTokens(parts.join("\n"));
 
   // Collect unconsumed summaries: deepest levels first, then D0; each chronological

@@ -69,7 +69,7 @@ export function createLcmGrepTool(
       // Search messages
       if (params.scope === "messages" || params.scope === "all") {
         if (params.mode === "regex") {
-          // Fix 21: Invalid regex now throws — catch and return error
+          // Invalid regex throws — catch and return error
           try {
             results = store.searchMessagesRegex(conversationId, params.query, {
               limit,

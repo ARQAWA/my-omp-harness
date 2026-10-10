@@ -1,6 +1,6 @@
 /**
  * SQLite connection management with WAL mode and busy timeout.
- * Fix 15: PASSIVE checkpoint on close, TRUNCATE after compaction.
+ * PASSIVE checkpoint on close, TRUNCATE after compaction.
  */
 
 import { Database as BunDatabase } from "bun:sqlite";
@@ -23,13 +23,13 @@ export function getDbPath(dbDir: string, cwd: string): string {
 }
 
 export function openDb(dbDir: string, cwd: string): Database {
-  // Fix 14: Secure directory permissions
+  // Secure directory permissions
   mkdirSync(dbDir, { recursive: true, mode: 0o700 });
   const dbPath = getDbPath(dbDir, cwd);
 
   const db = new Database(dbPath);
 
-  // Fix 14: Secure file permissions
+  // Secure file permissions
   try { chmodSync(dbPath, 0o600); } catch { /* may fail on some FS */ }
 
   // Connection pragmas
@@ -45,7 +45,7 @@ export function openDb(dbDir: string, cwd: string): Database {
 
 export function closeDb(db: Database): void {
   try {
-    // Fix 15: PASSIVE on close (non-blocking, won't fail if readers exist)
+    // PASSIVE on close (non-blocking, won't fail if readers exist)
     db.pragma("wal_checkpoint(PASSIVE)");
   } catch { /* non-fatal */ }
   try {

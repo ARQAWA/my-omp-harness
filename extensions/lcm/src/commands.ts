@@ -86,7 +86,7 @@ function triggerCompact(state: CommandState, ctx: any): void {
     return;
   }
 
-  // Fix 22: Pass callbacks for user feedback
+  // Pass callbacks for user feedback
   ctx.compact({
     onComplete: () => {
       ctx.ui.notify("LCM: Compaction completed successfully.", "success");

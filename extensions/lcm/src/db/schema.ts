@@ -1,7 +1,7 @@
 /**
  * Database schema and migrations.
- * Fix 1: UNIQUE(session_id), UNIQUE(conversation_id, seq), dedup_hash column.
- * Fix 23: Atomic FTS5 setup with SAVEPOINT.
+ * UNIQUE(session_id), UNIQUE(conversation_id, seq), dedup_hash column.
+ * Atomic FTS5 setup with SAVEPOINT.
  */
 
 import type { Database } from "./connection.js";
@@ -45,7 +45,7 @@ function applyV1(db: Database): void {
     )`
   ).run();
 
-  // Fix 1: UNIQUE(session_id) on conversations
+  // UNIQUE(session_id) on conversations
   db.prepare(
     `CREATE TABLE IF NOT EXISTS conversations (
       id            TEXT PRIMARY KEY,
@@ -57,7 +57,7 @@ function applyV1(db: Database): void {
     )`
   ).run();
 
-  // Fix 1: dedup_hash column + UNIQUE constraint; Fix 3: UNIQUE(conversation_id, seq)
+  // dedup_hash column + UNIQUE constraint; UNIQUE(conversation_id, seq)
   db.prepare(
     `CREATE TABLE IF NOT EXISTS messages (
       id              TEXT PRIMARY KEY,
@@ -77,7 +77,7 @@ function applyV1(db: Database): void {
     )`
   ).run();
 
-  // Fix 23: Atomic FTS5 setup with SAVEPOINT
+  // Atomic FTS5 setup with SAVEPOINT
   setupFts5(db);
 
   db.prepare(
@@ -136,7 +136,7 @@ function applyV2(db: Database): void {
 }
 
 function setupFts5(db: Database): void {
-  // Fix 23: SAVEPOINT for atomic FTS5 setup
+  // SAVEPOINT for atomic FTS5 setup
   try {
     db.prepare("SAVEPOINT fts_setup").run();
 

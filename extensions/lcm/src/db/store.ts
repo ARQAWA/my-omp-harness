@@ -1,13 +1,13 @@
 /**
  * Data access layer: CRUD for conversations, messages, and summaries.
  *
- * Fix 2: dedup_hash + ON CONFLICT DO NOTHING (atomic dedup, no TOCTOU)
- * Fix 3: Atomic seq via INSERT...SELECT (no in-memory counter)
- * Fix 4: getOrCreateConversation wrapped in transaction
- * Fix 5: getUnconsumedSummariesByDepth with NOT EXISTS
- * Fix 16: Empty query guard in search
- * Fix 21: Invalid regex throws typed error
- * Fix 24: Bounded getAllSummaries with LIMIT
+ * dedup_hash + ON CONFLICT DO NOTHING (atomic dedup, no TOCTOU)
+ * Atomic seq via INSERT...SELECT
+ * getOrCreateConversation wrapped in transaction
+ * getUnconsumedSummariesByDepth with NOT EXISTS
+ * Empty query guard in search
+ * Invalid regex throws typed error
+ * Bounded getAllSummaries with LIMIT
  */
 
 import type { Database } from "./connection.js";
@@ -85,7 +85,7 @@ export class LcmStore {
 
   // ── Conversations ───────────────────────────────────────────────
 
-  /** Fix 4: Wrapped in transaction to eliminate TOCTOU race. */
+  /** Wrapped in transaction to eliminate TOCTOU race. */
   getOrCreateConversation(sessionId: string, sessionFile: string | null, cwd: string): Conversation {
     return this.db.transaction(() => {
       const existing = this.db
@@ -112,9 +112,9 @@ export class LcmStore {
   // ── Messages ────────────────────────────────────────────────────
 
   /**
-   * Fix 2: Atomic dedup via dedup_hash + ON CONFLICT DO NOTHING.
-   * Fix 3: Atomic seq via INSERT...SELECT subquery (no in-memory counter).
-   * No TOCTOU race. No INSERT OR IGNORE hiding FK violations.
+   * Atomic dedup via dedup_hash + ON CONFLICT DO NOTHING.
+   * Atomic seq via INSERT...SELECT subquery.
+   * No TOCTOU race. Foreign key violations still raise errors.
    */
   appendMessage(conversationId: string, entryId: string | null, message: any): StoredMessage | null {
     if (!message || !message.role) return null;
@@ -123,8 +123,8 @@ export class LcmStore {
     const contentText = extractSearchableText(message);
     const contentJson = JSON.stringify(message);
     const toolName = message.role === "toolResult" ? message.toolName ?? null : null;
-    const tokenEst = Math.max(1, estimateTokens(contentText)); // Fix 6 (compaction): min 1 token
-    const timestamp = message.timestamp ?? Date.now(); // Fix 2: normalize once
+    const tokenEst = Math.max(1, estimateTokens(contentText)); // min 1 token
+    const timestamp = message.timestamp ?? Date.now(); // normalize once
     const dedupHash = computeDedupHash(message.role, timestamp, contentText);
 
     // Atomic INSERT with seq computed from DB + dedup via ON CONFLICT
@@ -197,7 +197,7 @@ export class LcmStore {
     query: string,
     opts?: { limit?: number; after?: string; before?: string },
   ): SearchResult[] {
-    // Fix 16: Empty query guard
+    // Empty query guard
     if (!query?.trim()) return [];
 
     const limit = Math.min(opts?.limit ?? 20, 100);
@@ -246,8 +246,8 @@ export class LcmStore {
   }
 
   /**
-   * Fix 21: Invalid regex throws a typed error instead of silently returning [].
-   * Fix 13 (partial): Cap content_text length tested to 50K chars.
+   * Invalid regex throws a typed error.
+   * Only the first 50K chars of content_text are tested.
    */
   searchMessagesRegex(conversationId: string, pattern: string, opts?: { limit?: number; timeout?: number }): SearchResult[] {
     if (!pattern?.trim()) return [];
@@ -270,7 +270,7 @@ export class LcmStore {
     const results: SearchResult[] = [];
     for (const msg of iter) {
       if (Date.now() - startTime > timeoutMs) break;
-      // Fix 13: Cap text length to mitigate ReDoS on single large message
+      // Cap text length to mitigate ReDoS on single large message
       const testText = msg.content_text.length > 50000 ? msg.content_text.slice(0, 50000) : msg.content_text;
       if (regex.test(testText)) {
         results.push(msg);
@@ -292,7 +292,7 @@ export class LcmStore {
   private enrichWithSummaryInfo(results: SearchResult[]): SearchResult[] {
     if (results.length === 0) return results;
 
-    // Batch lookup instead of N+1
+    // Batch lookup in chunks of 500 ids
     const ids = results.map((r) => r.id);
     for (let i = 0; i < ids.length; i += 500) {
       const chunk = ids.slice(i, i + 500);
@@ -380,8 +380,8 @@ export class LcmStore {
   }
 
   /**
-   * Fix 5: Get summaries NOT already consumed as sources by higher-level summaries.
-   * Fix B4: Uses NOT EXISTS instead of NOT IN (avoids NULL trap).
+   * Get summaries NOT already consumed as sources by higher-level summaries.
+   * Uses NOT EXISTS, which handles NULL source ids correctly.
    */
   getUnconsumedSummariesByDepth(conversationId: string, depth: number): Summary[] {
     return this.db
@@ -404,7 +404,7 @@ export class LcmStore {
     return row.max_depth ?? -1;
   }
 
-  /** Fix 24: Bounded with LIMIT. */
+  /** Bounded with LIMIT. */
   getAllSummaries(conversationId: string, limit: number = 100): Summary[] {
     return this.db
       .prepare("SELECT * FROM summaries WHERE conversation_id = ? ORDER BY depth DESC, created_at DESC LIMIT ?")

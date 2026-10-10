@@ -25,7 +25,7 @@ const DEFAULTS: LcmConfig = {
   leafChunkTokens: 30000,
   condensationThreshold: 6,
   maxDepth: 5,
-  maxSummaryTokens: 32000,
+  maxSummaryTokens: 48000,
   minMessagesForCompaction: 10,
   leafPassConcurrency: 15,
   compactionModels: [{ provider: "anthropic", id: "claude-haiku-5-5" }],
@@ -56,7 +56,7 @@ function envInt(name: string): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
-/** Fix 14: Validate dbDir doesn't allow path traversal. */
+/** Validate dbDir doesn't allow path traversal. */
 function validateDbDir(dir: string): string {
   const resolved = resolve(normalize(dir));
   if (resolved.includes("..")) {

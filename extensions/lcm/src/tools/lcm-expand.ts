@@ -1,9 +1,8 @@
 /**
  * lcm_expand: Drill into compressed summary nodes to recover original detail.
  *
- * Fix 18: Cycle guard via visited Set.
- * Fix 19: Raised truncation from 1500 to 8000 chars.
- * Fix 20: Use loop index instead of indexOf.
+ * Cycle guard via visited Set.
+ * Message content is truncated at 8000 chars.
  */
 
 import { Type } from "@sinclair/typebox";
@@ -11,7 +10,7 @@ import type { LcmStore, StoredMessage, Summary } from "../db/store.js";
 import { estimateTokens, timeAgo } from "../utils.js";
 
 const HARD_TOKEN_CEILING = 8000;
-const MESSAGE_CHAR_LIMIT = 8000; // Fix 19: Raised from 1500
+const MESSAGE_CHAR_LIMIT = 8000;
 
 export function createLcmExpandTool(
   getStore: () => LcmStore | null,
@@ -56,7 +55,7 @@ export function createLcmExpandTool(
       const maxDepth = Math.min(params.depth ?? 1, 3);
       const maxTokens = Math.min(params.max_tokens ?? 4000, HARD_TOKEN_CEILING);
 
-      // Fix 18: Cycle guard
+      // Cycle guard
       const visited = new Set<string>();
       const result = expandNode(store, summary, maxDepth, maxTokens, 0, visited);
 
@@ -82,7 +81,7 @@ function expandNode(
   currentDepth: number,
   visited: Set<string>,
 ): ExpandResult {
-  // Fix 18: Cycle detection
+  // Cycle detection
   if (visited.has(summary.id)) {
     return { text: `(circular reference: ${summary.id})`, tokensUsed: 0, nodesExpanded: 0 };
   }
@@ -107,7 +106,7 @@ function expandNode(
     const messageIds = messageSources.map((s) => s.source_id);
     const messages = store.getMessagesByIds(messageIds);
 
-    // Fix 20: Use index-based loop instead of indexOf
+    // Index-based loop
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       const msgText = formatMessage(msg);
@@ -165,7 +164,7 @@ function expandNode(
 function formatMessage(msg: StoredMessage): string {
   const time = timeAgo(msg.timestamp);
   const role = msg.tool_name ? `${msg.role}/${msg.tool_name}` : msg.role;
-  // Fix 19: Raised from 1500 to 8000 — expand is for recovering full detail
+  // expand is for recovering full detail
   const content =
     msg.content_text.length > MESSAGE_CHAR_LIMIT
       ? msg.content_text.slice(0, MESSAGE_CHAR_LIMIT) + `\n... (${msg.content_text.length - MESSAGE_CHAR_LIMIT} chars truncated)`

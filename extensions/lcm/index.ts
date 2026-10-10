@@ -4,8 +4,7 @@
  * Session lifecycle: per-event detection with no global flags.
  *   - session_start: initializes LCM for the session.
  *   - session_switch: omp event; re-initializes LCM for the switched session.
- * Fix 7: closeDb() in session_start catch block.
- * Fix H1: message_end has no entryId — always pass null.
+ * message_end has no entryId — always pass null.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -105,7 +104,7 @@ export default function (pi: ExtensionAPI) {
     ];
   }
 
-  // Fix 6: Shared initialization logic
+  // Shared initialization logic
   function initializeSession(ctx: any): void {
     const sessionId = ctx.sessionManager.getSessionId();
     const sessionFile = ctx.sessionManager.getSessionFile?.() ?? null;
@@ -263,7 +262,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("message_end", async (event: any, ctx: any) => {
     if (!store || !conversationId) return;
 
-    // Fix H1: message_end has no entryId field — always null
+    // message_end has no entryId field — always null
     const state: PersistorState = { store, conversationId };
     persistMessage(state, event.message, null);
 

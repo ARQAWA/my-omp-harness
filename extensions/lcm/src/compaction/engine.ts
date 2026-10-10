@@ -1,9 +1,9 @@
 /**
  * CompactionEngine: two-phase DAG compaction (leaf + condensed).
  *
- * Fix 9: Per-conversation mutex.
- * Fix 10: Condensed pass uses unconsumed summaries, < threshold, bounded cascade.
- * Fix 11: No mark-compacted on summarization failure.
+ * Per-conversation mutex.
+ * Condensed pass uses unconsumed summaries, runs at or above condensationThreshold, bounded cascade.
+ * No mark-compacted on summarization failure.
  */
 
 import type { LcmStore, StoredMessage, SourceRef } from "../db/store.js";
@@ -33,7 +33,7 @@ export interface CompactionDeps {
 export class CompactionEngine {
   private store: LcmStore;
   private config: LcmConfig;
-  // Fix 9: Per-conversation mutex
+  // Per-conversation mutex
   private locks = new Map<string, Promise<string | null>>();
 
   constructor(store: LcmStore, config: LcmConfig) {
@@ -108,7 +108,7 @@ export class CompactionEngine {
           const summaryText = await deps.summarize(prompt, signal, undefined, "leaf");
           return { chunk, summaryText, failed: false };
         } catch {
-          // Fix 11: Mark as failed — do NOT persist or mark compacted
+          // Mark as failed: the chunk is neither persisted nor marked compacted
           return { chunk, summaryText: "", failed: true };
         }
       },
@@ -118,7 +118,7 @@ export class CompactionEngine {
       if (result.status === "rejected") continue;
       const { chunk, summaryText, failed } = result.value;
 
-      // Fix 11: Skip failed chunks — messages stay uncompacted for retry next cycle
+      // Skip failed chunks — messages stay uncompacted for retry next cycle
       if (failed) {
         deps.notify(
           `LCM: Summarization failed for messages ${chunk[0].seq}-${chunk[chunk.length - 1].seq}, will retry next cycle`,
@@ -143,9 +143,9 @@ export class CompactionEngine {
   // ── Condensed Pass ────────────────────────────────────────────
 
   /**
-   * Fix 10a: Use getUnconsumedSummariesByDepth (NOT EXISTS filter).
-   * Fix 10b: Threshold uses < not <= (condense AT threshold, not above).
-   * Fix 10c: Bounded cascade loop (MAX_CONDENSE_PASSES = 10).
+   * Uses getUnconsumedSummariesByDepth (NOT EXISTS filter).
+   * Condenses when the unconsumed count is at or above the threshold.
+   * Bounded cascade loop (MAX_CONDENSE_PASSES = 10).
    */
   private async condensedPass(
     conversationId: string,
@@ -162,9 +162,9 @@ export class CompactionEngine {
       for (let depth = 0; depth < this.config.maxDepth; depth++) {
         if (signal?.aborted) return;
 
-        // Fix 10a: Only count/select unconsumed summaries
+        // Count and select only unconsumed summaries
         const unconsumed = this.store.getUnconsumedSummariesByDepth(conversationId, depth);
-        // Fix 10b: < threshold (condense at threshold count, not above)
+        // Skip depths below the threshold
         if (unconsumed.length < this.config.condensationThreshold) continue;
 
         let toCondense = unconsumed.slice(0, this.config.condensationThreshold);
