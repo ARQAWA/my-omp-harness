@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { getSessionAccentAnsi, getSessionAccentHex, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
-import { copyToClipboard } from "@oh-my-pi/pi-coding-agent/utils/clipboard";
 import { truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 
 const TITLE = "my-omp-harness.title";
@@ -195,15 +194,6 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchTokenRate();
 	patchMode();
 	patchStatusLine();
-
-	pi.registerShortcut("alt+i", {
-		description: "Copy session id as omp-session://<id>",
-		async handler(ctx) {
-			const id = ctx.sessionManager?.getSessionId?.();
-			if (!id) return;
-			await copyToClipboard(`omp-session://${id}`);
-		},
-	});
 
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
