@@ -1,4 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { type Component, Text } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 
 const BASH_DESCRIPTION =
@@ -26,6 +28,20 @@ type BashParams = {
 let current: number | undefined;
 let lastStart = 0;
 let gate: Promise<void> = Promise.resolve();
+
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+	const content =
+		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+			? result.content
+			: [];
+	for (const block of content) {
+		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+			return block.text.split("\n")[0] ?? "";
+		}
+	}
+	return "";
+}
 
 // GPT sends every optional field with an empty default; "" names and cwd, and a ready block with neither log nor port, count as absent.
 function cleanBashParams(raw: BashParams): BashParams {
@@ -116,6 +132,14 @@ export default function (pi: ExtensionAPI) {
 
 			await setThreshold(Math.floor(blockUntilMs ?? 60000));
 			return ctx.invokeTool!(args, { signal, onUpdate }) as Promise<NativeResult>;
+		},
+		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
+			const host = toolRenderers["bash"];
+			return host ? (host.renderCall(...args) as Component) : new Text("bash", 0, 0);
+		},
+		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
+			const host = toolRenderers["bash"];
+			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
 		},
 	});
 }

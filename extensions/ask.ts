@@ -1,4 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { type Component, Text } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 
 const ASK_DESCRIPTION =
 	"Ask only for materially different tradeoffs the user must decide. Default: act using code/config/docs/history and conventions. Several viable choices: pick conservative/standard, proceed, state choice.\n\n" +
@@ -14,6 +16,20 @@ type Question = { id: string; question: string; header?: string; multi?: boolean
 type AskParams = { title?: string; questions: Question[] };
 
 const RECOMMENDED_SUFFIX = " (Recommended)";
+
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+	const content =
+		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+			? result.content
+			: [];
+	for (const block of content) {
+		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+			return block.text.split("\n")[0] ?? "";
+		}
+	}
+	return "";
+}
 
 export default function (pi: ExtensionAPI) {
 	const z = pi.zod;
@@ -105,6 +121,14 @@ export default function (pi: ExtensionAPI) {
 				content: [...result.content, { type: "text", text: `Selected option ids: ${pairs.join(", ")}` }],
 				details: { ...baseDetails, selectedOptionIds },
 			};
+		},
+		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
+			const host = toolRenderers["ask"];
+			return host ? (host.renderCall(...args) as Component) : new Text("ask", 0, 0);
+		},
+		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
+			const host = toolRenderers["ask"];
+			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
 		},
 	});
 }

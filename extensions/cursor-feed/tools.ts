@@ -1,7 +1,7 @@
 import { AssistantMessageComponent, ReadToolGroupComponent, ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Container, MetricRow, Spacer, theme, type ThemeColor, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { type Component, Container, MetricRow, Spacer, Text, theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
 import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome";
-import { toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import {
 	allocations,
 	assistantMessages,
@@ -22,6 +22,8 @@ import {
 import {
 	bodyOf,
 	countsText,
+	editResultRow,
+	editResults,
 	EXPLORE_TOOLS,
 	formatElapsed,
 	type Line,
@@ -33,6 +35,8 @@ import {
 } from "./rows";
 import { askCardLines, goalToolLines, type TodoPhase, todoRowLine } from "./cards";
 import { wrapChild } from "./turn";
+import { fitLine } from "./fit";
+import { GLYPH } from "./glyphs";
 
 /** One render-time view of a tool block: the call or one of its results. */
 interface Unit {
@@ -53,6 +57,8 @@ interface Action {
 	row: Row;
 	status: Status;
 	durationMs?: number;
+	/** The tool name, which picks the row glyph. */
+	tool: string;
 }
 
 /** A tool block or a read group that takes part in an Explored run. */
@@ -236,7 +242,21 @@ function actionOf(call: Call, owner: object): Action {
 		row: rowOf(call.toolName, call.args, call.results),
 		status: statusOf(call.results, call.isPartial),
 		durationMs,
+		tool: call.toolName,
 	};
+}
+
+/** The actions of a standalone call: one per edited file when an edit call has several results, else one. */
+function actionsOf(call: Call, owner: object): Action[] {
+	const per = editResults(call.toolName, call.results);
+	if (per.length === 0) return [actionOf(call, owner)];
+	const durationMs = durationOf(timings.get(owner));
+	return per.map((result, index) => ({
+		row: editResultRow(result),
+		status: statusOf([result], call.isPartial),
+		durationMs: index === 0 ? durationMs : undefined,
+		tool: call.toolName,
+	}));
 }
 
 function groupActions(map: Map<string, ReadAction>): Action[] {
@@ -246,6 +266,7 @@ function groupActions(map: Map<string, ReadAction>): Action[] {
 			row: readRow(entry.args),
 			status: statusOf(entry.result ? [entry.result] : [], entry.isPartial),
 			durationMs: durationOf(entry),
+			tool: "read",
 		});
 	}
 	return actions;
@@ -313,7 +334,22 @@ function exploreRun(owner: object, width: number, self: Member): Member[] {
 	return [...before, self, ...after];
 }
 
-function rowLine(action: Action, withElapsed: boolean): string {
+/** The end of a detail that fits the room, with "…" in front when its start is cut. */
+function tailDetail(detail: string, room: number): string {
+	if (visibleWidth(detail) <= room) return detail;
+	const kept: string[] = [];
+	let used = 0;
+	for (const char of [...detail].reverse()) {
+		const size = visibleWidth(char);
+		if (used + size > room - 1) break;
+		kept.unshift(char);
+		used += size;
+	}
+	return `…${kept.join("")}`;
+}
+
+/** One tool row: glyph, verb, detail, stats and elapsed time; a long detail loses its start to fit the width. */
+function rowLine(action: Action, withElapsed: boolean, width: number, indent = ""): string {
 	const { row } = action;
 	const stats = [
 		row.added === undefined ? "" : paint(TONE.added, `+${row.added}`),
@@ -321,12 +357,17 @@ function rowLine(action: Action, withElapsed: boolean): string {
 	]
 		.filter(Boolean)
 		.join(" ");
-	const head = [paint(DOT[action.status], "●"), row.verb, row.detail ? paint("dim", row.detail) : "", stats]
-		.filter(Boolean)
-		.join(" ");
 	const time =
-		withElapsed && action.durationMs !== undefined ? ` ${paint("dim", `· ${formatElapsed(action.durationMs)}`)}` : "";
-	return head + time;
+		withElapsed && action.durationMs !== undefined ? paint("dim", `· ${formatElapsed(action.durationMs)}`) : "";
+	const tail = [stats, time].filter(Boolean).join(" ");
+	const tailText = tail === "" ? "" : ` ${tail}`;
+	const head = `${indent}${paint(DOT[action.status], GLYPH.circle)} ${row.verb}`;
+	const whole = row.detail === "" ? `${head}${tailText}` : `${head} ${paint("dim", row.detail)}${tailText}`;
+	if (visibleWidth(whole) <= width) return whole;
+	if (row.detail === "") return fitLine(whole, width);
+	const room = width - visibleWidth(head) - visibleWidth(tailText) - 1;
+	if (room < 1) return `${fitLine(head, width - visibleWidth(tailText))}${tailText}`;
+	return `${head} ${paint("dim", tailDetail(row.detail, room))}${tailText}`;
 }
 
 /** Settled todo blocks' phases, cached per owner once the owner's own call has settled. */
@@ -376,12 +417,12 @@ function standaloneLines(owner: object, call: Call, width: number): string[] {
 	if (call.toolName === "todo") return [todoRowLine(call.args, call.results, previousTodoPhases(owner), status, width)];
 	if (call.toolName === "ask") return askCardLines(call.args, call.results, status, isExpanded(owner), width);
 	if (call.toolName === "goal") return goalToolLines(call.args, call.results, status, isExpanded(owner), width);
-	const out = [rowLine(actionOf(call, owner), true)];
+	const out = actionsOf(call, owner).map(action => rowLine(action, true, width));
 	if (isExpanded(owner)) {
 		const body = bodyOf(call.toolName, call.args, call.results);
 		out.push(...body.map(line => `  ${paint(TONE[line.tone], line.text)}`));
 	}
-	return out.map(text => truncateToWidth(text, width));
+	return out.map(text => fitLine(text, width));
 }
 
 function groupLines(owner: object, run: Member[], width: number): string[] {
@@ -395,11 +436,11 @@ function groupLines(owner: object, run: Member[], width: number): string[] {
 	const total = timed.reduce((sum, ms) => sum + ms, 0);
 	const elapsed = timed.length > 0 ? ` ${paint("dim", `· ${formatElapsed(total)}`)}` : "";
 	const verb = running ? "Exploring" : "Explored";
-	const out = [`${paint(DOT[groupStatus], "●")} ${verb} ${paint("dim", countsText(files, searches))}${elapsed}`];
+	const out = [`${paint(DOT[groupStatus], GLYPH.circle)} ${verb} ${paint("dim", countsText(files, searches))}${elapsed}`];
 	if (isExpanded(owner)) {
-		for (const action of actions) out.push(`  ${rowLine(action, true)}`);
+		for (const action of actions) out.push(rowLine(action, true, width, "  "));
 	}
-	return out.map(text => truncateToWidth(text, width));
+	return out.map(text => fitLine(text, width));
 }
 
 /** Lines of a tool block that has marker data. */
@@ -582,8 +623,39 @@ function patchToolExecution(): void {
 	};
 }
 
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+	const content =
+		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+			? result.content
+			: [];
+	for (const block of content) {
+		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+			return block.text.split("\n")[0] ?? "";
+		}
+	}
+	return "";
+}
+
+/** The memory tools delegate their own renderers to these entries, so the feed wraps them like a built-in tool; each entry gets a plain renderer when it has none. */
+function addMemoryRenderers(): void {
+	const labels: Record<string, string> = {
+		lcm_grep: "Searching memory",
+		lcm_describe: "Viewing memory map",
+		lcm_expand: "Opening memory summary",
+	};
+	for (const [name, label] of Object.entries(labels)) {
+		if (toolRenderers[name]) continue;
+		toolRenderers[name] = {
+			renderCall: () => new Text(label, 0, 0),
+			renderResult: (result: unknown) => new Text(firstTextLine(result), 0, 0),
+		} as unknown as ToolRenderer;
+	}
+}
+
 /** Installs the process-wide renderer and prototype patches once. */
 export function installCursorFeed(): void {
+	addMemoryRenderers();
 	installRenderers();
 	patchTranscript();
 	patchAssistant();

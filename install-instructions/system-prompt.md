@@ -1,62 +1,65 @@
-# Системный промпт
+# System prompt
 
-Общий статус и границы установки: [INSTALL_FOR_AGENTS.md](../INSTALL_FOR_AGENTS.md).
+General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../INSTALL_FOR_AGENTS.md).
 
-## Состав
+## Contents
 
-[`SYSTEM.md`](../SYSTEM.md) в корне клона содержит общие правила поведения модели
-на основе финального системного промпта Codex, без частей, которых нет в omp, и
-без правил, которые дают skills пакета harness. В конце идёт раздел «Subagent model
-routing»: выбор уровня сложности, запуск именованных агентов harness по имени
-без `model` и работа, которую root Main им передаёт: поиск по незнакомым файлам и
-внешним источникам — `codebase_explorer`, код и конфиги — только `code_writer`,
-запуски программ — только `shell_runner`.
+[`SYSTEM.md`](../SYSTEM.md) at the root of the clone holds the general rules of
+model behavior based on the final Codex system prompt, without the parts that do
+not exist in omp and without the rules that the harness package's skills supply.
+It ends with the "Subagent model routing" section: choosing a complexity tier,
+starting the named harness agents by name without `model`, and the work that
+root Main hands to them: searching unfamiliar files and external sources goes to
+`codebase_explorer`, code and configs only to `code_writer`, program runs only
+to `shell_runner`.
 
-Файл устанавливается копией в `<agent-dir>/SYSTEM.md`. Тогда omp заменяет свой
-встроенный шаблон инструкций этим файлом, а skills, правила и контекст проекта
-сохраняет. Промпт действует во всех сессиях профиля у root Main; субагенты его не
-получают, потому что пакет harness убирает его из их системного промпта. Версия
-промпта определяется коммитом.
+The file is installed as a copy at `<agent-dir>/SYSTEM.md`. omp then replaces
+its built-in instruction template with this file and keeps skills, rules and the
+project context. The prompt applies to root Main in all sessions of the profile;
+subagents do not receive it, because the harness package removes it from their
+system prompt. The prompt's version is the commit.
 
-Правила todo и review принадлежат пакету harness и в промпт не переносятся.
-Связь промпта с пакетом — раздел маршрутизации (маршруты задаёт расширение
-`subagent-model-policy.ts`, брифы — skill `subagent-brief`) и skills, которые
-пакет подаёт root Main вместо повторов в промпте: Gold Standard, `omp-tools`,
-`main-workflow` и `clear-communication`.
+The todo and review rules belong to the harness package and are not moved into
+the prompt. The prompt is tied to the package by the routing section (the routes
+are set by the `subagent-model-policy.ts` extension, the briefs by the
+`subagent-brief` skill) and by the skills that the package supplies to root Main
+instead of repeating them in the prompt: the Gold Standard, `omp-tools`,
+`main-workflow` and `clear-communication`.
 
-## Требования
+## Requirements
 
-Нужен установленный [пакет harness](harness.md) и доступ к `<agent-dir>` —
-каталогу, который печатает `omp config path`; он следует за активным профилем.
-В Windows команды выполняются через bash-инструмент omp или Git Bash. Не переноси
-абсолютные пути с другой машины.
+You need the installed [harness package](harness.md) and access to `<agent-dir>`,
+the directory that `omp config path` prints; it follows the active profile. On
+Windows, run commands through the omp bash tool or Git Bash. Do not carry over
+absolute paths from another machine.
 
-## Первая установка
+## First installation
 
-Задай путь клона и каталог агента:
+Set the clone path and the agent directory:
 
 ```bash
 CLONE="$(git -C ~/my-omp-harness rev-parse --show-toplevel)"
 AGENT_DIR="$(omp config path)"
 ```
 
-Если `$AGENT_DIR/SYSTEM.md` нет, скопируй исходник без изменений:
+If `$AGENT_DIR/SYSTEM.md` does not exist, copy the source unchanged:
 `cp "$CLONE/SYSTEM.md" "$AGENT_DIR/SYSTEM.md"`.
 
-Если файл есть и отличается, это может быть собственный промпт владельца. Покажи
-различия командой `git diff --no-index "$AGENT_DIR/SYSTEM.md" "$CLONE/SYSTEM.md"`
-и замени файл только с согласия владельца.
+If the file exists and differs, it may be the owner's own prompt. Show the
+differences with `git diff --no-index "$AGENT_DIR/SYSTEM.md" "$CLONE/SYSTEM.md"`
+and replace the file only with the owner's consent.
 
-Промпт применяется в новой сессии omp. Не прерывай текущую задачу ради
-перезапуска.
+The prompt takes effect in a new omp session. Do not interrupt the current task
+to restart.
 
-## Проверка после установки
+## Post-installation check
 
-Команда `cmp "$CLONE/SYSTEM.md" "$(omp config path)/SYSTEM.md"` ничего не
-печатает. Запуск моделей не нужен.
+The command `cmp "$CLONE/SYSTEM.md" "$(omp config path)/SYSTEM.md"` prints
+nothing. No model runs are needed.
 
-## Обновление
+## Update
 
-После обновления клона выполни ту же команду `cmp`. Если она сообщает о различии,
-скопируй файл заново, как в первой установке. Совпадающий файл не перезаписывай.
-Затем повтори проверку и начни новую сессию, не прерывая текущую задачу.
+After updating the clone, run the same `cmp` command. If it reports a
+difference, copy the file again as in the first installation. Do not overwrite a
+matching file. Then repeat the check and start a new session without
+interrupting the current task.

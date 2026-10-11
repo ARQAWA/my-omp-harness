@@ -1,9 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent";
+import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
 import { isKeyRelease, matchesKey } from "@oh-my-pi/pi-tui";
 import { goalObjectives, scheduleReset, setTuiRef, type TuiRef } from "./cursor-feed/state";
 import { installCursorFeed } from "./cursor-feed/tools";
 import { installSubagents } from "./cursor-feed/subagents";
+import { installAgentBoard } from "./cursor-feed/hub";
 import { installTurn, mainAgentEnded, mainAgentStarted } from "./cursor-feed/turn";
 import { installPanel } from "./cursor-feed/panel";
 import { addLifecycleEvent, installDialogs } from "./cursor-feed/dialogs";
@@ -32,6 +34,33 @@ function installFocus(): void {
 	proto.focusAgentSession = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["focusAgentSession"]>) {
 		focusMode = this;
 		return focusAgentSession.apply(this, args);
+	};
+}
+
+/** Refreshes the queued-message band of the last interactive mode when the agent queue changes. */
+function installQueueRefresh(): void {
+	const modeProto = InteractiveMode.prototype;
+	const record = modeProto as unknown as Record<symbol, unknown>;
+	const key = Symbol.for("my-omp-harness.cursor-feed.queue-refresh");
+	if (record[key]) return;
+	record[key] = true;
+	let queueMode: InteractiveMode | undefined;
+	const updatePendingMessagesDisplay = modeProto.updatePendingMessagesDisplay;
+	modeProto.updatePendingMessagesDisplay = function (
+		this: InteractiveMode,
+		...args: Parameters<InteractiveMode["updatePendingMessagesDisplay"]>
+	): ReturnType<InteractiveMode["updatePendingMessagesDisplay"]> {
+		queueMode = this;
+		return updatePendingMessagesDisplay.apply(this, args);
+	};
+	const eventProto = EventController.prototype;
+	const handleEvent = eventProto.handleEvent;
+	eventProto.handleEvent = async function (
+		this: EventController,
+		...args: Parameters<EventController["handleEvent"]>
+	): Promise<void> {
+		await handleEvent.apply(this, args);
+		if (args[0].type === "queue_update") queueMode?.updatePendingMessagesDisplay();
 	};
 }
 
@@ -79,6 +108,8 @@ function seedObjectives(ctx: ExtensionContext): void {
 
 export default function cursorFeed(pi: ExtensionAPI) {
 	installFocus();
+	installQueueRefresh();
+	installAgentBoard();
 	installCursorFeed();
     installTurn();
 	installSubagents();

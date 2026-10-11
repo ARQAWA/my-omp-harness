@@ -1,6 +1,8 @@
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent";
-import { theme, type ThemeColor, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
+import { theme, type ThemeColor } from "@oh-my-pi/pi-tui";
 import { enabled } from "./state";
+import { fitLine } from "./fit";
+import { GLYPH } from "./glyphs";
 
 /** The parts of the interactive mode that the todo panel reads. */
 export type ModeLike = Pick<
@@ -38,22 +40,33 @@ function isDone(task: Task): boolean {
 	return task.status === "completed" || task.status === "abandoned";
 }
 
+const BAR_EMPTY = ["\u{EE00}", "\u{EE01}", "\u{EE02}"] as const;
+const BAR_FILLED = ["\u{EE03}", "\u{EE04}", "\u{EE05}"] as const;
+
+/** The 8-cell substep bar: cell 0 is a left end, cell 7 a right end, the rest middles; cells below `filled` are filled. */
+export function bar(cur: number, total: number): { glyph: string; filled: boolean }[] {
+	const filled = Math.round((8 * cur) / total);
+	return Array.from({ length: 8 }, (_cell, index) => {
+		const end = index === 0 ? 0 : index === 7 ? 2 : 1;
+		const on = index < filled;
+		return { glyph: (on ? BAR_FILLED : BAR_EMPTY)[end]!, filled: on };
+	});
+}
+
 /** One task row: the prefix, a status symbol and the text; the in-progress row carries the substep bar. */
 function taskLine(prefix: string, task: Task, width: number): string {
 	const { content, status } = task;
-	if (status === "completed" || status === "abandoned") return `${prefix}${paint("success", "✓")} ${paint("dim", content)}`;
-	if (status === "pending" || status === "blocked") return `${prefix}${paint("dim", "○")} ${paint("muted", content)}`;
+	if (status === "completed" || status === "abandoned") return `${prefix}${paint("success", GLYPH.circle)} ${paint("dim", content)}`;
+	if (status === "pending" || status === "blocked") return `${prefix}${paint("dim", GLYPH.circle)} ${paint("muted", content)}`;
 
 	const state = slot.state;
 	if (status === "in_progress" && state !== undefined && state.item === content && state.steps.length > 0) {
 		const total = state.steps.length;
 		const cur = Math.min(Math.max(1, Math.round(state.current)), total);
-		const bar = state.steps.map((_step, index) => (index < cur ? "▰" : "▱")).join("");
-		const barPart = `  ${paint("accent", bar)} ${paint("dim", `${cur}/${total} ${state.steps[cur - 1]}`)}`;
-		const room = Math.max(1, width - visibleWidth(`${prefix}● `) - visibleWidth(barPart));
-		return `${prefix}${paint("accent", "●")} ${paint("text", truncateToWidth(content, room))}${barPart}`;
+		const cells = bar(cur, total).map(cell => paint(cell.filled ? "warning" : "dim", cell.glyph)).join("");
+		return fitLine(`${prefix}${cells} ${paint("text", content)}${paint("dim", ` · ${cur}/${total} ${state.steps[cur - 1]}`)}`, width);
 	}
-	return `${prefix}${paint("accent", "●")} ${paint("text", content)}`;
+	return `${prefix}${paint("warning", GLYPH.circle)} ${paint("text", content)}`;
 }
 
 /** The panel rows: a collapsed window of one phase, or every phase when expanded. */
@@ -67,11 +80,11 @@ function panelLines(mode: ModeLike, width: number): string[] {
 	const lines: string[] = [];
 
 	if (expanded) {
-		lines.push("", ` ${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)}`);
+		lines.push("", `${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)}`);
 		for (const phase of phases) {
 			const phaseDone = phase.tasks.filter(isDone).length;
-			lines.push(` ${paint("muted", phase.name)} ${paint("dim", `${phaseDone}/${phase.tasks.length}`)}`);
-			for (const task of phase.tasks) lines.push(taskLine("   ", task, width));
+			lines.push(`  ${paint("muted", phase.name)} ${paint("dim", `${phaseDone}/${phase.tasks.length}`)}`);
+			for (const task of phase.tasks) lines.push(taskLine("    ", task, width));
 		}
 	} else {
 		const phase: Phase =
@@ -86,12 +99,12 @@ function panelLines(mode: ModeLike, width: number): string[] {
 		const windowTasks = tasks.slice(start, start + 5);
 		const shown = windowTasks.length;
 
-		lines.push("", ` ${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)} ${paint("dim", "·")} ${paint("muted", phase.name)}`);
-		for (const task of windowTasks) lines.push(taskLine(" ", task, width));
-		if (n - shown > 0) lines.push(` ${paint("dim", `… ещё ${n - shown}`)}`);
+		lines.push("", `${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)} ${paint("dim", "·")} ${paint("muted", phase.name)}`);
+		for (const task of windowTasks) lines.push(taskLine("  ", task, width));
+		if (n - shown > 0) lines.push(`  ${paint("dim", `… ${n - shown} more`)}`);
 	}
 
-	return lines.map(line => truncateToWidth(line, width));
+	return lines.map(line => fitLine(line, width));
 }
 
 /** Gives one todo container the panel render; the original render stays the fallback. */

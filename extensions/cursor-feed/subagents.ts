@@ -1,9 +1,12 @@
 import { SubagentHudComponent, ToolExecutionComponent, UserMessageComponent } from "@oh-my-pi/pi-coding-agent";
 import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import { theme, type ThemeColor, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
 import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-pi/pi-coding-agent/task";
 import { type AgentRecord, agentRecords, blockKinds, enabled, expandedNow, painters } from "./state";
 import { markerOf } from "./tools";
+import { fitLine } from "./fit";
+import { GLYPH } from "./glyphs";
+import { ASSIGNMENT, actionText, formatElapsed } from "./hub";
 
 type Status = AgentRecord["status"];
 
@@ -13,6 +16,10 @@ interface Entry {
 	agent: string;
 	description?: string;
 	status: Status;
+	/** Current action of a running subagent. */
+	action?: string;
+	durationMs?: number;
+	error?: string;
 }
 
 /** Per task block: the last task details and whether a settled (non-partial) result has arrived. */
@@ -21,15 +28,17 @@ interface TaskState {
 	resolved: boolean;
 }
 
-const ASSIGNMENT = /^\s*Complete assignment thoroughly:\s*/i;
 const CARD_LINES = 4;
 const CARD_LINES_EXPANDED = 20;
-const STATUS_TEXT: Record<Status, string> = {
-	pending: "Starting up",
-	running: "Running",
-	completed: "Completed",
-	failed: "Failed",
-	aborted: "Aborted",
+const STARTING = "Starting up";
+const OUTPUT_LIMIT = 600;
+const PANEL_ROWS = 4;
+const STATUS_GLYPH: Record<Status, ThemeColor> = {
+	pending: "dim",
+	running: "warning",
+	completed: "success",
+	failed: "error",
+	aborted: "error",
 };
 
 const states = new WeakMap<object, TaskState>();
@@ -80,6 +89,7 @@ function statusOfResult(result: SingleResult): Status {
 /** Keeps the latest progress per subagent; a settled result replaces it. */
 function recordAgents(details: TaskToolDetails): void {
 	for (const progress of listOf<AgentProgress>(details.progress)) {
+		const prior = agentRecords.get(progress.id);
 		agentRecords.set(progress.id, {
 			id: progress.id,
 			agent: progress.agent,
@@ -88,6 +98,16 @@ function recordAgents(details: TaskToolDetails): void {
 			lastIntent: progress.lastIntent,
 			currentTool: progress.currentTool,
 			currentToolArgs: progress.currentToolArgs,
+			task: progress.task ?? prior?.task,
+			startedAt: prior?.startedAt ?? Date.now(),
+			durationMs: progress.durationMs,
+			tokens: progress.tokens,
+			toolCount: progress.toolCount,
+			requests: progress.requests,
+			model: progress.resolvedModel ?? prior?.model,
+			thinking: progress.resolvedThinkingLevel ?? prior?.thinking,
+			output: prior?.output,
+			error: prior?.error,
 		});
 	}
 	for (const result of listOf<SingleResult>(details.results)) {
@@ -98,6 +118,16 @@ function recordAgents(details: TaskToolDetails): void {
 			description: result.description ?? prior?.description,
 			status: statusOfResult(result),
 			lastIntent: result.lastIntent ?? prior?.lastIntent,
+			task: result.task ?? prior?.task,
+			startedAt: prior?.startedAt ?? Date.now(),
+			durationMs: result.durationMs,
+			tokens: result.tokens,
+			toolCount: prior?.toolCount,
+			requests: result.requests,
+			model: result.resolvedModel ?? prior?.model,
+			thinking: result.resolvedThinkingLevel ?? prior?.thinking,
+			output: result.output.slice(0, OUTPUT_LIMIT),
+			error: result.error ?? prior?.error,
 		});
 	}
 }
@@ -128,31 +158,86 @@ function entriesOf(details: TaskToolDetails | undefined, resolved: boolean, args
 				agent: result.agent,
 				description: result.description,
 				status: statusOfResult(result),
+				durationMs: result.durationMs,
+				error: result.error,
 			}),
 		);
 	}
 	const progress = listOf<AgentProgress>(details?.progress);
 	if (progress.length > 0) {
 		return progress.map(
-			(item): Entry => ({ id: item.id, agent: item.agent, description: item.description, status: item.status }),
+			(item): Entry => ({
+				id: item.id,
+				agent: item.agent,
+				description: item.description,
+				status: item.status,
+				action: actionText(item.lastIntent, item.currentTool, item.currentToolArgs),
+			}),
 		);
 	}
 	return resolved ? [] : entriesOfArgs(args);
 }
 
-/** Two rows per subagent: `• name  agent type`, then the dim status. */
-function rowsOf(entry: Entry, width: number): string[] {
-	const name = oneLine(entry.description ?? "") || oneLine(entry.id);
-	const agent = oneLine(entry.agent);
-	const head = `${paint("dim", "•")} ${name}${agent ? `  ${paint("dim", agent)}` : ""}`;
-	return [truncateToWidth(head, width), truncateToWidth(`  ${paint("dim", STATUS_TEXT[entry.status])}`, width)];
+/** The state word of one subagent row of a task card. */
+function stateTextOf(entry: Entry): string {
+	switch (entry.status) {
+		case "pending":
+			return "starting";
+		case "running":
+			return entry.action || "working";
+		case "completed":
+			return entry.durationMs === undefined ? "done" : `done · ${formatElapsed(entry.durationMs)}`;
+		case "failed": {
+			const first = (entry.error ?? "").split("\n")[0]?.trim() ?? "";
+			return first ? `failed · ${first}` : "failed";
+		}
+		case "aborted":
+			return "stopped";
+	}
+}
+
+/** One subagent row of a task card; the description is cut at its end so the id and the state stay whole. */
+function agentLine(entry: Entry, width: number): string {
+	const color = STATUS_GLYPH[entry.status];
+	const head = `  ${paint(color, GLYPH.circle)} ${oneLine(entry.id)}`;
+	const state = stateTextOf(entry);
+	const tail = paint("dim", state);
+	const base = visibleWidth(head) + 1 + visibleWidth(state);
+	if (base > width) return fitLine(`${head} ${tail}`, width);
+	const description = oneLine(entry.description ?? "");
+	const room = width - base - 1;
+	if (!description || room < 1) return `${head} ${tail}`;
+	return `${head} ${paint("dim", fitLine(description, room))} ${tail}`;
+}
+
+/** The task card header: overall state glyph, running or done counts, failures, and the total time once settled. */
+function headerOf(entries: Entry[], details: TaskToolDetails | undefined): string {
+	const unsettled = entries.filter(entry => entry.status === "pending" || entry.status === "running").length;
+	const failed = entries.filter(entry => entry.status === "failed" || entry.status === "aborted").length;
+	const overall: ThemeColor = unsettled > 0 ? "warning" : failed > 0 ? "error" : "success";
+	const label =
+		unsettled > 0
+			? `Running ${entries.length} ${entries.length === 1 ? "agent" : "agents"}`
+			: `${entries.length} ${entries.length === 1 ? "agent" : "agents"} finished`;
+	let line = `${paint(overall, GLYPH.circle)} ${label}`;
+	if (unsettled > 0) {
+		const settled = entries.length - unsettled;
+		if (settled > 0) line += paint("dim", ` · ${settled} done`);
+	}
+	if (unsettled === 0) {
+		if (failed > 0) line += paint("error", ` · ${failed} failed`);
+		if (typeof details?.totalDurationMs === "number") {
+			line += paint("dim", ` · ${formatElapsed(details.totalDurationMs)}`);
+		}
+	}
+	return line;
 }
 
 function paintTask(owner: object, width: number, args: unknown): readonly string[] | undefined {
 	const state = states.get(owner);
 	const entries = entriesOf(state?.details, state?.resolved === true, args);
 	if (entries.length === 0) return undefined;
-	return entries.flatMap(entry => rowsOf(entry, width));
+	return [fitLine(headerOf(entries, state?.details), width), ...entries.map(entry => agentLine(entry, width))];
 }
 
 /** Records the details of every task result (partial or settled) and claims the block as a task block. */
@@ -233,9 +318,9 @@ function cardRows(text: string, width: number): string[] {
 	const limit = expandedNow() ? CARD_LINES_EXPANDED : CARD_LINES;
 	const shown = body.slice(0, limit);
 	const rest = body.length - shown.length;
-	const rows = [paint("dim", "⇄ Sent by parent"), ...shown.map(line => paint("dim", `│ ${line}`))];
-	if (rest > 0) rows.push(paint("dim", `… ещё ${rest} строк`));
-	return rows.map(row => truncateToWidth(row, width));
+	const rows = ["Task from Main", ...shown.map(line => paint("text", `│ ${line}`))];
+	if (rest > 0) rows.push(paint("dim", `… ${rest} more lines`));
+	return rows.map(row => fitLine(row, width));
 }
 
 function patchUserMessage(): void {
@@ -260,16 +345,15 @@ function isWorking(record: AgentRecord): boolean {
 }
 
 function actionOf(record: AgentRecord): string {
-	if (record.status === "pending") return STATUS_TEXT.pending;
+	if (record.status === "pending") return STARTING;
 	const intent = oneLine(record.lastIntent ?? "");
 	if (intent) return intent;
 	return record.currentTool ? oneLine(`${record.currentTool} ${record.currentToolArgs ?? ""}`) : "";
 }
 
 function panelLine(record: AgentRecord): string {
-	const name = oneLine(record.description ?? "") || oneLine(record.id);
 	const action = actionOf(record);
-	return `${paint("warning", "●")} ${name}${action ? `  ${paint("dim", action)}` : ""}`;
+	return `  ${paint(record.status === "pending" ? "dim" : "warning", GLYPH.circle)} ${oneLine(record.id)}${action ? ` · ${paint("dim", action)}` : ""}`;
 }
 
 function patchHud(): void {
@@ -284,8 +368,12 @@ function patchHud(): void {
 				const working = [...agentRecords.values()].filter(isWorking);
 				if (working.length > 0) {
 					panelDrawn.add(this);
-					const rows = [paint("dim", `${working.length} Working`), ...working.map(panelLine)];
-					return rows.map(row => truncateToWidth(` ${row}`, width));
+					const label = working.length === 1 ? "1 agent working" : `${working.length} agents working`;
+					const shown = working.slice(0, PANEL_ROWS);
+					const rest = working.length - shown.length;
+					const rows = [paint("dim", label), ...shown.map(record => panelLine(record))];
+					if (rest > 0) rows.push(paint("dim", `  … ${rest} more`));
+					return rows.map(row => fitLine(row, width));
 				}
 			} catch {
 				panelDrawn.delete(this);

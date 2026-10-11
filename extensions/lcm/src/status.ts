@@ -17,8 +17,8 @@ export function updateStatus(
 
   try {
     const stats = store.getStats(conversationId);
-    // Keep under 20 chars to be safe on narrow terminals
-    ctx.ui.setStatus("lcm", `${stats.messages}m ${stats.summaries}s`);
+    // Short text: the status line has little room.
+    ctx.ui.setStatus("lcm", `${stats.messages} msgs · ${stats.summaries} summaries`);
   } catch {
     ctx.ui.setStatus("lcm", "");
   }

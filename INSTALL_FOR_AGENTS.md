@@ -1,37 +1,41 @@
-# Инструкции установки для агентов
+# Installation instructions for agents
 
-Это единая точка входа для установки и обновления компонентов репозитория.
-Используй точную выбранную ревизию (текущий коммит клона) и инструкции только
-заказанных компонентов. Источники действий установки — этот документ, выбранная
-инструкция и её явно указанные зависимости. `AGENTS.md` описывает разработку,
-находится вне процедуры установки и не является источником её дополнительных
-шагов. Уже подготовленные совместимые зависимости переиспользуй. Остальные
-компоненты автоматически не устанавливай.
+This is the single entry point for installing and updating the repository's
+components. Use the exact selected revision (the clone's current commit) and the
+instructions of the requested components only. The sources of installation actions
+are this document, the selected instruction and the dependencies it names
+explicitly. `AGENTS.md` describes development, lies outside the installation
+procedure and is not a source of extra steps for it. Reuse compatible
+dependencies that are already in place. Do not install the other components
+automatically.
 
-Если сессия идёт не внутри клона этого репозитория, сначала клонируй
-`https://github.com/ARQAWA/my-omp-harness.git` в постоянную папку (по умолчанию
-`~/my-omp-harness`). Клон и есть установленная копия: omp загружает пакет прямо
-из него, поэтому его нельзя переносить или удалять.
+If the session is not running inside a clone of this repository, first clone
+`https://github.com/ARQAWA/my-omp-harness.git` into a permanent folder (by default
+`~/my-omp-harness`). The clone is the installed copy: omp loads the package
+straight from it, so it must not be moved or deleted.
 
-| Компонент | Инструкция |
+| Component | Instruction |
 |---|---|
-| omp и настройки владельца (тема, окна контекста, статус-строка и остальные настройки omp) | [`install-instructions/omp.md`](install-instructions/omp.md) |
-| Пакет harness (Gold Standard, skills, агенты, маршрутизация моделей, служебные расширения) | [`install-instructions/harness.md`](install-instructions/harness.md) |
-| Системный промпт | [`install-instructions/system-prompt.md`](install-instructions/system-prompt.md) |
-| herdr (наша сборка) | [`install-instructions/herdr.md`](install-instructions/herdr.md) |
+| omp and the owner's settings (theme, context windows, status line and the other omp settings) | [`install-instructions/omp.md`](install-instructions/omp.md) |
+| The harness package (Gold Standard, skills, agents, model routing, service extensions) | [`install-instructions/harness.md`](install-instructions/harness.md) |
+| System prompt | [`install-instructions/system-prompt.md`](install-instructions/system-prompt.md) |
+| herdr (our build) | [`install-instructions/herdr.md`](install-instructions/herdr.md) |
 
-Полная установка включает все компоненты в порядке таблицы: пакету нужен omp,
-системному промпту — пакет, потому что его раздел маршрутизации описывает
-расширение пакета, а интеграции herdr — omp. В Windows команды выполняются через
-bash-инструмент omp или Git Bash, без PowerShell и cmd, кроме двух прямо
-указанных мест: штатного установщика omp и вызова `powershell.exe` в инструкции
-herdr. Полный release на хосте разработки ставит пакет, промпт и настройки из
-того же клона, без обратного скачивания опубликованной ревизии; herdr всегда
-ставится из релиза `herdr`.
+A full installation includes all components in the order of the table: the
+package needs omp, the system prompt needs the package because its routing
+section describes a package extension, and the herdr integration needs omp. On
+Windows, run commands through the omp bash tool or Git Bash, without PowerShell
+and cmd, except in two explicitly named places: the stock omp installer and the
+`powershell.exe` call in the herdr instruction. A full release on the
+development host installs the package, the prompt and the settings from the same
+clone, without downloading the published revision back; herdr is always
+installed from the `herdr` release.
 
-Условия рабочих окружений описаны в [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md),
-и установка их соблюдает. В окружении «Windows только внутри VS Code» они меняют
-порядок установки и способ запуска herdr и omp.
+The conditions of the working environments are described in
+[WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md), and the installation follows
+them. In the "Windows only inside VS Code" environment they change the
+installation order and the way herdr and omp are started.
 
-После выбранного документа сообщи установленную ревизию, путь клона, изменения
-в `config.yml`, путь `SYSTEM.md`, путь herdr, проверки и оставшиеся блокеры.
+After the selected document, report the installed revision, the clone path, the
+changes to `config.yml`, the `SYSTEM.md` path, the herdr path, the checks and the
+remaining blockers.

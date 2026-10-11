@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { CallResult } from "./state";
 
 /** Plain row model; colors are applied in tools.ts. */
@@ -35,6 +37,18 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function str(value: unknown): string {
 	return typeof value === "string" ? value : "";
+}
+
+/** A path shown relative to the working directory when inside it, else with a leading home directory as "~". */
+export function displayPath(file: string): string {
+	if (file === "") return file;
+	const cwd = process.cwd();
+	const absolute = resolve(cwd, file);
+	const inside = relative(cwd, absolute);
+	if (inside !== "" && inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)) return inside;
+	const home = homedir();
+	if (home !== "" && (absolute === home || absolute.startsWith(`${home}${sep}`))) return `~${absolute.slice(home.length)}`;
+	return file;
 }
 
 function lines(text: string): string[] {
@@ -77,6 +91,26 @@ function editPaths(args: Record<string, unknown>, results: CallResult[]): string
 	return [...input.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map(match => (match[1] ?? "").trim());
 }
 
+/** The results of an edit call that each carry a path, when there are more than one; otherwise none. */
+export function editResults(toolName: string, results: CallResult[]): CallResult[] {
+	if (toolName !== "edit" && toolName !== "ast_edit") return [];
+	const withPath = results.filter(result => str(asRecord(result.details).path) !== "");
+	return withPath.length > 1 ? withPath : [];
+}
+
+/** The row of one edit result: its own path and its own +N −M. */
+export function editResultRow(result: CallResult): Row {
+	const totals = diffTotals([result]);
+	return {
+		verb: "Edited",
+		detail: displayPath(str(asRecord(result.details).path)),
+		added: totals.added,
+		removed: totals.removed,
+		files: 0,
+		searches: 0,
+	};
+}
+
 function search(verb: string, detail: string): Row {
 	return { verb, detail, files: 0, searches: 1 };
 }
@@ -112,7 +146,20 @@ export function readRow(args: unknown): Row {
 		if (typeof a.limit === "number") end = a.offset + a.limit - 1;
 	}
 	const range = start === undefined ? "" : end === undefined || end === start ? ` L${start}` : ` L${start}-${end}`;
-	return { verb: "Read", detail: `${file}${range}`, files: 1, searches: 0 };
+	return { verb: "Read", detail: `${displayPath(file)}${range}`, files: 1, searches: 0 };
+}
+
+/** The N of a result text that starts with "Found N results", else undefined. */
+function resultCount(results: CallResult[]): number | undefined {
+	for (const result of results) {
+		const text = result.content
+			.filter(c => c.type === "text")
+			.map(c => c.text ?? "")
+			.join("\n");
+		const match = /^Found (\d+) results/.exec(text);
+		if (match) return Number(match[1]);
+	}
+	return undefined;
 }
 
 /** One-line description of a tool call and its results. */
@@ -143,7 +190,14 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 		}
 		case "edit":
 		case "ast_edit": {
-			const row: Row = { verb: "Edited", detail: editPaths(a, results).join(", "), files: 0, searches: 0 };
+			const row: Row = {
+				verb: "Edited",
+				detail: editPaths(a, results)
+					.map(file => displayPath(file))
+					.join(", "),
+				files: 0,
+				searches: 0,
+			};
 			if (results.length > 0) {
 				const totals = diffTotals(results);
 				row.added = totals.added;
@@ -154,7 +208,7 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 		case "write":
 			return {
 				verb: "Wrote",
-				detail: str(a.path) || str(a.file_path),
+				detail: displayPath(str(a.path) || str(a.file_path)),
 				added: lines(str(a.content)).length,
 				files: 0,
 				searches: 0,
@@ -168,6 +222,15 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 			};
 		case "eval":
 			return { verb: "Ran eval", detail: str(a.title) || str(a.language), files: 0, searches: 0 };
+		case "lcm_grep": {
+			const found = resultCount(results);
+			const count = found === undefined ? "" : ` · ${found} found`;
+			return { verb: "Searched memory", detail: `"${str(a.query)}"${count}`, files: 0, searches: 0 };
+		}
+		case "lcm_describe":
+			return { verb: "Viewed memory map", detail: "", files: 0, searches: 0 };
+		case "lcm_expand":
+			return { verb: "Opened memory summary", detail: "", files: 0, searches: 0 };
 		default: {
 			return { verb: toolName, detail: firstString(a), files: 0, searches: 0 };
 		}
@@ -197,6 +260,9 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 			return [...command, ...outputLines(results)];
 		}
 		case "eval":
+		case "lcm_grep":
+		case "lcm_describe":
+		case "lcm_expand":
 			return outputLines(results);
 		default:
 			return [];

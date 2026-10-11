@@ -6,7 +6,8 @@
  * Panel.onClose must be wired to done() by the caller.
  */
 
-import { matchesKey, Key, truncateToWidth } from "@mariozechner/pi-tui";
+import { matchesKey, Key } from "@oh-my-pi/pi-tui";
+import { fitLine } from "../../cursor-feed/fit";
 import type { LcmConfig } from "./config.js";
 import type { SettingsScope } from "./settings.js";
 import type { LcmStats } from "./db/store.js";
@@ -16,7 +17,6 @@ import type { LcmStats } from "./db/store.js";
 const dim = (s: string) => `\x1b[2m${s}\x1b[22m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[22m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[39m`;
-const cyan = (s: string) => `\x1b[36m${s}\x1b[39m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[39m`;
 
 // ─── Settings items ────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export class LcmSettingsPanel {
     if (this.cl && this.cw === width) return this.cl;
 
     const w = Math.max(20, Math.min(width, 64));
-    const t = (s: string) => truncateToWidth(s, w);
+    const t = (s: string) => fitLine(s, w);
     const lines: string[] = [];
     const { config, stats, scope } = this.deps;
     const lw = 14; // label width
@@ -91,8 +91,8 @@ export class LcmSettingsPanel {
 
     // Scope row (index 0)
     const scopeSel = this.row === SCOPE_ROW;
-    const scopePfx = scopeSel ? cyan("  > ") : "    ";
-    const scopeVal = scope === "project" ? green("Project") : cyan("Global");
+    const scopePfx = scopeSel ? bold("  > ") : "    ";
+    const scopeVal = scope === "project" ? bold("Project") : bold("Global");
     const scopeHint = scopeSel ? dim(" [enter]") : "";
     lines.push(t(`${scopePfx}${"Scope".padEnd(lw)}${scopeVal}${scopeHint}`));
 
@@ -102,7 +102,7 @@ export class LcmSettingsPanel {
     for (let i = 0; i < ROWS.length; i++) {
       const s = ROWS[i]!;
       const sel = this.row === FIRST_SETTING_ROW + i;
-      const pfx = sel ? cyan("  > ") : "    ";
+      const pfx = sel ? bold("  > ") : "    ";
       const label = s.label.padEnd(lw);
       const val = this.fmtVal(s, (config as any)[s.key]);
       const hint = sel ? this.hint(s) : "";
@@ -197,9 +197,9 @@ export class LcmSettingsPanel {
     if (s.type === "boolean") return v ? green("On") : red("Off");
     const n = Number(v);
     if (s.key === "leafChunkTokens" || s.key === "maxSummaryTokens") {
-      return cyan(`${(n / 1000).toFixed(1)}K`);
+      return bold(`${(n / 1000).toFixed(1)}K`);
     }
-    return cyan(String(n));
+    return bold(String(n));
   }
 
   private hint(s: SettingRow): string {

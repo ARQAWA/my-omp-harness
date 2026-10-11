@@ -28,6 +28,7 @@ const MAX_INPUT_CHARS = Math.floor((CALL_TOKEN_LIMIT - SUMMARY_MAX_OUTPUT_TOKENS
 export interface CompactionDeps {
   summarize: (systemPrompt: string, signal?: AbortSignal, reasoning?: "low" | "high" | "xhigh", kind?: "leaf" | "condense") => Promise<string>;
   notify: (message: string, type?: string) => void;
+  onProgress?: (text: string) => void;
 }
 
 export class CompactionEngine {
@@ -86,7 +87,7 @@ export class CompactionEngine {
   ): Promise<void> {
     const chunks = this.chunkMessages(messages, this.config.leafChunkTokens);
 
-    deps.notify(`LCM: Processing ${chunks.length} chunks (concurrency ${this.config.leafPassConcurrency})...`, "info");
+    deps.onProgress?.(`saving memory · ${chunks.length} ${chunks.length === 1 ? "part" : "parts"}…`);
 
     const results = await mapConcurrent(
       chunks,
@@ -124,7 +125,7 @@ export class CompactionEngine {
       if (failed) {
         failedChunks++;
         deps.notify(
-          `LCM: Summarization failed for messages ${chunk[0].seq}-${chunk[chunk.length - 1].seq}, will retry next cycle`,
+          `Memory: could not summarize messages ${chunk[0].seq}–${chunk[chunk.length - 1].seq}. It will try again later.`,
           "warning",
         );
         continue;
@@ -175,14 +176,11 @@ export class CompactionEngine {
           combinedText = toCondense.map((s) => s.text).join("\n\n---\n\n");
         }
         if (combinedText.length > MAX_INPUT_CHARS) {
-          deps.notify(`LCM: D${depth} summaries too large to condense within the input limit, skipping`, "warning");
+          deps.notify(`Memory: level ${depth} summaries are too big to merge. Skipped.`, "warning");
           continue;
         }
 
-        deps.notify(
-          `LCM: Condensing ${toCondense.length} D${depth} summaries into D${depth + 1}...`,
-          "info",
-        );
+        deps.onProgress?.("merging memory…");
 
         const prompt =
           depth + 1 === 1
@@ -193,7 +191,7 @@ export class CompactionEngine {
         try {
           summaryText = await deps.summarize(prompt, signal, "low", "condense");
         } catch {
-          deps.notify(`LCM: Condensation at D${depth + 1} failed, will retry next cycle`, "warning");
+          deps.notify("Memory: could not merge summaries. It will try again later.", "warning");
           if (strict) throw new Error(`LCM condensation at D${depth + 1} failed`);
           return; // Stop cascading on failure
         }
@@ -207,7 +205,7 @@ export class CompactionEngine {
     }
 
     if (passes >= MAX_CONDENSE_PASSES) {
-      deps.notify("LCM: Condensation hit pass limit, will continue next cycle", "warning");
+      deps.notify("Memory: merge limit reached. It will continue later.", "warning");
     }
   }
 

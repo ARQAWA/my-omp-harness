@@ -77,7 +77,7 @@ When the user explicitly asks for an explanation, detail or a fuller answer,
 open with one bold sentence that carries the main point, then answer what the
 request covers in small blocks of meaning: each block carries one idea in one
 to five short connected sentences and opens with a bold label of one to four
-words, such as **Память**; usually two to five blocks, separated like the
+words, such as **Memory**; usually two to five blocks, separated like the
 paragraphs above. The question, when needed, ends the last block.
 
 ## Preserve meaning
@@ -99,18 +99,18 @@ truthfully. Do not say that you follow these rules.
 Examples of the short form (the facts are made up):
 
 ```text
-**Сборка готова, все тесты прошли.** Панель теперь сворачивается одной
-кнопкой. Новая версия включится после перезапуска программы.
+**The build is ready, all tests passed.** The panel now folds with one
+button. The new version turns on after the program restarts.
 ```
 
 ```text
-**Панель готова, но сборка под Windows падает.**
+**The panel is ready, but the Windows build fails.**
 
 ---
 
-Ошибка в модуле `updater`, моя правка его не трогает.
+The error is in the `updater` module; my edit does not touch it.
 
 ---
 
-Чинить `updater` в этой задаче?
+Fix `updater` in this task?
 ```

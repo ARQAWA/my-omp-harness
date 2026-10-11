@@ -1,280 +1,329 @@
-# Рабочая база
+# Working base
 
-Этот репозиторий — рабочая база harness для omp: системный промпт, skills,
-агенты, расширения (в том числе LCM), маршрутизация моделей субагентов,
-настройки владельца для omp и поставка нашего herdr. Всё это один harness.
-Он перенесён из финальной версии [my-codex-harness](https://github.com/ARQAWA/my-codex-harness) (коммит
-`13372c1`); там хранятся версия для Codex и история решений до переноса.
+This repository is the working base of the harness for omp: the system prompt,
+skills, agents, extensions (including LCM), subagent model routing, the owner's
+settings for omp and the delivery of our herdr. All of this is one harness.
+It was moved from the final version of [my-codex-harness](https://github.com/ARQAWA/my-codex-harness) (commit
+`13372c1`); that repository keeps the Codex version and the history of decisions
+before the move.
 
-Источники правды:
+Sources of truth:
 
-- `package.json`, `extensions/`, `skills/` и `agents/` — пакет omp;
+- `package.json`, `extensions/`, `skills/` and `agents/`: the omp package;
 - `SYSTEM.md`;
-- `settings/` — настройки владельца для omp;
-- `INSTALL_FOR_AGENTS.md` и `install-instructions/`;
-- `WORKING-ENVIRONMENTS.md` — условия рабочих окружений, отдельно от
-  документации пакета; пиши их абстрактно и без чувствительных деталей;
+- `settings/`: the owner's settings for omp;
+- `INSTALL_FOR_AGENTS.md` and `install-instructions/`;
+- `WORKING-ENVIRONMENTS.md`: the conditions of the working environments,
+  separate from the package documentation; write them abstractly and without
+  sensitive details;
 - `HARNESS-DESIGN.md`;
-- `WORKFLOW-CONCEPT.md` — ядро harness, см. «Политику»;
-- приватный форк `ARQAWA/herdr` (upstream — `herdrdev/herdr`) — исходники herdr.
+- `DESIGN-SYSTEM.md`: the visual rules of omp and herdr; every interface change
+  follows it;
+- `WORKFLOW-CONCEPT.md`: the core of the harness, see "Policy";
+- the private fork `ARQAWA/herdr` (upstream `herdrdev/herdr`): the herdr sources.
 
-`omp-vscode/` — исключительный случай: специальная сборка только для Windows,
-VS Code-расширение для `win32-x64` со вшитым `omp.exe` из релиза omp. Оно
-запускает omp в Git Bash дочерними процессами extension host без herdr и при
-старте VS Code обновляет его через `omp update`. Готовый VSIX лежит в GitHub
-Release `omp-vscode`. Сборка не входит в пакет harness и его установку, и правила
-tooling репозитория на неё не распространяются. Версий у неё нет: поле `version`
-в её `package.json` есть только потому, что без него VSIX не собирается.
+`omp-vscode/` is an exceptional case: a special build for Windows only, a VS Code
+extension for `win32-x64` with an `omp.exe` from an omp release built in. It
+runs omp in Git Bash as child processes of the extension host without herdr and
+updates it with `omp update` when VS Code starts. The ready VSIX lies in the
+GitHub Release `omp-vscode`. The build is not part of the harness package and
+its installation, and the repository's tooling rules do not apply to it. It has
+no versions: the `version` field in its `package.json` exists only because the
+VSIX does not build without it.
 
-omp загружает пакет прямо из клона через `extensions`. На машине разработки
-рабочее дерево и есть установленная копия: правка, даже не закоммиченная,
-действует в следующей новой сессии omp. `SYSTEM.md` устанавливается отдельной
-копией.
+omp loads the package straight from the clone through `extensions`. On the
+development machine the working tree of the main clone on `master` is the
+installed copy: an edit there, even an uncommitted one, takes effect in the next
+new omp session, and an edit in a task worktree takes effect after its branch is
+merged into `master`. `SYSTEM.md` is installed as a separate copy.
 
-Версия — это коммит. Номеров версий и cachebuster нет. Тегов и GitHub Release
-три. `herdr` хранит готовые файлы herdr из форка, `omp-vscode` — VSIX
-расширения `omp-vscode/`, `lcm` — нативные модули LCM
-`lcm_native.darwin-arm64.node` и `lcm_native.win32-x64.node`. Выпуск заменяет
-их файлы.
+The version is the commit. There are no version numbers or cachebusters. There
+are three tags and GitHub Releases. `herdr` holds the ready herdr files from the
+fork, `omp-vscode` the VSIX of the `omp-vscode/` extension, `lcm` the LCM native
+modules `lcm_native.darwin-arm64.node` and `lcm_native.win32-x64.node`. A
+release replaces their files.
 
-## Локальная проверка исходников
+## Local check of the sources
 
-`node tests/run.mjs` (Node.js) — единая детерминированная проверка репозитория.
-Она покрывает пакет, маршрутизацию, упоминания моделей, агентов, skills,
-инструкции установки и ссылки. Она не запускает omp, не меняет настройки и не
-заменяет проверки после установки на целевой ОС из `install-instructions/*.md`.
+`node tests/run.mjs` (Node.js) is the single deterministic check of the
+repository. It covers the package, routing, model mentions, agents, skills,
+installation instructions and links. It does not start omp, does not change
+settings and does not replace the post-installation checks on the target OS from
+`install-instructions/*.md`.
 
-## Политика
+## Policy
 
-[`WORKFLOW-CONCEPT.md`](WORKFLOW-CONCEPT.md) — ядро harness: манифест
-концепта работы, проблемы, которую он решает, и его цели. Всё в репозитории
-выравнивается по нему: при расхождении меняется остальное, а не манифест. Любую
-правку промптов, skills, агентов, расширений и документации сверяй с ним. Сам
-манифест меняется только по прямой правке владельца, его прямому запросу или
-явному одобрению предложенного изменения.
+[`WORKFLOW-CONCEPT.md`](WORKFLOW-CONCEPT.md) is the core of the harness: the
+manifest of the working concept, the problem it solves and its goals. Everything
+in the repository aligns with it: on a divergence the rest changes, not the
+manifest. Check every edit of prompts, skills, agents, extensions and
+documentation against it. The manifest itself changes only by the owner's direct
+edit, his direct request or explicit approval of a proposed change.
 
-Gold Standard задаёт always-on точный scope, самый короткий прямой путь с
-минимумом нужных сведений и минимальный результат. Тяжёлая работа (глубокий
-ресёрч, сравнение вариантов, опыты, новые тесты, лишние review и субагенты) идёт
-только по прямому приказу. Quality adjectives не расширяют scope.
+The Gold Standard sets an always-on exact scope, the shortest direct path with
+the minimum of needed information and a minimal result. Heavy work (deep
+research, comparing options, experiments, new tests, extra reviews and
+subagents) runs only on a direct order. Quality adjectives do not widen the
+scope.
 
-Root Main автоматически ведёт `todo` для любой задачи, кроме одного ответа или
-одного короткого действия, и всегда для работы с review; у текущего пункта есть
-план из шагов, и `step` отмечает текущий шаг. Для задачи из нескольких зависимых этапов Main
-сам ставит цель omp (`goal`). Список хранит этапы с черновыми решениями; находки
-лежат в файлах `local://`, названных в пунктах. Прямой запрос требует todo,
-«без todo» исключает его. Перед работой с изменениями, кроме точечных правок
-с очевидным смыслом (микро), Main раскладывает запрос на проверяемые требования и подтверждает
-их у пользователя одним `ask` вместе с классом работы: небольшая — до 5
-требований и до 5 изменённых файлов, большая — больше. Эти правила и проверки
-режима планирования root Main получает в скрытом skill `main-workflow`. Review
-запускается автоматически по классу работы: микро — без проверки, небольшую
-перед сдачей проверяет Spotty, большую — Smarty. В `/define-goal` шаг требований
-заменяет принятая цель: `harness.ts` регистрирует команду и подаёт процедуру
-`extensions/define-goal.md`, в режиме плана и при активной или приостановленной
-цели команда только показывает уведомление; цель
-несёт дословные цитаты пользователя и раздел Review с классом, пользователь
-принимает её по короткому пересказу в чате, и перед
-завершением цели агент сам запускает ревьюера по классу до CLEAN.
-Остальные автоматические review — две проверки Light Review (Spotty) в режиме
-планирования omp (плана перед предложением на утверждение и результата
-выполнения утверждённого плана) и обязательный gate финализации ниже, который
-идёт параллельно с проверкой по классу; каждая проверка идёт до CLEAN. Bossy
-запускается только явным выбором пользователя. Находки и отклонения ревью
-опираются на дословные цитаты договорённости и объекта.
+Root Main automatically keeps a `todo` for every task except one answer or one
+short action, and always for work with a review; the current item has a plan of
+steps, and `step` marks the current step. For a task of several dependent stages Main sets
+an omp goal (`goal`) itself. The list holds stages with draft decisions; findings
+lie in `local://` files named in the items. A direct request requires a todo,
+"without todo" excludes it. Before work with changes, except point corrections
+with an obvious meaning (micro), Main splits the request into checkable
+requirements and confirms them with the user in one `ask` together with the
+work class: small is up to 5 requirements and up to 5 changed files, large is
+more. Root Main gets these rules and the plan-mode checks in the hidden skill
+`main-workflow`. Review runs automatically by the work class: micro without a
+check, small is checked by Spotty before handover, large by Smarty. In
+`/define-goal` the accepted goal replaces the requirement step: `harness.ts`
+registers the command and supplies the procedure `extensions/define-goal.md`;
+in plan mode and with an active or paused goal the command only shows a notice.
+The goal carries verbatim user quotes and a Review section with the class, the
+user accepts it from a short retelling in the chat, and before completing the
+goal the agent itself runs the reviewer of the class until CLEAN.
+The other automatic reviews are two Light Review (Spotty) checks in omp plan
+mode (the plan before it is proposed for approval and the result of carrying out
+the approved plan) and the mandatory finalization gate below, which runs in
+parallel with the class check; every check runs until CLEAN. Bossy runs only on
+the user's explicit choice. Review findings and rejections rest on verbatim
+quotes of the agreement and the object.
 
-Root Main не пишет код и конфиги сам: исходники, скрипты, тесты и файлы
-конфигурации пишет только `code_writer` по самодостаточным брифам Main, а документацию
-и промпты Main пишет сам. Программы (тесты, сборки, приложения, `omp -p`) root
-Main запускает только через `shell_runner`, а чтение состояния, git и файловые
-операции делает сам. Поиск по незнакомым файлам, несколько раундов поиска,
-внешние источники и материал больше своего контекста Main передаёт
-`codebase_explorer`. Эти правила и маршрутизация по решению владельца записаны
-одним блоком в разделе «Subagent model routing» `SYSTEM.md`, а не в Gold Standard;
-правила брифов лежат в видимом skill `subagent-brief`, который Main читает перед
-брифом.
+Root Main does not write code and configs itself: only `code_writer` writes
+sources, scripts, tests and configuration files from Main's self-contained
+briefs, and Main writes documentation and prompts itself. Root Main runs
+programs (tests, builds, applications, `omp -p`) only through `shell_runner`,
+and reads state, runs git and does file operations itself. Main hands searches
+over unfamiliar files, several rounds of searching, external sources and
+material larger than its context to `codebase_explorer`. By the owner's decision
+these rules and the routing are written as one block in the "Subagent model
+routing" section of `SYSTEM.md`, not in the Gold Standard; the briefing rules lie
+in the visible skill `subagent-brief`, which Main reads before a brief.
 
-### Обязательный gate финализации
+### Languages
 
-Перед сдачей задачи с изменениями в этом репозитории, commit, push и завершением
-release Main обеспечивает применение
-[finalize-work](.agents/skills/finalize-work/SKILL.md): Main читает и исполняет его.
-Это постоянное прямое поручение пользователя на слепой review Spotty согласованности
-кода и всей документации сдаваемого результата, отсутствия устаревших действующих
-сведений, мусора и конфликтов. Gate также сверяет локальные настройки omp машины
-(`config.yml`, `models.yml`, `keybindings.yml`, тема, копия `SYSTEM.md`) с их исходниками в
-репозитории и переносит локальные изменения в исходники вместе с остальными
-правками. Gate распространяется и на документационные правки. Перед commit, push и
-release объект gate — весь репозиторий, а не только изменения задачи: gate находит
-расхождения, оставшиеся от прежних правок, и удаляет упразднённое (модель, агента,
-skill, настройку, файл, правило) везде, где оно ещё стоит: в коде, закомментированном
-коде, тестах, настройках и документах; история остаётся в Git.
-Без CLEAN от свежего Spotty завершение, commit и push запрещены. Существенные
-замечания исправляются до CLEAN по процедуре skill. Не повторяй уже пройденный
-gate для неизменённого результата и оснований. Сам gate не разрешает публикацию.
+The owner writes his requests in Russian, and agents answer him in the chat in
+Russian. Everything else that the owner and agents read or follow is in
+English: `skills/`, `agents/`, `SYSTEM.md`, `extensions/define-goal.md`,
+`.agents/skills/`, `AGENTS.md`, `README.md`, `INSTALL_FOR_AGENTS.md`,
+`install-instructions/` and `DESIGN-SYSTEM.md`. Texts for agents use precise English that leaves an
+agent no doubt about what to do. Every text that the extensions show in the
+terminal is plain English at A2 level, without Russian. The design files
+`HARNESS-DESIGN.md` and `WORKING-ENVIRONMENTS.md` stay in Russian, because the
+owner reads them. Russian stays in an English file only where an agent must
+give it to the owner word for word, such as the options «Начинаем» and
+«Поправить» or the list of Russian filler phrases in `SYSTEM.md`, and where it
+is a trigger word of the owner, such as «релиз».
 
-### Маршрутизация моделей
+### Branches, worktrees and commits
 
-`extensions/subagent-model-policy.ts` выбирает модель по семейству родителя.
-Именованные агенты берутся из таблицы `NAMED`, у каждого одна модель на
-семейство родителя, одинаковая при любом родителе: `spotty` — Haiku 5.5 low,
-`smarty` — Haiku 5.5 medium, `bossy` — Sonnet 5.5 low, `codebase_explorer`,
-`code_writer` и `shell_runner` — Haiku 5.5 high.
-Остальные запуски требуют уровень из `ROUTES`. Родитель GPT получает GPT-маршрут,
-любой другой — Claude-маршрут. В `agents/*.md` поля `model` нет.
+Every task with changes runs in its own branch and its own git worktree, so
+that agents working at the same time never touch each other's files. Start it
+from the main clone on an up-to-date `master`:
+`git worktree add -b <task> ../my-omp-harness-worktrees/<task> master`, where
+`<task>` is a short name of the task. All edits of the task are made in that
+worktree. Commit every finished stage of the task to its branch at once, with
+`git add` of the exact paths of the stage; these stage commits need no checks,
+review or gate. Never commit to `master` directly. The branch reaches `master`
+only through a full release by `.agents/skills/release/SKILL.md`: the checks and
+the finalization gate, the merge into `master`, push and installation. The
+merge into `master` is always a squash merge: the whole task lands as one
+commit. After the merge the task's worktree and branch are deleted.
 
-Модели выбирает владелец. При смене модели обнови вместе:
+### Mandatory finalization gate
 
-- `NAMED` и `ROUTES`;
-- таблицы и JSON `modelRoles` в `install-instructions/harness.md`;
-- список маршрутизации в `SYSTEM.md`;
-- модель запуска в `extensions/default-model.ts`;
-- список shift+↑/↓ в `extensions/model-arrows.js` и окна контекста в
+Before handing over a task with changes in this repository, before the merge
+into `master`, push and completing a release, Main ensures that
+[finalize-work](.agents/skills/finalize-work/SKILL.md) is applied: Main reads and
+carries it out. It is the user's standing direct order for a blind Spotty review
+of the consistency of the code and all documentation of the delivered result,
+and of the absence of outdated standing information, junk and conflicts. The gate
+also compares the machine's local omp settings (`config.yml`, `models.yml`,
+`keybindings.yml`, the theme, the `SYSTEM.md` copy) with their sources in the
+repository and moves local changes into the sources together with the other
+edits. The gate applies to documentation edits too; stage commits to a task
+branch do not need it. Before the merge into `master`, push and release the
+object of the gate is the whole repository, not only the task's changes: the gate finds divergences left from earlier edits and removes what was
+abolished (a model, an agent, a skill, a setting, a file, a rule) everywhere it
+still stands: in code, commented-out code, tests, settings and documents; the
+history stays in Git.
+Without CLEAN from a fresh Spotty, completion, the merge into `master` and push
+are forbidden.
+Significant findings are fixed until CLEAN by the skill's procedure. Do not
+repeat a gate already passed for an unchanged result and grounds. The gate itself
+does not authorize publication.
+
+### Model routing
+
+`extensions/subagent-model-policy.ts` chooses the model by the parent's family.
+Named agents come from the `NAMED` table; each has one model per parent family,
+the same under any parent: `spotty` is Haiku 5.5 low, `smarty` Haiku 5.5 medium,
+`bossy` Sonnet 5.5 low, and `codebase_explorer`, `code_writer` and `shell_runner`
+Haiku 5.5 high.
+Other launches require a tier from `ROUTES`. A GPT parent gets the GPT route, any
+other parent the Claude route. `agents/*.md` have no `model` field.
+
+The owner chooses the models. When a model changes, update together:
+
+- `NAMED` and `ROUTES`;
+- the tables and the `modelRoles` JSON in `install-instructions/harness.md`;
+- the routing list in `SYSTEM.md`;
+- the startup model in `extensions/default-model.ts`;
+- the shift+↑/↓ list in `extensions/model-arrows.js` and the context windows in
   `settings/models.yml`;
-- пороги автосжатия в `extensions/autocompaction.ts` и их описание в `README.md`
-  и `install-instructions/harness.md`;
-- `enabledModels` в шаге 4 `install-instructions/omp.md` и локальную настройку.
+- the autocompaction thresholds in `extensions/autocompaction.ts` and their
+  description in `README.md` and `install-instructions/harness.md`;
+- `enabledModels` in step 4 of `install-instructions/omp.md` and the local
+  setting.
 
-`node tests/run.mjs` сверяет расширение с перечисленным, включая ID моделей в
-`model-arrows.js` и `settings/models.yml`, кроме читаемых названий моделей в
-`SYSTEM.md`, порогов автосжатия и `enabledModels`: их обновляют вручную. После смены на машине
-разработки нужно обновить `modelRoles` по `harness.md`, копию `SYSTEM.md` и начать
-новую сессию omp.
+`node tests/run.mjs` checks the extension against the list above, including the
+model IDs in `model-arrows.js` and `settings/models.yml`, except the readable
+model names in `SYSTEM.md`, the autocompaction thresholds and `enabledModels`:
+they are updated by hand. After a change on the development machine, update
+`modelRoles` by `harness.md`, the `SYSTEM.md` copy, and start a new omp session.
 
-### Правила работы с исходниками
+### Rules for working with the sources
 
-Доступность моделей определяют провайдеры omp. Репозиторий закрепляет модели
-в расширении маршрутизации и в местах, перечисленных выше.
+The omp providers determine which models are available. The repository pins the
+models in the routing extension and in the places listed above.
 
-Настройки omp владельца живут в `settings/` и в шаге 4 первой установки
-`install-instructions/omp.md`; ключи пакета — в «Требованиях»
-`install-instructions/harness.md`. Любое изменение настроек omp на машине
-разработки сразу вносится туда, чтобы установка давала ту же конфигурацию.
-Сверку локальных настроек omp с этими источниками выполняет gate финализации.
+The owner's omp settings live in `settings/` and in step 4 of the first
+installation in `install-instructions/omp.md`; the package keys are in
+"Requirements" of `install-instructions/harness.md`. Every change of the omp
+settings on the development machine goes there at once, so that the installation
+gives the same configuration. The finalization gate compares the local omp
+settings with these sources.
 
-Harness ставится поверх штатного omp и не патчит и не форкает его: изменения
-поведения omp делаются только расширениями через публичный API, настройками
-`config.yml` и файлами настроек из `settings/`, чтобы `omp update` их не ломал.
-То, что без форка omp не сделать, не делается.
+The harness is installed on top of stock omp and does not patch or fork it:
+omp behavior changes only through extensions via the public API, `config.yml`
+settings and the settings files from `settings/`, so that `omp update` does not
+break them. What cannot be done without forking omp is not done.
 
-Обычная проверка — чтение и логика. После изменений кода или конфигурации один
-раз запускать существующие проверки, покрывающие изменение (`node tests/run.mjs`),
-по возможности в фоне; повторять только после исправления выявленного ими сбоя.
-Сбои от изменения, включая прежние утверждения о намеренно изменённом поведении,
-исправлять; посторонние сбои сообщать без починки. Новые тесты, фикстуры, замеры,
-опыты и проверки сверх покрывающих изменение — только по прямому запросу или
-конкретно принятой процедуре.
+The usual check is reading and logic. After code or configuration changes, run
+the existing checks covering the change (`node tests/run.mjs`) once, in the
+background where possible; repeat only after fixing a failure they revealed. Fix
+failures caused by the change, including earlier assertions about deliberately
+changed behavior; report unrelated failures without repairing them. New tests,
+fixtures, measurements, experiments and checks beyond those covering the change
+run only on a direct request or under a concretely adopted procedure.
 
-Для проверочных запусков использовать `omp -p` с Main `openai-codex/gpt-6.1-sol`
-или `anthropic/claude-sonnet-5-5` и `--thinking low`; модель и reasoning не
-повышать.
+For check runs use `omp -p` with Main `openai-codex/gpt-6.1-sol` or
+`anthropic/claude-sonnet-5-5` and `--thinking low`; do not raise the model and
+reasoning.
 
-Сохранять пользовательские изменения. В migration без запроса не менять
-location, format или value секретов.
+Keep the user's changes. In a migration, do not change the location, format or
+value of secrets without a request.
 
-Новая версия (коммит) и установка не следуют из обычного редактирования.
-Временные файлы задачи создаются только во временной папке ОС, которую чистит
-система, поэтому их не удаляют. Слова release, commit, push и
-синхронизация владельца одинаково означают полный release одним пакетом:
-синхронизацию локальных настроек с исходниками, все проверки и gate
-finalize-work, commit, push и установку на текущем хосте. Spotty контролирует
-пакет: без его CLEAN на весь репозиторий commit и push запрещены, а отдельный
-commit или push без остального пакета не делается. Порядок release описан в
-`.agents/skills/release/SKILL.md`.
+A new version of `master` and installation do not follow from ordinary editing;
+ordinary editing ends with stage commits to the task branch. Temporary task
+files are created only in the OS temporary folder, which the system cleans, so
+they are not deleted. The owner's words release, commit, push and sync equally
+mean a full release in one package: syncing the local settings with the sources,
+all checks and the finalize-work gate, the merge of the task branch into
+`master`, push and installation on the current host. Spotty controls the
+package: without its CLEAN on the whole repository, the merge into `master` and
+push are forbidden, and a separate merge or push without the rest of the package
+is not done. The release order is described
+in `.agents/skills/release/SKILL.md`.
 
-`INSTALL_FOR_AGENTS.md` — единая точка входа для установки и обновления.
-Источники действий установки — этот входной документ, инструкция выбранного
-компонента из `install-instructions/` той же ревизии и её явно указанные
-зависимости. Репозиторный `AGENTS.md` описывает разработку и находится вне
-процедуры установки. Компонентов четыре: omp с настройками владельца
-(`install-instructions/omp.md`), пакет harness (`install-instructions/harness.md`),
-системный промпт (`install-instructions/system-prompt.md`) и herdr
-(`install-instructions/herdr.md`). Все инструкции сохраняют общий порядок
-разделов: состав, требования, первая установка, проверка после установки,
-обновление.
+`INSTALL_FOR_AGENTS.md` is the single entry point for installation and updates.
+The sources of installation actions are this entry document, the instruction of
+the selected component from `install-instructions/` of the same revision and its
+explicitly named dependencies. The repository's `AGENTS.md` describes development
+and lies outside the installation procedure. There are four components: omp with
+the owner's settings (`install-instructions/omp.md`), the harness package
+(`install-instructions/harness.md`), the system prompt
+(`install-instructions/system-prompt.md`) and herdr
+(`install-instructions/herdr.md`). All instructions keep the common order of
+sections: contents, requirements, first installation, post-installation check,
+update.
 
-Инструкции и ссылки на них не входят в `extensions/`, `skills/` и `agents/`.
-Системный промпт — отдельный компонент поставки, его исходник — `SYSTEM.md`.
+Instructions and links to them are not part of `extensions/`, `skills/` and
+`agents/`. The system prompt is a separate delivery component; its source is
+`SYSTEM.md`.
 
-JSON сохранять в UTF-8 с читаемыми символами, без замены кириллицы на
-Unicode-последовательности вида \uXXXX; при пересериализации значения полей не
-менять.
+Save JSON in UTF-8 with readable characters, without replacing Cyrillic with
+Unicode sequences like \uXXXX; when reserializing, do not change field values.
 
-`install-instructions/*.md` и справочные тексты должны быть короткими и
-содержательными. Описывай конкретный состав, отдельно подключаемые части и
-готовность пакета. В инструкциях нужны ясные шаги установки и обновления командами
-`git` и `omp config`; инструкция системного промпта использует `omp config path`,
-инструкция herdr — `curl`, а в Windows `powershell.exe`.
-Достаточные команды и примеры настроек допустимы здесь; они не переходят в
-runtime skills. Проверки из выбранного документа `install-instructions/*.md`
-выполняет устанавливающий агент в конце установки на целевой ОС. В Windows — через
-bash-инструмент omp или Git Bash; результат другой ОС не доказывает работу
-Windows. Редактирование исходников и документации само по себе не запускает эти
-проверки. При update сохраняй данные, секреты и чужие настройки; повторяй только
-требуемые проверки затронутых частей. Явный запрет пользователя на проверочные
-запуски имеет приоритет. Не включай посторонние функции хоста из-за сходства их
-имени с именем пакета.
+`install-instructions/*.md` and reference texts must be short and meaningful.
+Describe the concrete contents, the separately connected parts and the package's
+readiness. Instructions need clear installation and update steps with `git` and
+`omp config` commands; the system prompt instruction uses `omp config path`, the
+herdr instruction uses `curl`, and on Windows `powershell.exe`.
+Sufficient commands and setting examples are allowed here; they do not move into
+runtime skills. The checks from the selected `install-instructions/*.md`
+document are run by the installing agent at the end of the installation on the
+target OS. On Windows, through the omp bash tool or Git Bash; the result of
+another OS does not prove that Windows works. Editing sources and documentation
+does not by itself start these checks. On update, keep data, secrets and other
+people's settings; repeat only the required checks of the affected parts. The
+user's explicit ban on check runs takes priority. Do not turn on unrelated host
+functions because their name resembles the package name.
 
-Дизайн-файл `HARNESS-DESIGN.md` описывает harness и его необходимые
-внешние контракты. Общие правила репозитория хранятся в AGENTS.md.
+The design file `HARNESS-DESIGN.md` describes the harness and its necessary
+external contracts. The repository's general rules are kept in AGENTS.md.
 
-Дизайн-файл описывает действующую концепцию harness: назначение, проблемы, контекст,
-актуальные предложения, принятые решения, согласования пользователя и причины
-устройства. Различать предложение, согласованное решение и фактически выполненное
-изменение; не приписывать согласования или результаты. Прежние версии доступны в
-истории Git/GitHub. Не помещать в дизайн рабочие TODO, очереди выполнения и
-чек-листы релиза. Текущий план и статус работы ведутся в достаточном первичном
-источнике или в `todo`. Текущие инструкции установки находятся в
-`install-instructions/`.
+The design file describes the current concept of the harness: purpose, problems,
+context, current proposals, adopted decisions, the user's agreements and the
+reasons for the structure. Distinguish a proposal, an agreed decision and an
+actually made change; do not attribute agreements or results. Earlier versions
+are available in the Git/GitHub history. Do not put working TODOs, execution
+queues and release checklists into the design. The current plan and work status
+are kept in a sufficient primary source or in `todo`. The current installation
+instructions are in `install-instructions/`.
 
-При удалении компонента, кода или отказе от решения удаляй относящиеся к нему
-действующие исходники и документацию. Не создавай архивные копии, заметки,
-записи об удалении или отказе ради сохранения прошлого: для этого используется
-история коммитов Git/GitHub. Правило действует в этом репозитории. Оно не
-разрешает удалять пользовательские данные и не отменяет документацию действующих
-решений и выполненной работы.
+When removing a component or code or abandoning a decision, remove its current
+sources and documentation. Do not create archive copies, notes, records of
+removal or abandonment to keep the past: the Git/GitHub commit history serves
+that. The rule applies in this repository. It does not allow deleting user data
+and does not cancel documentation of current decisions and completed work.
 
-После установки пакет самодостаточен и не зависит от документации репозитория.
-Установка и обновление используют документ выбранной ревизии. Этот файл задаёт
-правила работы над исходниками.
+After installation the package is self-contained and does not depend on the
+repository's documentation. Installation and updates use the document of the
+selected revision. This file sets the rules for working on the sources.
 
-Не добавлять setup skills. Не ссылаться на рабочий репозиторий в файлах пакета.
+Do not add setup skills. Do not refer to the working repository in package files.
 
-Общие инструкции модели описывают поведение и принципы работы без привязки к
-конкретным функциям, командам и переменным окружения. `SYSTEM.md` — общие правила
-на основе финального системного промпта Codex без частей, которых нет в omp, и
-раздел «Subagent model routing» этого пакета. Правила, которые дают skills пакета,
-в нём не повторяются: пакет подаёт root Main Gold Standard, `omp-tools`,
-`main-workflow` и `clear-communication`, а субагент вместо `SYSTEM.md` получает
-своё определение, бриф и `omp-tools`. Правила todo и review
-принадлежат пакету; изменения этих правил не переносятся в базовый
-промпт. Механику инструментов даёт описание самих инструментов omp; skill
-`omp-tools` добавляет к ней только правила скорости, временных файлов и защиты от
-частых ошибок, а поиск задают `extensions/rg.ts` и определение `codebase_explorer`.
+The model's general instructions describe behavior and working principles
+without binding to specific functions, commands and environment variables.
+`SYSTEM.md` is the general rules based on the final Codex system prompt without
+the parts that do not exist in omp, plus this package's "Subagent model routing"
+section. Rules supplied by the package's skills are not repeated in it: the
+package supplies root Main with the Gold Standard, `omp-tools`, `main-workflow`
+and `clear-communication`, and a subagent gets its definition, its brief and
+`omp-tools` instead of `SYSTEM.md`. The todo and review rules belong to the
+package; changes of these rules are not moved into the base prompt. The
+mechanics of the tools come from the descriptions of the omp tools themselves;
+the `omp-tools` skill adds to them only the rules of speed, temporary files and
+protection against frequent mistakes, and the search is set by `extensions/rg.ts`
+and the `codebase_explorer` definition.
 
-Всё собственное tooling проекта реализуется на Node.js или как расширения omp
-(TypeScript, который исполняет omp) и должно работать на macOS, Linux и Windows.
-Исключение — ядро LCM: крейт Rust `crates/lcm-native` собирается в модуль
-Node-API, который расширение `extensions/lcm` загружает в процесс omp. Готовые
-модули для macOS Apple Silicon и Windows x64 собирает только GitHub Actions
-`.github/workflows/lcm-native.yml` на своих машинах и кладёт в GitHub Release
-`lcm`; в Git они не хранятся. Скрипт `node crates/lcm-native/build.mjs` собирает
-их локально только для разработки и проверки.
-В Windows работать через bash-инструмент omp или Git Bash. PowerShell и cmd
-запрещены, кроме двух мест, названных в `INSTALL_FOR_AGENTS.md`: штатного
-установщика omp и вызова `powershell.exe` в инструкции herdr.
+All of the project's own tooling is implemented in Node.js or as omp extensions
+(TypeScript that omp runs) and must work on macOS, Linux and Windows. The
+exception is the LCM core: the Rust crate `crates/lcm-native` is built into a
+Node-API module that the `extensions/lcm` extension loads into the omp process.
+Only GitHub Actions `.github/workflows/lcm-native.yml` builds the ready modules
+for macOS Apple Silicon and Windows x64 on its own machines and puts them into
+the GitHub Release `lcm`; they are not kept in Git. The script
+`node crates/lcm-native/build.mjs` builds them locally only for development and
+checks. On Windows work through the omp bash tool or Git Bash. PowerShell and
+cmd are forbidden, except in the two places named in `INSTALL_FOR_AGENTS.md`:
+the stock omp installer and the `powershell.exe` call in the herdr instruction.
 
-## Простое tooling
+## Simple tooling
 
-Tooling строить самым простым достаточным способом: инструкции, промпты,
-skills, субагенты, расширения omp, пакеты и обычные CLI-инструменты на Node.js.
-Не усложнять эту механику без прямого запроса пользователя.
+Build tooling in the simplest sufficient way: instructions, prompts, skills,
+subagents, omp extensions, packages and ordinary Node.js CLI tools. Do not
+complicate this mechanics without the user's direct request.
 
-## История
+## History
 
-История до переноса и её источники находятся в репозитории
-[my-codex-harness](https://github.com/ARQAWA/my-codex-harness). Решения переноса
-в omp описаны в последних разделах `HARNESS-DESIGN.md`.
+The history before the move and its sources are in the
+[my-codex-harness](https://github.com/ARQAWA/my-codex-harness) repository. The
+decisions of the move to omp are described in the last sections of
+`HARNESS-DESIGN.md`.
 
-Не переносить прежние многократные review или cleanup одного релиза в каждый
-будущий запуск.
+Do not carry earlier repeated reviews or cleanups of one release into every
+future run.

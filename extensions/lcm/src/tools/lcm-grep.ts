@@ -3,7 +3,7 @@
  */
 
 import { Type } from "@sinclair/typebox";
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum } from "@oh-my-pi/pi-ai";
 import type { LcmStore, SearchResult } from "../db/store.js";
 import { extractSnippet, timeAgo } from "../utils.js";
 

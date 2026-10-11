@@ -1,58 +1,72 @@
-# omp и настройки владельца
+# omp and the owner's settings
 
-Общий статус и границы установки: [INSTALL_FOR_AGENTS.md](../INSTALL_FOR_AGENTS.md).
+General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../INSTALL_FOR_AGENTS.md).
 
-## Состав
+## Contents
 
-omp ставится штатным установщиком с omp.sh и обновляется командой `omp update`.
-Поверх него применяются настройки владельца из каталога `settings/` клона:
+omp is installed with the stock installer from omp.sh and updated with
+`omp update`. The owner's settings from the clone's `settings/` directory are
+applied on top of it:
 
-- тема `titanium-arq` — копия [`settings/titanium-arq.json`](../settings/titanium-arq.json)
-  в `<agent-dir>/themes/` и значение `theme.dark`;
-- окна контекста — копия [`settings/models.yml`](../settings/models.yml) в
-  `<agent-dir>/models.yml`: 400 000 токенов для всех моделей GPT (GPT-6.1 Sol,
-  GPT-6 Luna, GPT-5.6 Luna) и всех Claude (Opus 5.5, Sonnet 5.5, Haiku 5.5,
-  Fable 5.1);
-- клавиши — копия [`settings/keybindings.yml`](../settings/keybindings.yml) в
-  `<agent-dir>/keybindings.yml`: освобождает shift+↑ (встроенное
-  `app.message.dequeue` остаётся на alt+↑), чтобы он переключал модель, и
-  отключает переключение модели по ctrl+P (`app.model.cycleForward: []`);
-- остальные настройки — ключи `config.yml` из шага 4 первой установки: вид
-  статус-строки и поля ввода, модели и провайдеры, работа агента и интерфейс.
+- the `titanium-arq` theme: a copy of [`settings/titanium-arq.json`](../settings/titanium-arq.json)
+  in `<agent-dir>/themes/` and the `theme.dark` value. Its palette follows the
+  stock Cursor IDE: black and graphite backgrounds, white-grey and grey text,
+  no accent color; green, yellow and red stay only as indicators of statuses,
+  diffs and the bash and Python input modes, and omp's done and error marks
+  are the circle `●`;
+- font and icons: IosevkaTerm Nerd Font Mono, a narrow terminal font with
+  built-in icons, from the official
+  [ryanoasis/nerd-fonts](https://github.com/ryanoasis/nerd-fonts) releases, and
+  `symbolPreset nerd`, so omp and the harness draw Nerd Font glyphs; every glyph
+  they draw is in this font and takes one cell;
+- context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
+  `<agent-dir>/models.yml`: 400 000 tokens for all GPT models (GPT-6.1 Sol,
+  GPT-6 Luna, GPT-5.6 Luna) and all Claude models (Opus 5.5, Sonnet 5.5,
+  Haiku 5.5, Fable 5.1);
+- keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
+  `<agent-dir>/keybindings.yml`: it frees shift+↑ (the built-in
+  `app.message.dequeue` stays on alt+↑) so that it switches the model, and
+  turns off model switching with ctrl+P (`app.model.cycleForward: []`);
+- the other settings: the `config.yml` keys from step 4 of the first
+  installation: the look of the status line and the input field, models and
+  providers, agent work and the interface.
 
-Ключи `extensions`, `task.maxConcurrency` и роли `subagent_*` в `modelRoles`
-задаёт [пакет harness](harness.md). Роль `default` выбирает владелец каждой
-машины, служебный `setupVersion` ведёт сам omp; они не переносятся. Новая сессия
-без флагов выбора модели и продолжения стартует на Opus 5.5 medium: это делает
-расширение пакета `default-model.ts`, а `default` действует в остальных случаях.
+The keys `extensions`, `task.maxConcurrency` and the `subagent_*` roles in
+`modelRoles` are set by the [harness package](harness.md). The owner of each
+machine chooses the `default` role, and omp itself maintains the service key
+`setupVersion`; they are not carried over. A new session without model selection
+and continuation flags starts on Opus 5.5 medium: the package extension
+`default-model.ts` does this, and `default` applies in the other cases.
 
-`<agent-dir>` — каталог, который печатает `omp config path`. Переключение модели
-и reasoning shift-стрелками входит в [пакет harness](harness.md).
+`<agent-dir>` is the directory that `omp config path` prints. Switching the model
+and reasoning with the shift arrows is part of the [harness package](harness.md).
 
-## Требования
+## Requirements
 
-- macOS, Linux или Windows 10/11. В Windows нужны PowerShell 5.1+ и Git for
-  Windows; Git ставится без прав администратора вариантом «только для меня».
-- Окружение «Windows только внутри VS Code» из
-  [WORKING-ENVIRONMENTS.md](../WORKING-ENVIRONMENTS.md): omp там ставится и
-  запускается только в окне herdr из расширения VS Code. Специальная сборка
-  `omp-vscode/` запускает вшитый в неё `omp.exe` без herdr и в эту установку не
-  входит.
-- Доступ к omp.sh и github.com. Проверено на omp 18.6.3.
-- Клон репозитория: настройки берутся из его каталога `settings/`.
+- macOS, Linux or Windows 10/11. Windows needs PowerShell 5.1+ and Git for
+  Windows; Git is installed without administrator rights with the "Only for me"
+  option.
+- The "Windows only inside VS Code" environment from
+  [WORKING-ENVIRONMENTS.md](../WORKING-ENVIRONMENTS.md): there omp is installed
+  and started only in a herdr window from the VS Code extension. The special
+  build `omp-vscode/` starts the `omp.exe` built into it without herdr and is not
+  part of this installation.
+- Access to omp.sh and github.com. Tested on omp 18.6.3.
+- A clone of the repository: the settings are taken from its `settings/`
+  directory.
 
-## Первая установка
+## First installation
 
-1. Если `omp --version` не работает, omp ставит владелец или агент вне omp
-   штатным установщиком. Если установлен bun, установщик ставит omp через него;
-   иначе скачивает готовый файл:
-   - macOS и Linux: `curl -fsSL https://omp.sh/install | sh` — файл
-     `~/.local/bin/omp`; этот каталог должен быть в `PATH`;
-   - Windows, PowerShell: `irm https://omp.sh/install.ps1 | iex` — файл
-     `%LOCALAPPDATA%\omp\omp.exe`, каталог попадает в пользовательский `PATH`.
+1. If `omp --version` does not work, the owner or an agent outside omp installs
+   omp with the stock installer. If bun is installed, the installer installs omp
+   through it; otherwise it downloads a ready file:
+   - macOS and Linux: `curl -fsSL https://omp.sh/install | sh` — the file
+     `~/.local/bin/omp`; this directory must be in `PATH`;
+   - Windows, PowerShell: `irm https://omp.sh/install.ps1 | iex` — the file
+     `%LOCALAPPDATA%\omp\omp.exe`; the directory goes into the user `PATH`.
 
-   Затем владелец запускает `omp` и входит в провайдеров командой `/login`.
-2. Задай пути и скопируй тему:
+   Then the owner starts `omp` and signs in to the providers with `/login`.
+2. Set the paths and copy the theme:
 
    ```bash
    CLONE="$(git -C ~/my-omp-harness rev-parse --show-toplevel)"
@@ -60,15 +74,20 @@ omp ставится штатным установщиком с omp.sh и обн
    mkdir -p "$AGENT_DIR/themes" && cp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/"
    ```
 
-3. Если `$AGENT_DIR/models.yml` нет, скопируй туда `$CLONE/settings/models.yml`.
-   Если файл есть и отличается, покажи различия командой
-   `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` и
-   замени файл только с согласия владельца. Так же поступи с
-   `$CLONE/settings/keybindings.yml` и `$AGENT_DIR/keybindings.yml`.
-4. Задай настройки владельца. Тема убирает только значок перед контекстом; три
-   строки статуса под полем ввода и строку над ним собирает расширение
-   `status-bar.ts` пакета harness. `startup.quiet true` убирает стартовый блок
-   omp: логотип с подсказкой и строку «Model scope».
+3. If `$AGENT_DIR/models.yml` does not exist, copy `$CLONE/settings/models.yml`
+   there. If the file exists and differs, show the differences with
+   `git diff --no-index "$AGENT_DIR/models.yml" "$CLONE/settings/models.yml"` and
+   replace the file only with the owner's consent. Do the same with
+   `$CLONE/settings/keybindings.yml` and `$AGENT_DIR/keybindings.yml`.
+4. Set the owner's settings. The theme removes only the icon in front of the
+   context; the three status rows under the input field and the row above it
+   are built by the harness package extension `status-bar.ts`.
+   `startup.quiet true` removes the omp startup block: the logo with a hint and
+   the "Model scope" line. For a compact screen, `tui.tight true` drops one
+   column of side padding, `recap.enabled false` removes the recap block that
+   omp adds to the transcript after idle time, `tui.codexResetFireworks false`
+   removes the fireworks animation, and `statusLine.sessionAccent false` removes
+   the random color per session, so the line above the input field stays grey.
 
    ```bash
    omp config set theme.dark titanium-arq
@@ -125,6 +144,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set tui.mouse false
    omp config set startup.quiet true
    omp config set tui.tight true
+   omp config set recap.enabled false
    omp config set title.icons boring
    omp config set display.collapseCompacted true
    omp config set display.showTurnTime false
@@ -143,24 +163,54 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set read.defaultLimit 3000
    omp config set tools.artifactSpillThreshold 100
    omp config set tools.outputMaxColumns 100000
+   omp config set startup.setupWizard false
+   omp config set startup.checkUpdate false
+   omp config set terminal.showImages false
+   omp config set autoResume false
+   omp config set ida.enabled false
+   omp config set github.enabled true
    ```
 
-5. Настройки действуют в новой сессии omp. Не прерывай текущую задачу ради
-   перезапуска.
+5. Install the Nerd Font; a repeated run only overwrites the same files. On
+   macOS and Linux:
 
-## Проверка после установки
+   ```bash
+   case "$(uname -s)" in
+     Darwin) FONTS="$HOME/Library/Fonts" ;;
+     *) FONTS="$HOME/.local/share/fonts" ;;
+   esac
+   T="$(mktemp -d)" && curl -fsSL -o "$T/IosevkaTerm.tar.xz" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/IosevkaTerm.tar.xz && tar -xJf "$T/IosevkaTerm.tar.xz" -C "$T" && mkdir -p "$FONTS" && cp "$T"/IosevkaTermNerdFontMono-*.ttf "$FONTS/"
+   command -v fc-cache >/dev/null && fc-cache -f "$FONTS"
+   ```
 
-1. `omp --version` печатает версию.
+   On Windows, download the archive with
+   `curl -fsSL -o "$USERPROFILE/Downloads/IosevkaTerm.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/IosevkaTerm.zip`
+   and ask the owner to open it, select the `IosevkaTermNerdFontMono-*.ttf`
+   files and choose "Install" in their context menu; this needs no
+   administrator rights.
+
+   Then ask the owner to choose "IosevkaTerm Nerd Font Mono" as the terminal
+   font: in iTerm2 in Settings → Profiles → Text → Font; in the VS Code terminal
+   with the `terminal.integrated.fontFamily` setting. Without the font, icons
+   show as empty boxes; a Nerd Font build without "Mono" draws icons wider than
+   one cell and shifts the rows.
+6. The settings take effect in a new omp session. Do not interrupt the current
+   task to restart.
+
+## Post-installation check
+
+1. `omp --version` prints the version.
 2. `cmp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/titanium-arq.json"`
-   ничего не печатает. Та же команда для `models.yml` и `keybindings.yml` ничего не печатает, если
-   владелец не отказался от замены.
-3. `omp config list` показывает для каждого ключа шага 4 его значение из этого
-   шага.
+   prints nothing. The same command for `models.yml` and `keybindings.yml`
+   prints nothing unless the owner refused the replacement.
+3. `omp config list` shows, for every key of step 4, its value from that step.
+4. macOS and Linux: `ls "$FONTS" | grep IosevkaTermNerdFontMono-Regular` prints
+   the font file. On Windows, the owner confirms that the font is installed.
 
-## Обновление
+## Update
 
-1. Выполни `omp update`.
-2. Повтори проверку 2. Отличающуюся тему скопируй заново; отличающиеся
-   `models.yml` и `keybindings.yml` заменяй, как в шаге 3 первой установки.
-3. Если проверка 3 показывает другие значения, повтори шаг 4.
-4. Новая версия и настройки действуют в новой сессии omp.
+1. Run `omp update`.
+2. Repeat check 2. Copy a differing theme again; replace differing `models.yml`
+   and `keybindings.yml` as in step 3 of the first installation.
+3. If check 3 shows other values, repeat step 4.
+4. The new version and the settings take effect in a new omp session.

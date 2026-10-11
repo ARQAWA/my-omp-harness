@@ -4,8 +4,9 @@ import {
 	ToolExecutionComponent,
 	UserMessageComponent,
 } from "@oh-my-pi/pi-coding-agent";
-import { type Component, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { type Component } from "@oh-my-pi/pi-tui";
 import { dialogLine, goalEventLine } from "./cards";
+import { fitLine } from "./fit";
 import { enabled, pinnedRows } from "./state";
 import { currentMode } from "./panel";
 
@@ -26,7 +27,7 @@ class FeedRow implements Component {
 
 	render(width: number): string[] {
 		try {
-			return this.#lines(width).map(line => truncateToWidth(line, width));
+			return this.#lines(width).map(line => fitLine(line, width));
 		} catch {
 			return [];
 		}

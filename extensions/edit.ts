@@ -1,4 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { type Component, Text } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { editDescription, editGrammar } from "@oh-my-pi/pi-natives";
 import { readFileSync } from "node:fs";
@@ -77,6 +79,20 @@ function nearestMatchText(relPath: string, oldString: string, cwd: string): stri
 	const out = [`Nearest match in ${relPath} (lines ${bestStart + 1}-${bestStart + n}):`];
 	for (let i = bestStart; i < bestStart + n; i++) out.push(`${i + 1}|${lines[i]!}`);
 	return out.join("\n");
+}
+
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+	const content =
+		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+			? result.content
+			: [];
+	for (const block of content) {
+		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+			return block.text.split("\n")[0] ?? "";
+		}
+	}
+	return "";
 }
 
 function cleanParams(raw: unknown): Params {
@@ -269,6 +285,14 @@ export default function (pi: ExtensionAPI) {
 				details: { files },
 				isError: runs.some(run => run.status !== "edited"),
 			};
+		},
+		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
+			const host = toolRenderers["edit"];
+			return host ? (host.renderCall(...args) as Component) : new Text("edit", 0, 0);
+		},
+		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
+			const host = toolRenderers["edit"];
+			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
 		},
 	});
 }

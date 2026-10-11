@@ -57,6 +57,21 @@ export interface AgentRecord {
 	lastIntent?: string;
 	currentTool?: string;
 	currentToolArgs?: string;
+	/** Full task text. */
+	task?: string;
+	/** Date.now() when the record was first created. */
+	startedAt?: number;
+	durationMs?: number;
+	tokens?: number;
+	toolCount?: number;
+	requests?: number;
+	/** Resolved model display string (resolvedModel). */
+	model?: string;
+	/** Resolved thinking level (resolvedThinkingLevel). */
+	thinking?: string;
+	/** First 600 characters of the result output. */
+	output?: string;
+	error?: string;
 }
 
 /** Latest record per subagent id across every task block; read by the live-agents panel. */

@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { getSessionAccentAnsi, getSessionAccentHex, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
+import { SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { fitLine } from "./cursor-feed/fit";
 
 const TITLE = "my-omp-harness.title";
 
@@ -51,14 +52,48 @@ function patchMode() {
 	};
 }
 
+function patchStatusJoin() {
+	const STATUS_JOIN_PATCHED = Symbol.for("my-omp-harness.status-join");
+	const segment = SEGMENTS?.status as any;
+	if (!segment || segment[STATUS_JOIN_PATCHED]) return;
+	segment[STATUS_JOIN_PATCHED] = true;
+	const originalRender = segment.render;
+	const originalDescribe = segment.describe;
+	segment.render = (ctx: any) => {
+		const hooks: unknown[] = Array.isArray(ctx?.hookStatuses) ? ctx.hookStatuses : [];
+		if (hooks.length < 2) return originalRender(ctx);
+		const theme = latest?.ui?.theme;
+		const sep = theme ? ` ${theme.getFgAnsi("statusLineSep")}·${theme.getFgAnsi("text")} ` : " · ";
+		const visible = hooks
+			.map(item => originalRender({ ...ctx, hookStatuses: [item] }))
+			.filter(result => result?.visible);
+		if (visible.length === 0) return { content: "", visible: false };
+		return { content: visible.map(result => result.content).join(sep), visible: true };
+	};
+	segment.describe = (ctx: any) => {
+		const hooks: unknown[] = Array.isArray(ctx?.hookStatuses) ? ctx.hookStatuses : [];
+		if (hooks.length < 2) return originalDescribe(ctx);
+		const views = hooks.map(item => originalDescribe({ ...ctx, hookStatuses: [item] })).filter(Boolean);
+		if (views.length === 0) return null;
+		const spans = views.flatMap((view, index) => [
+			...(index > 0 ? [{ t: " · " }] : []),
+			...(view.spans ?? []),
+		]);
+		return { ...views[0], spans };
+	};
+}
+
 function rowLeftRight(left: string, right: string, width: number): string {
 	if (!left && !right) return "";
-	if (!left) return truncateToWidth(right, width);
-	if (!right) return truncateToWidth(left, width);
+	if (!left) return fitLine(right, width);
+	if (!right) return fitLine(left, width);
 	const lw = visibleWidth(left);
 	const rw = visibleWidth(right);
 	if (lw + rw <= width) return left + " ".repeat(width - lw - rw) + right;
-	return truncateToWidth(`${left}  ${right}`, width);
+	const room = width - rw - 1;
+	if (room <= 0) return fitLine(right, width);
+	const leftPart = fitLine(left, room);
+	return leftPart + " ".repeat(Math.max(0, width - visibleWidth(leftPart) - rw)) + right;
 }
 
 function patchStatusLine() {
@@ -86,13 +121,16 @@ function patchStatusLine() {
 		const agentCount = this.subagentCount;
 		const jobCount = this.runningBackgroundJobCount();
 		const ompAgents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
-		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `🤖 ${agentCount}`) : "";
+		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `${"\u{F0C0}"} ${agentCount}`) : "";
 		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
 		const sep = ` ${theme.getFgAnsi("statusLineSep")}·${theme.getFgAnsi("text")} `;
 		let model = base[k];
-		// Shorten reasoning labels to no lo md hi xh mx, all amber; off (between_tools or thinking disabled) shows "no".
-		model = model.replace(`${theme.status.disabled} off`, "\x1b[38;2;255;176;0mno");
-		for (const [level, short] of [["low", "lo"], ["medium", "md"], ["high", "hi"], ["xhigh", "xh"], ["max", "mx"]] as const) { const full = theme.thinking?.[level]; if (full) model = model.replace(full, "\x1b[38;2;255;176;0m" + short); }
+		// Shorten reasoning labels to no lo md hi xh mx; off (between_tools or thinking disabled) shows "no".
+		model = model.replace(`${theme.status.disabled} off`, "no");
+		for (const [level, short] of [["low", "lo"], ["medium", "md"], ["high", "hi"], ["xhigh", "xh"], ["max", "mx"]] as const) {
+			const full = theme.thinking?.[level];
+			if (full) model = model.replace(full, short);
+		}
 		let place: string = rightPart.call(this, width)?.content ?? "";
 		for (const [badge, omp] of [[agents, ompAgents], [jobs, jobs]] as const) {
 			if (!badge) continue;
@@ -100,13 +138,9 @@ function patchStatusLine() {
 			place = place.replace(omp + sep, "");
 		}
 		// Drop omp's blank gap row so the context bar sits right under the input.
-		const name = this.session?.sessionManager?.getSessionName?.();
-		const accent = (name && getSessionAccentAnsi(getSessionAccentHex(name, theme.sessionAccentInputs))) || theme.getFgAnsi("accent");
-		const id = this.session?.sessionManager?.getSessionId?.();
-		const idText = id ? theme.fg("dim", id) : "";
-		const third = rowLeftRight(place, idText, width);
-		const rows = [contextLine(width, theme, accent), truncateToWidth(model, width)];
-		if (third) rows.push(third);
+		const textColor = theme.getFgAnsi("text");
+		const rows = [contextLine(width, theme, textColor), fitLine(model, width)];
+		if (place) rows.push(fitLine(place, width));
 		return [...rows, ...base.slice(k + 1)];
 	};
 }
@@ -149,19 +183,20 @@ function fmtK(n: number): string {
 	return `${s.endsWith(".0") ? s.slice(0, -2) : s}k`;
 }
 
-function contextLine(width: number, theme: any, accent: string): string {
+function contextLine(width: number, theme: any, textColor: string): string {
 	const u = latest?.getContextUsage?.();
 	if (!u?.contextWindow) return theme.fg("dim", "─".repeat(width));
 	let p = u.percent ?? ((u.tokens ?? 0) / u.contextWindow) * 100;
 	p = Math.min(100, Math.max(0, p));
 	const label = ` ${Math.round(p)}% ${fmtK(u.tokens ?? 0)}/${fmtK(u.contextWindow)}`;
+	const muted = theme.getFgAnsi("muted");
 	const barWidth = Math.max(0, width - visibleWidth(label));
 	const filled = Math.round((barWidth * p) / 100);
 	const line =
-		`${accent}${"━".repeat(filled)}\x1b[39m`
+		`${textColor}${"━".repeat(filled)}\x1b[39m`
 		+ theme.fg("dim", "─".repeat(barWidth - filled))
-		+ `${accent}${label}\x1b[39m`;
-	return truncateToWidth(line, width);
+		+ `${muted}${label}\x1b[39m`;
+	return fitLine(line, width);
 }
 
 function showTitle(ctx: any) {
@@ -169,18 +204,15 @@ function showTitle(ctx: any) {
 		TITLE,
 		(_tui, theme) => ({
 			render(width: number) {
-				let left = "";
-				if (turnStart === undefined && lastTurnMs !== undefined) {
-					left = theme.fg("dim", `Worked ${fmtWorked(lastTurnMs)}`);
-				}
 				const name = ctx.sessionManager?.getSessionName?.();
-				let right = "";
-				if (name) {
-					const accent =
-						getSessionAccentAnsi(getSessionAccentHex(name, theme.sessionAccentInputs))
-						|| theme.getFgAnsi("accent");
-					right = `${accent}${name}\x1b[39m`;
+				const id = ctx.sessionManager?.getSessionId?.();
+				const parts: string[] = [];
+				if (name) parts.push(`${theme.getFgAnsi("text")}${name}\x1b[39m`);
+				if (turnStart === undefined && lastTurnMs !== undefined) {
+					parts.push(theme.fg("dim", `Worked ${fmtWorked(lastTurnMs)}`));
 				}
+				const left = parts.join(" · ");
+				const right = id ? theme.fg("muted", id) : "";
 				if (!left && !right) return [""];
 				return [rowLeftRight(left, right, width)];
 			},
@@ -193,6 +225,7 @@ function showTitle(ctx: any) {
 export default function statusBar(pi: ExtensionAPI) {
 	patchTokenRate();
 	patchMode();
+	patchStatusJoin();
 	patchStatusLine();
 
 	pi.on("session_start", (_event, ctx) => {

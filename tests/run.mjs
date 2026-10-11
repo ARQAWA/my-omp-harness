@@ -56,7 +56,7 @@ for (const skill of skills) {
   assert.ok(meta.description, `${skill}: description`);
   assert.equal(meta.hide === 'true', hidden.includes(skill), `${skill}: hide`);
 }
-const codexLeftovers = /Goal|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
+const codexLeftovers = /\bGoal\b|Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 const feedLeftovers = /Notebook|notebook|agent_type|get_goal|create_goal|\$[a-z]|capture_cli|context_cli|fork|hook /;
 for (const dir of ['skills', 'agents', 'extensions']) {
   for (const file of readdirSync(path.join(root, dir), { recursive: true })) {
@@ -103,7 +103,7 @@ for (const id of new Set(routed)) assert.ok(models.includes(id), `model-arrows.j
 for (const id of models) assert.ok(windowed.has(id), `settings/models.yml: ${id}`);
 
 const installDocs = ['omp', 'harness', 'system-prompt', 'herdr'].map(name => `install-instructions/${name}.md`);
-const headings = ['## Состав', '## Требования', '## Первая установка', '## Проверка после установки', '## Обновление'];
+const headings = ['## Contents', '## Requirements', '## First installation', '## Post-installation check', '## Update'];
 for (const doc of installDocs) {
   const text = read(doc);
   let previous = -1;

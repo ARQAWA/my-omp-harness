@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync each order one full release as one package (settings sync, all checks and the finalize-work gate under spotty's control, commit, push and installation on the current host); ordinary edits do not trigger release.
+description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync each order one full release as one package (settings sync, all checks and the finalize-work gate under spotty's control, the merge of the task branch into master, push, installation on the current host, removal of the task branch and worktree); ordinary edits and stage commits to a task branch do not trigger release.
 ---
 
 # Release
@@ -8,12 +8,14 @@ description: Release, commit, push, sync or install my-omp-harness; release, com
 The words release, commit, push and sync («релиз», «коммит», «пуш»,
 «синхронизация» and their verb forms) each order one full release of this
 repository as one package: the settings sync, every check and the
-finalize-work gate, commit, push and installation on the current host. Spotty
-controls the package: without its CLEAN on the whole repository there is no
-commit or push, and a commit or push never runs without the rest of the
-package. «Установить» or «обновить» without
-them order installation only, by
-[INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a commit or a
+finalize-work gate, the merge of the task branch into `master`, push,
+installation on the current host and removal of the task's branch and
+worktree. Spotty controls the package: without its CLEAN on the whole
+repository there is no merge into `master` or push, and a merge or push never
+runs without the rest of the package. The stage commits that `AGENTS.md`
+requires during the work go to the task branch and are not a release.
+«Установить» or «обновить» without them order installation only, by
+[INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a merge or a
 push. herdr, omp-vscode and lcm are released only when their sources changed or
 the owner names them.
 Every release runs the whole package; a step counts as done only while its
@@ -22,17 +24,30 @@ changed. Main hands every program run below (tests,
 the VSIX build, checks of the changed parts) to `shell_runner` and keeps only git,
 `gh`, `cp`, `omp config` and `eval` in its own calls.
 
-1. If files changed after the last run of `node tests/run.mjs`, run it once.
-   Then run [finalize-work](../finalize-work/SKILL.md) with
-   `review_stage=pre-action` on the whole repository until CLEAN.
-2. `git add` only the exact paths of the result, without other people's
-   changes, then commit and `git push origin master`.
-3. Install on the current host: `omp config get extensions --json` must list
-   this clone. If `SYSTEM.md` changed, copy it by
+`<task>` is the task branch, `<worktree>` its worktree, and `<clone>` the main
+clone on `master`, which is the installed copy.
+
+1. In `<worktree>`, commit every remaining change of the task to `<task>` with
+   `git add` of its exact paths, without other people's changes. If `master`
+   has moved since the branch started, merge `master` into `<task>` and resolve
+   the conflicts there, so that the checks and the gate see the result that
+   will land.
+2. If files changed after the last run of `node tests/run.mjs`, run it once in
+   `<worktree>`. Then run [finalize-work](../finalize-work/SKILL.md) with
+   `review_stage=pre-action` on the whole repository in `<worktree>` until
+   CLEAN, and commit its fixes to `<task>`.
+3. In `<clone>`: squash merge only, never a plain merge: `git merge --squash
+   <task>`, then `git commit` with a message that sums up the task, then
+   `git push origin master`.
+4. Install on the current host: `omp config get extensions --json` must list
+   `<clone>`. If `SYSTEM.md` changed, copy it by
    [system-prompt.md](../../../install-instructions/system-prompt.md); if the
    requirements changed, such as `modelRoles`, apply them by
-   [harness.md](../../../install-instructions/harness.md). Run the checks of
-   the changed parts and ask the owner to start a new omp session.
+   [harness.md](../../../install-instructions/harness.md), and changed owner
+   settings by [omp.md](../../../install-instructions/omp.md). Run the checks
+   of the changed parts and ask the owner to start a new omp session.
+5. In `<clone>`: `git worktree remove <worktree>` and `git branch -D <task>`
+   (after a squash merge git does not count the branch as merged).
 
 ## lcm
 
@@ -81,6 +96,6 @@ D="$(mktemp -d)" && TAG="$(gh release view -R can1357/oh-my-pi --json tagName -q
 ## Errors
 
 When a push, build, upload or installation is uncertain, read the state first
-(`git status`, `git log -1 origin/master`, `gh run list`,
+(`git status`, `git log -1 origin/master`, `git worktree list`, `gh run list`,
 `gh release view herdr`, `gh release view omp-vscode`, `omp config get …`) instead of repeating blindly,
 report the unfinished stage and do not declare the release complete.

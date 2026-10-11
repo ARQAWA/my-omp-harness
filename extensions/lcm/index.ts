@@ -7,8 +7,10 @@
  * message_end has no entryId — always pass null.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { completeSimple, type AssistantMessage } from "@mariozechner/pi-ai";
+import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { type Component, Text } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { completeSimple, type AssistantMessage } from "@oh-my-pi/pi-ai";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, type LcmConfig } from "./src/config.js";
@@ -76,6 +78,38 @@ function logCompactionCost(
   } catch (e: unknown) {
     console.error("[LCM] Cost log write failed:", e instanceof Error ? e.message : e);
   }
+}
+
+type RegisterTool = Parameters<ExtensionAPI["registerTool"]>[0];
+
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+  const content =
+    typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+      ? result.content
+      : [];
+  for (const block of content) {
+    if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+      return block.text.split("\n")[0] ?? "";
+    }
+  }
+  return "";
+}
+
+/** Adds renderers that call omp's renderer for the tool's name at render time, so the feed's patched renderers draw it; plain text when there is none. */
+function withSharedRender<T extends { name: string; label?: string }>(tool: T): RegisterTool {
+  // The tool objects come from the lcm package's own types, which do not match omp's ToolDefinition; the shape is checked at runtime by omp.
+  return {
+    ...tool,
+    renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
+      const host = toolRenderers[tool.name];
+      return host ? (host.renderCall(...args) as Component) : new Text(tool.label ?? tool.name, 0, 0);
+    },
+    renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
+      const host = toolRenderers[tool.name];
+      return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
+    },
+  } as unknown as RegisterTool;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -147,10 +181,6 @@ export default function (pi: ExtensionAPI) {
 
     updateGuidelines();
     updateStatus(store, conversationId, ctx);
-
-    if (config.debugMode) {
-      ctx.ui.notify(`LCM: Initialized (${stats.messages} msgs, ${stats.summaries} summaries)`, "info");
-    }
   }
 
   function resetState(): void {
@@ -164,9 +194,9 @@ export default function (pi: ExtensionAPI) {
 
   // ── Register tools ──────────────────────────────────────────────
 
-  pi.registerTool(createLcmGrepTool(getStore, getConversationId, getGuidelines) as any);
-  pi.registerTool(createLcmDescribeTool(getStore, getConversationId) as any);
-  pi.registerTool(createLcmExpandTool(getStore, getConversationId) as any);
+  pi.registerTool(withSharedRender(createLcmGrepTool(getStore, getConversationId, getGuidelines)));
+  pi.registerTool(withSharedRender(createLcmDescribeTool(getStore, getConversationId)));
+  pi.registerTool(withSharedRender(createLcmExpandTool(getStore, getConversationId)));
 
   pi.registerCommand("lcm", {
     description: "Lossless Context Management: stats, tree, compact, settings",
@@ -220,7 +250,7 @@ export default function (pi: ExtensionAPI) {
           }
         }
         settingsScope = scope;
-        ctx.ui.notify("LCM: Settings saved", "success");
+        ctx.ui.notify("Memory settings saved", "success");
       },
     };
 
@@ -252,7 +282,7 @@ export default function (pi: ExtensionAPI) {
       initializeSession(ctx);
     } catch (e: any) {
       console.error("[LCM] Failed to initialize:", e.message);
-      ctx.ui.notify(`LCM init failed: ${e.message}`, "warning");
+      ctx.ui.notify(`Memory could not start: ${e.message}`, "warning");
       resetState();
     }
   });
@@ -295,11 +325,12 @@ export default function (pi: ExtensionAPI) {
     const deps: CompactionDeps = {
       summarize: (prompt: string, sig?: AbortSignal, reasoning?: "low" | "high" | "xhigh", kind?: "leaf" | "condense") => callCompactionModel(ctx, config, prompt, sig, reasoning, kind),
       notify: (message: string, type?: string) => { try { ctx.ui.notify(message, type ?? "info"); } catch {} },
+      onProgress: text => { try { ctx.ui.setStatus("lcm", text); } catch {} },
     };
     engine
       .backgroundRun(convId, deps)
       .catch((e: unknown) => console.error("[LCM] Background summarization failed:", e instanceof Error ? e.message : e))
-      .finally(() => { bgRunning = false; });
+      .finally(() => { bgRunning = false; updateStatus(s, convId, ctx); });
   });
 
   // ── Custom compaction ───────────────────────────────────────────
@@ -338,6 +369,7 @@ export default function (pi: ExtensionAPI) {
         return await callCompactionModel(ctx, config, prompt, sig, reasoning, kind);
       },
       notify: (message: string, type?: string) => ctx.ui.notify(message, type ?? "info"),
+      onProgress: text => { try { ctx.ui.setStatus("lcm", text); } catch {} },
     };
 
     try {
@@ -358,7 +390,6 @@ export default function (pi: ExtensionAPI) {
       hasCompactedHistory = true;
       updateGuidelines();
       if (db) checkpointDb(db);
-      updateStatus(store, conversationId, ctx);
 
       return {
         compaction: {
@@ -370,8 +401,10 @@ export default function (pi: ExtensionAPI) {
       };
     } catch (e: any) {
       console.error("[LCM] Compaction failed:", e.message);
-      ctx.ui.notify(`LCM compaction failed: ${e.message}. Falling back to default.`, "warning");
+      ctx.ui.notify(`Memory compaction failed: ${e.message}. omp uses its normal compaction instead.`, "warning");
       return;
+    } finally {
+      updateStatus(s, convId, ctx);
     }
   });
 

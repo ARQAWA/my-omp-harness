@@ -1,4 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
+import { type Component, Text } from "@oh-my-pi/pi-tui";
+import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { bar } from "./cursor-feed/panel";
 
 const DESCRIPTION = `Manage your todo list in one call: ops is a list of operations applied in order, each seeing the result of the previous ones; on the first failing op the earlier ones are kept and the result names the failing op, its fix, the ops not applied and the current list. Ops: init (list: phases with items; replaces the list), append (items, optional phase; default the current phase), start, done, drop, block (reason), unblock, rm, plan (steps of an item, default the current one), step (step number of the current plan step; omitted = next step), closed (optional phase; lists closed items, changes nothing). An item is a title string or {title, plan: [steps]}. Address items by number like 2.3 (phase.item) or by text; dashes, quotes, spaces and letter case may differ. Batch every change you need now into one call, e.g. [{op:"done",item:"1.2"},{op:"start",item:"1.3"},{op:"plan",steps:["…","…"]}]. While items are open, the list is shown to you every turn: open items with their numbers and the plan of the current item; closed items are folded into counts, list them with closed (optional phase).`;
 
@@ -397,7 +400,7 @@ function snapshot(next: TodoState): string {
 			return;
 		}
 		const closedCount = phase.tasks.filter(item => !isOpen(item.status)).length;
-		lines.push(`${p + 1} ${phase.name} — ${closedCount}/${phase.tasks.length} закрыто`);
+		lines.push(`${p + 1} ${phase.name} — ${closedCount}/${phase.tasks.length} closed`);
 		phase.tasks.forEach((item, i) => {
 			if (!isOpen(item.status)) return;
 			const blocked = item.status === "blocked" ? ` — blocked: ${item.blocker ?? ""}` : "";
@@ -475,8 +478,8 @@ function showProgress(next: TodoState, ui: ExtensionContext["ui"] | undefined): 
 	const current = Math.min(Math.max(1, plan.current), total);
 	const item = active.item.content;
 	slot.state = { item, steps: plan.steps, current };
-	const bar = plan.steps.map((_step, index) => (index < current ? "▰" : "▱")).join("");
-	barLine = [`${bar} ${current}/${total} ${plan.steps[current - 1]}`];
+	const cells = bar(current, total).map(cell => cell.glyph).join("");
+	barLine = [`${cells} ${current}/${total} ${plan.steps[current - 1]}`];
 	barHidden = slot.canShow?.(item) === true;
 	progressUi?.setWidget(PROGRESS, barHidden ? undefined : barLine);
 }
@@ -498,6 +501,20 @@ function stripTodoBlock<T>(message: T): T {
 		return { ...p, text };
 	});
 	return changed ? ({ ...record, content: parts } as T) : message;
+}
+
+/** The first line of the first text block of a tool result. */
+function firstTextLine(result: unknown): string {
+	const content =
+		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
+			? result.content
+			: [];
+	for (const block of content) {
+		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
+			return block.text.split("\n")[0] ?? "";
+		}
+	}
+	return "";
 }
 
 export default function todo(pi: ExtensionAPI) {
@@ -609,6 +626,14 @@ export default function todo(pi: ExtensionAPI) {
 				isError: stop !== undefined,
 				details: { op: "ops", phases: committed.phases, plans: Object.fromEntries(committed.plans), completedTasks },
 			};
+		},
+		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
+			const host = toolRenderers["todo"];
+			return host ? (host.renderCall(...args) as Component) : new Text("todo", 0, 0);
+		},
+		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
+			const host = toolRenderers["todo"];
+			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
 		},
 	});
 }

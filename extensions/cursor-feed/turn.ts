@@ -1,6 +1,7 @@
 import { AssistantMessageComponent, ReadToolGroupComponent, ToolExecutionComponent, UserMessageComponent } from "@oh-my-pi/pi-coding-agent";
-import { theme, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { theme } from "@oh-my-pi/pi-tui";
 import { userGoalCard } from "./cards";
+import { fitLine } from "./fit";
 import { assistantMessages, enabled, expandedNow, parents, pinnedRows, recordExpanded, toolNameOf } from "./state";
 
 type Render = (width: number) => readonly string[];
@@ -110,9 +111,32 @@ function isToolRow(child: object): boolean {
 /** Tool names whose rows stay visible outside the fold. */
 const PINNED_TOOLS: Record<string, true> = { ask: true, goal: true };
 
-/** A row that stays visible: cursor-feed's own rows and the ask and goal tool blocks. */
-function isPinned(child: object): boolean {
-	return pinnedRows.has(child) || (child instanceof ToolExecutionComponent && PINNED_TOOLS[toolNameOf(child) ?? ""] === true);
+/** The next tool row after a child, skipping other kinds of children. */
+function nextToolRow(children: readonly object[], index: number): object | undefined {
+	for (let i = index + 1; i < children.length; i++) {
+		if (isToolRow(children[i]!)) return children[i];
+	}
+	return undefined;
+}
+
+/** Visible text whose next tool row is an ask block: it stays visible above the ask row. */
+function isTextBeforeAsk(child: object, children: readonly object[], index: number): boolean {
+	if (!(child instanceof AssistantMessageComponent)) return false;
+	const hasText = contentOf(assistantMessages.get(child)).some(
+		block => blockType(block) === "text" && (textOf(block)?.trim() ?? "") !== "",
+	);
+	if (!hasText) return false;
+	const next = nextToolRow(children, index);
+	return next instanceof ToolExecutionComponent && toolNameOf(next) === "ask";
+}
+
+/** A row that stays visible: cursor-feed's own rows, the ask and goal tool blocks, and the text right before an ask. */
+function isPinned(child: object, children: readonly object[], index: number): boolean {
+	return (
+		pinnedRows.has(child) ||
+		(child instanceof ToolExecutionComponent && PINNED_TOOLS[toolNameOf(child) ?? ""] === true) ||
+		isTextBeforeAsk(child, children, index)
+	);
 }
 
 function formatSpan(ms: number): string {
@@ -151,12 +175,14 @@ function recordThinking(component: object, message: unknown, transient: boolean)
 	}
 }
 
-/** The Thought label; undefined while the thinking streams or when the message has none. */
+/** The Thought label; undefined while the thinking streams, when the message has none, when its duration is unknown, or when it is under 4 seconds. */
 function thoughtLabel(component: object): string | undefined {
 	const state = thinking.get(component);
 	if (!state?.has || !state.ended) return undefined;
-	if (state.start === undefined || state.end === undefined) return "Thought";
-	return `Thought for ${formatSpan(state.end - state.start)}`;
+	if (state.start === undefined || state.end === undefined) return undefined;
+	const duration = state.end - state.start;
+	if (duration < 4000) return undefined;
+	return `Thought for ${formatSpan(duration)}`;
 }
 
 /**
@@ -167,7 +193,7 @@ function thoughtRow(component: object, width: number): string | undefined {
 	if (!enabled()) return undefined;
 	const label = thoughtLabel(component);
 	if (label === undefined || (roleOf(component)?.kind === "final" && !expandedNow())) return undefined;
-	return truncateToWidth(paint(label), width);
+	return fitLine(paint(label), width);
 }
 
 /** Final answer of the turn (start, end): the last final assistant block with no tool row after it. */
@@ -189,7 +215,7 @@ function segmentsOf(children: readonly object[], start: number, final: number): 
 	let open = false;
 	for (let index = start + 1; index < final; index++) {
 		const child = children[index]!;
-		if (isPinned(child)) {
+		if (isPinned(child, children, index)) {
 			open = false;
 			continue;
 		}
@@ -267,7 +293,7 @@ function durationOf(segment: Segment): number | undefined {
 function foldLine(segment: Segment, width: number): string {
 	const span = durationOf(segment);
 	const label = span === undefined ? "Worked" : `Worked for ${formatSpan(span)}`;
-	return truncateToWidth(paint(`${label} ${expandedNow() ? "˅" : "›"}`), width);
+	return fitLine(paint(`${label} ${expandedNow() ? "˅" : "›"}`), width);
 }
 
 function isBlank(row: string): boolean {
@@ -374,11 +400,52 @@ function patchAssistant(): void {
 	const render = proto.render;
 	const renderStable = proto.renderTranscriptStableRows;
 	const setExpanded = proto.setExpanded;
+	const setHideThinkingBlock = proto.setHideThinkingBlock;
+	/** The latest full updateContent arguments of each component, as the host passed them. */
+	const updates = new WeakMap<object, Parameters<AssistantMessageComponent["updateContent"]>>();
+	/** The Ctrl+O state each component's hide value was last set from. */
+	const applied = new WeakMap<object, boolean>();
+
+	/** Sets the hide value from the Ctrl+O state. Collapsing drops the stable rows that may still hold reasoning. */
+	const setView = (component: AssistantMessageComponent): void => {
+		const expanded = expandedNow();
+		const previous = applied.get(component);
+		setHideThinkingBlock.call(component, !expanded);
+		applied.set(component, expanded);
+		if (!expanded && previous !== false) component.resetTranscriptStableRows();
+	};
+
+	/** Brings a component's reasoning view in line with the Ctrl+O state, replaying its last full update when it changed. */
+	const syncReasoning = (component: AssistantMessageComponent): void => {
+		if (!enabled() || applied.get(component) === expandedNow()) return;
+		try {
+			setView(component);
+			const args = updates.get(component);
+			if (args) updateContent.apply(component, args);
+		} catch {
+			// Fail safe: the original view stands.
+		}
+	};
+
+	proto.setHideThinkingBlock = function (this: AssistantMessageComponent, _hide: boolean): void {
+		if (!enabled()) {
+			applied.delete(this);
+			setHideThinkingBlock.call(this, _hide);
+			return;
+		}
+		syncReasoning(this);
+	};
 
 	proto.updateContent = function (
 		this: AssistantMessageComponent,
 		...args: Parameters<AssistantMessageComponent["updateContent"]>
 	) {
+		updates.set(this, args);
+		try {
+			if (enabled() && applied.get(this) !== expandedNow()) setView(this);
+		} catch {
+			// Fail safe: the host's hide value stands.
+		}
 		const out = updateContent.apply(this, args);
 		try {
 			recordThinking(this, args[0], args[1]?.transient === true);
@@ -390,6 +457,7 @@ function patchAssistant(): void {
 	};
 
 	proto.render = function (this: AssistantMessageComponent, width: number): readonly string[] {
+		syncReasoning(this);
 		// While the original render runs, its stable-row publication must see the unprefixed rows it publishes.
 		rendering.add(this);
 		let rows: readonly string[];
@@ -407,6 +475,7 @@ function patchAssistant(): void {
 	};
 
 	proto.renderTranscriptStableRows = function (this: AssistantMessageComponent, count: number, width: number): readonly string[] {
+		syncReasoning(this);
 		const rows = renderStable.call(this, count, width);
 		try {
 			if (!(count > 0) || rendering.has(this)) return rows;
@@ -419,7 +488,9 @@ function patchAssistant(): void {
 
 	proto.setExpanded = function (this: AssistantMessageComponent, ...args: Parameters<AssistantMessageComponent["setExpanded"]>) {
 		recordExpanded(this, args[0]);
-		return setExpanded.apply(this, args);
+		const out = setExpanded.apply(this, args);
+		syncReasoning(this);
+		return out;
 	};
 }
 

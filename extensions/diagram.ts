@@ -1,14 +1,14 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { rasterizeSvg } from "@oh-my-pi/pi-natives";
 import { Container, Image, ImageProtocol, TERMINAL, Text } from "@oh-my-pi/pi-tui";
-import { renderMermaidSVG, THEMES } from "beautiful-mermaid";
+import { renderMermaidSVG } from "beautiful-mermaid";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const THEME = THEMES["tokyo-night"];
+const THEME = { bg: "#141414", fg: "#f0f0f0", line: "#5f5e5c", accent: "#d6d6dd", muted: "#8d8d8c", surface: "#232120", border: "#3a3836" };
 const DIR = join(tmpdir(), "omp-diagrams");
 // The chat scales the image to its full width; these pixel sizes only set sharpness.
 const WIDTH = 2400;
@@ -87,7 +87,7 @@ export default function diagram(pi: ExtensionAPI) {
 			return { content: [{ type: "text", text: `The user sees the diagram as an image: ${path}` }], details: { path } };
 		},
 		renderCall(args, _options, theme) {
-			return new Text(theme.fg("accent", args?.title ? `Схема: ${args.title}` : "Схема"), 0, 0);
+			return new Text(theme.fg("text", args?.title ? `Diagram: ${args.title}` : "Diagram"), 0, 0);
 		},
 		renderResult(result, _options, theme) {
 			const path = (result.details as { path?: string } | undefined)?.path;
@@ -97,7 +97,7 @@ export default function diagram(pi: ExtensionAPI) {
 			}
 			const box = new Container();
 			box.addChild(new Image(readFileSync(path).toString("base64"), "image/png", { fallbackColor: (text: string) => theme.fg("muted", text) }));
-			box.addChild(new Text(theme.fg("accent", `\x1b]8;;${pathToFileURL(path).href}\x1b\\Открыть в полный размер\x1b]8;;\x1b\\`), 0, 0));
+			box.addChild(new Text(theme.fg("mdLink", `\x1b]8;;${pathToFileURL(path).href}\x1b\\Open full size\x1b]8;;\x1b\\`), 0, 0));
 			return box;
 		},
 	});

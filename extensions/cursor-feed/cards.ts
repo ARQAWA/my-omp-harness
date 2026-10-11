@@ -1,5 +1,7 @@
-import { theme, type ThemeColor, truncateToWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
+import { theme, type ThemeColor, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
 import type { Status } from "./rows";
+import { fitLine } from "./fit";
+import { GLYPH } from "./glyphs";
 import { type CallResult, goalObjectives } from "./state";
 
 export interface TodoTask {
@@ -51,11 +53,11 @@ function wrap(text: string, width: number): string[] {
 /** Keeps the first four lines unless expanded, then adds a notice for the rest. */
 function cut(lines: string[], expanded: boolean): string[] {
 	if (expanded || lines.length <= 4) return lines;
-	return [...lines.slice(0, 4), `… ещё ${lines.length - 4} строк`];
+	return [...lines.slice(0, 4), `… ${lines.length - 4} more lines`];
 }
 
 function fit(lines: string[], width: number): string[] {
-	return lines.map(line => truncateToWidth(line, width));
+	return lines.map(line => fitLine(line, width));
 }
 
 /** The first task in progress, across phases. */
@@ -78,7 +80,7 @@ export function todoRowLine(
 	width: number,
 ): string {
 	const found = results.map(result => asRecord(result.details)).find(record => Array.isArray(record.phases));
-	if (!found || !Array.isArray(found.phases)) return truncateToWidth(`${paint(DOT[status], "●")} To-do`, width);
+	if (!found || !Array.isArray(found.phases)) return fitLine(`${paint(DOT[status], GLYPH.circle)} To-do`, width);
 	const phases: unknown[] = found.phases;
 	const tasks = phases.flatMap(phase => {
 		const list = asRecord(phase).tasks;
@@ -95,10 +97,10 @@ export function todoRowLine(
 		current !== undefined && current.content !== prevCurrent?.content
 			? str(current.content)
 			: undefined;
-	let line = `${paint(DOT[status], "●")} To-do ${paint("dim", `${done}/${tasks.length}`)}`;
-	for (const content of closed) line += `  ${paint("success", "✓")} ${paint("dim", content)}`;
-	if (started) line += `  ${paint("accent", "→")} ${started}`;
-	return truncateToWidth(line, width);
+	let line = `${paint(DOT[status], GLYPH.circle)} To-do ${paint("dim", `${done}/${tasks.length}`)}`;
+	for (const content of closed) line += `  ${paint("success", GLYPH.circle)} ${paint("dim", content)}`;
+	if (started) line += `  ${paint("warning", GLYPH.circle)} ${started}`;
+	return fitLine(line, width);
 }
 
 /** The questions of an ask call, from its args. */
@@ -156,21 +158,25 @@ export function askCardLines(
 	width: number,
 ): string[] {
 	const questions = questionsOf(args);
-	if (questions.length === 0) return fit([`${paint(DOT[status], "●")} ${paint("dim", "ask")}`], width);
+	if (questions.length === 0) return fit([`${paint(DOT[status], GLYPH.circle)} ${paint("dim", "ask")}`], width);
 	const answers = answersOf(results, questions.length);
 	const waiting = status === "running";
+	if (waiting && !expanded) {
+		const count = questions.length > 1 ? ` ${paint("dim", `· ${questions.length} questions`)}` : "";
+		return fit([`${paint("warning", GLYPH.circle)} ${paint("text", "Waiting for your answer")}${count}`], width);
+	}
 	const out: string[] = [];
 	questions.forEach((question, index) => {
-		wrap(question.question, width - 2).forEach((line, lineIndex) => {
+		const questionLines = wrap(question.question, width - 2);
+		questionLines.forEach((line, lineIndex) => {
 			out.push(
-				lineIndex === 0 ? `${paint(DOT[status], "●")} ${paint("text", line)}` : `  ${paint("text", line)}`,
+				lineIndex === 0 ? `${paint(DOT[status], GLYPH.circle)} ${paint("text", line)}` : `  ${paint("text", line)}`,
 			);
 		});
 		const answer = answeredOf(answers[index]);
 		if (!expanded) {
-			if (waiting) return;
 			if (!answer) {
-				out.push(`  ${paint("dim", "— без ответа")}`);
+				out.push(`  ${paint("dim", "— no answer")}`);
 				return;
 			}
 			const text = [
@@ -181,7 +187,7 @@ export function askCardLines(
 				.filter(Boolean)
 				.join(", ");
 			wrap(text, width - 4).forEach((line, lineIndex) => {
-				out.push(lineIndex === 0 ? `  ${paint("accent", "→")} ${line}` : `    ${line}`);
+				out.push(lineIndex === 0 ? `  ${paint("dim", "→")} ${line}` : `    ${line}`);
 			});
 			return;
 		}
@@ -189,17 +195,17 @@ export function askCardLines(
 			const chosen = answer?.selectedOptions.includes(option) === true;
 			wrap(option, width - 4).forEach((line, lineIndex) => {
 				if (chosen) {
-					out.push(lineIndex === 0 ? `  ${paint("success", "✓")} ${line}` : `    ${line}`);
+					out.push(lineIndex === 0 ? `  ${paint("success", GLYPH.circle)} ${line}` : `    ${line}`);
 				} else {
 					out.push(
-						lineIndex === 0 ? `  ${paint("dim", "○")} ${paint("muted", line)}` : `    ${paint("muted", line)}`,
+						lineIndex === 0 ? `  ${paint("dim", GLYPH.circle)} ${paint("muted", line)}` : `    ${paint("muted", line)}`,
 					);
 				}
 			});
 		}
-		if (answer?.customInput) out.push(`  ${paint("accent", "→")} «${answer.customInput}»`);
-		if (answer?.note) out.push(`  ${paint("accent", "→")} «${answer.note}»`);
-		if (!answer && !waiting) out.push(`  ${paint("dim", "— без ответа")}`);
+		if (answer?.customInput) out.push(`  ${paint("dim", "→")} «${answer.customInput}»`);
+		if (answer?.note) out.push(`  ${paint("dim", "→")} «${answer.note}»`);
+		if (!answer && !waiting) out.push(`  ${paint("dim", "— no answer")}`);
 	});
 	return fit(out, width);
 }
@@ -227,21 +233,27 @@ export function goalToolLines(
 ): string[] {
 	const a = asRecord(args);
 	const op = str(a.op);
-	const label = op === "create" ? "Goal set" : op === "complete" ? "Goal complete" : `Goal ${op || "?"}`;
-	const out = [`${paint(DOT[status], "◎")} ${label}`];
+	const label =
+		op === "create" ? "Goal set"
+		: op === "complete" ? "Goal complete"
+		: op === "get" ? "Goal checked"
+		: op === "resume" ? "Goal resumed"
+		: op === "drop" ? "Goal dropped"
+		: `Goal ${op || "?"}`;
+	const out = [`${paint(DOT[status], GLYPH.circle)} ${label}`];
 	if (op === "create") {
 		const section = objectiveSection(str(a.objective));
 		const body = cut(
 			wrap(section, width - 2).filter(line => line.trim() !== ""),
 			expanded,
 		);
-		for (const line of body) out.push(`  ${paint("dim", line)}`);
+		for (const line of body) out.push(`  ${paint("text", line)}`);
 	}
 	return fit(out, width);
 }
 
 /** The card of a user message that is a /define-goal start or session goal; undefined for other text. */
-export function userGoalCard(text: string, width: number, expanded: boolean): string[] | undefined {
+export function userGoalCard(text: string, width: number, _expanded: boolean): string[] | undefined {
 	const t = text.trim();
 	const m = /^Define goal(?::\s*([\s\S]*))?$/.exec(t);
 	let title: string;
@@ -255,9 +267,9 @@ export function userGoalCard(text: string, width: number, expanded: boolean): st
 	} else {
 		return undefined;
 	}
-	const out = ["", `${paint("accent", "◎")} ${paint("text", title)}`];
+	const out = ["", paint("text", title)];
 	if (body !== "") {
-		for (const line of cut(wrap(body, width - 2), expanded)) out.push(`  ${paint("dim", line)}`);
+		for (const line of wrap(body, width - 2)) out.push(`  ${paint("text", line)}`);
 	}
 	return fit(out, width);
 }
@@ -267,12 +279,13 @@ export function dialogLine(title: string, answer: string | undefined, width: num
 	const t = title.split("\n", 1)[0] ?? "";
 	const a = (answer ?? "").split("\n", 1)[0]?.trim() ?? "";
 	const line = a
-		? `${paint("accent", "?")} ${t} ${paint("dim", "→")} ${a}`
-		: `${paint("accent", "?")} ${t} ${paint("dim", "— без ответа")}`;
-	return truncateToWidth(line, width);
+		? `${paint("success", GLYPH.circle)} ${t} ${paint("dim", "→")} ${a}`
+		: `${paint("dim", GLYPH.circle)} ${t} ${paint("dim", "— no answer")}`;
+	return fitLine(line, width);
 }
 
-/** One goal event line. */
+/** One goal event line; the circle is warning for paused, error for dropped, else success. */
 export function goalEventLine(label: string, width: number): string {
-	return truncateToWidth(`${paint("accent", "◎")} ${label}`, width);
+	const color: ThemeColor = label.endsWith("paused") ? "warning" : label.endsWith("dropped") ? "error" : "success";
+	return fitLine(`${paint(color, GLYPH.circle)} ${label}`, width);
 }
