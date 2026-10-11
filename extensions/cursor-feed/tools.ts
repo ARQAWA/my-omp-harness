@@ -22,16 +22,18 @@ import {
 import {
 	bodyOf,
 	countsText,
+	displayPath,
 	editResultRow,
 	editResults,
-	EXPLORE_TOOLS,
 	formatElapsed,
+	joinsRun,
 	type Line,
 	type Row,
 	readRow,
 	rowOf,
 	type Status,
 	statusOf,
+	writeFiles,
 } from "./rows";
 import { askCardLines, goalToolLines, type TodoPhase, todoRowLine } from "./cards";
 import { wrapChild } from "./turn";
@@ -51,6 +53,8 @@ interface Call {
 	args: unknown;
 	results: CallResult[];
 	isPartial: boolean;
+	/** The original view of a call with no marker: its call and output, shown when expanded. */
+	view?: () => string[];
 }
 
 interface Action {
@@ -61,10 +65,13 @@ interface Action {
 	tool: string;
 }
 
-/** A tool block or a read group that takes part in an Explored run. */
-interface Member {
+/** A part of an Explored run: the actions of one component, or one error action that breaks the run. */
+interface Segment {
 	component: object;
 	actions: Action[];
+	/** The call of a tool block; read groups have none. */
+	call?: Call;
+	error: boolean;
 }
 
 type Loose = (...values: unknown[]) => Component | undefined;
@@ -92,6 +99,9 @@ const DOT: Record<Status, ThemeColor> = { running: "warning", error: "error", do
 
 /** Set while a tool block renders its children to collect the marker data. */
 let collecting: Unit[] | undefined;
+
+/** The native render of a tool block, bypassing the feed; set once the feed patches tool blocks. */
+let nativeRender: ((owner: ToolExecutionComponent, width: number) => readonly string[]) | undefined;
 
 function paint(color: ThemeColor, text: string): string {
 	try {
@@ -246,8 +256,34 @@ function actionOf(call: Call, owner: object): Action {
 	};
 }
 
+/** A plain record view of an unknown value; empty when it is not an object. */
+function recordOf(value: unknown): Record<string, unknown> {
+	return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+/** One row per file of a write call; a file's status comes from its entry in the result's files. */
+function writeActions(call: Call, owner: object): Action[] {
+	const durationMs = durationOf(timings.get(owner));
+	const entries = call.results.flatMap(result => {
+		const files = recordOf(result.details).files;
+		return Array.isArray(files) ? files.map(item => recordOf(item)) : [];
+	});
+	return writeFiles(call.args).map((file, index) => {
+		const entry = entries.find(item => item.path === file.path);
+		const status: Status =
+			entry === undefined ? statusOf(call.results, call.isPartial) : entry.status === "written" ? "done" : "error";
+		return {
+			row: { verb: "Wrote", detail: displayPath(file.path), added: file.added, files: 0, searches: 0 },
+			status,
+			durationMs: index === 0 ? durationMs : undefined,
+			tool: call.toolName,
+		};
+	});
+}
+
 /** The actions of a standalone call: one per edited file when an edit call has several results, else one. */
 function actionsOf(call: Call, owner: object): Action[] {
+	if (call.toolName === "write") return writeActions(call, owner);
 	const per = editResults(call.toolName, call.results);
 	if (per.length === 0) return [actionOf(call, owner)];
 	const durationMs = durationOf(timings.get(owner));
@@ -288,19 +324,22 @@ function hasVisibleText(message: { content?: unknown } | undefined): boolean {
 	return message.content.some(block => isTextBlock(block) && block.text.trim() !== "");
 }
 
-/** Classifies a transcript sibling: a member, skipped (transparent), or a run boundary. */
-function classify(sibling: object, width: number): Member | "skip" | "stop" {
+/** A call that keeps a row of its own: a failed call breaks the run and is shown alone. */
+function isOwnRow(call: Call): boolean {
+	return statusOf(call.results, call.isPartial) === "error";
+}
+
+/** Classifies a transcript sibling: its segments of an Explored run, skipped (transparent), or a run boundary. */
+function classify(sibling: object, width: number): Segment[] | "skip" | "stop" {
 	if (sibling instanceof ReadToolGroupComponent) {
 		const map = readGroups.get(sibling);
 		if (!map || map.size === 0) return "skip";
-		return { component: sibling, actions: groupActions(map) };
+		return segmentsOf(sibling, groupActions(map));
 	}
 	if (sibling instanceof ToolExecutionComponent) {
-		const units = collect(sibling, width);
-		if (units.length === 0) return "stop";
-		const call = callOf(units);
-		if (EXPLORE_TOOLS[call.toolName] !== true) return "stop";
-		return { component: sibling, actions: [actionOf(call, sibling)] };
+		const call = blockCall(sibling, width);
+		if (call === undefined || !joinsRun(call.toolName, call.args) || isOwnRow(call)) return "stop";
+		return [{ component: sibling, actions: actionsOf(call, sibling), call, error: false }];
 	}
 	if (sibling instanceof AssistantMessageComponent) {
 		return hasVisibleText(assistantMessages.get(sibling)) ? "stop" : "skip";
@@ -312,26 +351,6 @@ function classify(sibling: object, width: number): Member | "skip" | "stop" {
 		sibling.children[0] instanceof Spacer &&
 		sibling.children[1] instanceof MetricRow;
 	return usageRow ? "skip" : "stop";
-}
-
-/** The Explored run around a member, in transcript order. */
-function exploreRun(owner: object, width: number, self: Member): Member[] {
-	const siblings = parents.get(owner)?.children;
-	const index = siblings ? siblings.indexOf(owner) : -1;
-	if (!siblings || index < 0) return [self];
-	const before: Member[] = [];
-	for (let i = index - 1; i >= 0; i--) {
-		const found = classify(siblings[i]!, width);
-		if (found === "stop") break;
-		if (found !== "skip") before.unshift(found);
-	}
-	const after: Member[] = [];
-	for (let i = index + 1; i < siblings.length; i++) {
-		const found = classify(siblings[i]!, width);
-		if (found === "stop") break;
-		if (found !== "skip") after.push(found);
-	}
-	return [...before, self, ...after];
 }
 
 /** The end of a detail that fits the room, with "…" in front when its start is cut. */
@@ -402,12 +421,59 @@ function previousTodoPhases(owner: object): TodoPhase[] | undefined {
 	return found;
 }
 
+/** What a block without a marker was given through the public update methods: its args and latest result. */
+interface Capture {
+	args?: unknown;
+	result?: CallResult;
+	isPartial: boolean;
+}
+const captures = new WeakMap<object, Capture>();
+
+function captureOf(owner: object): Capture {
+	let capture = captures.get(owner);
+	if (!capture) {
+		capture = { isPartial: false };
+		captures.set(owner, capture);
+	}
+	return capture;
+}
+
+/** The tool name of a block from its public role `omp.tool.<name>`; undefined for tasks, which keep their own view. */
+function roleToolName(component: ToolExecutionComponent): string | undefined {
+	const props: unknown = component.describe().p;
+	const role = typeof props === "object" && props !== null && "role" in props ? props.role : undefined;
+	if (typeof role !== "string" || !role.startsWith("omp.tool.")) return undefined;
+	const name = role.slice("omp.tool.".length);
+	return SKIPPED[name] === true ? undefined : name;
+}
+
+/** The call of a block without a marker: its role name with the captured args and result. */
+function markerlessCall(component: ToolExecutionComponent, width: number): Call | undefined {
+	const toolName = roleToolName(component);
+	if (toolName === undefined) return undefined;
+	const capture = captures.get(component);
+	const result = capture?.result;
+	return {
+		toolName,
+		args: capture?.args,
+		results: result === undefined ? [] : [result],
+		isPartial: capture?.isPartial === true,
+		view: () => [...(nativeRender?.(component, width) ?? [])],
+	};
+}
+
+/** The call of a tool block: its marker data, else its markerless call. */
+function blockCall(component: ToolExecutionComponent, width: number): Call | undefined {
+	const units = collect(component, width);
+	return units.length > 0 ? callOf(units) : markerlessCall(component, width);
+}
+
 /** Tool name of a transcript block, cached once known. */
 function resolveToolName(component: object): string | undefined {
 	if (!(component instanceof ToolExecutionComponent)) return undefined;
 	const cached = toolNames.get(component);
 	if (cached !== undefined) return cached;
-	const name = collect(component, 80)[0]?.toolName;
+	const name = collect(component, 80)[0]?.toolName ?? roleToolName(component);
 	if (name !== undefined) toolNames.set(component, name);
 	return name;
 }
@@ -419,39 +485,112 @@ function standaloneLines(owner: object, call: Call, width: number): string[] {
 	if (call.toolName === "goal") return goalToolLines(call.args, call.results, status, isExpanded(owner), width);
 	const out = actionsOf(call, owner).map(action => rowLine(action, true, width));
 	if (isExpanded(owner)) {
-		const body = bodyOf(call.toolName, call.args, call.results);
-		out.push(...body.map(line => `  ${paint(TONE[line.tone], line.text)}`));
+		out.push(...bodyOfCall(call).map(text => `  ${text}`));
 	}
 	return out.map(text => fitLine(text, width));
 }
 
-function groupLines(owner: object, run: Member[], width: number): string[] {
-	const actions = run.flatMap(member => member.actions);
-	const files = actions.reduce((total, action) => total + action.row.files, 0);
-	const searches = actions.reduce((total, action) => total + action.row.searches, 0);
+/** The totals of one count over the actions. */
+function totalOf(actions: Action[], field: "files" | "searches" | "tools" | "commands"): number {
+	return actions.reduce((sum, action) => sum + (action.row[field] ?? 0), 0);
+}
+
+/** The body of an expanded call: its original view when it has no marker, else its body rows. */
+function bodyOfCall(call: Call): string[] {
+	if (call.view) return call.view();
+	return bodyOf(call.toolName, call.args, call.results).map(line => paint(TONE[line.tone], line.text));
+}
+
+/** The segments of a read group's actions: each run of successful reads, and each error alone. */
+function segmentsOf(component: object, actions: Action[]): Segment[] {
+	const segments: Segment[] = [];
+	for (const action of actions) {
+		const last = segments[segments.length - 1];
+		const failed = action.status === "error";
+		if (!failed && last && !last.error) last.actions.push(action);
+		else segments.push({ component, actions: [action], error: failed });
+	}
+	return segments;
+}
+
+/** The segments on one side of a component, in transcript order; the walk stops at a run boundary. */
+function neighbors(owner: object, width: number, direction: -1 | 1): Segment[] {
+	const found: Segment[] = [];
+	const siblings = parents.get(owner)?.children;
+	const index = siblings ? siblings.indexOf(owner) : -1;
+	if (!siblings || index < 0) return found;
+	for (let i = index + direction; i >= 0 && i < siblings.length; i += direction) {
+		const seen = classify(siblings[i]!, width);
+		if (seen === "stop") break;
+		if (seen === "skip") continue;
+		const ordered = direction > 0 ? seen : [...seen].reverse();
+		let barrier = false;
+		for (const segment of ordered) {
+			if (segment.error) {
+				barrier = true;
+				break;
+			}
+			if (direction > 0) found.push(segment);
+			else found.unshift(segment);
+		}
+		if (barrier) break;
+	}
+	return found;
+}
+
+/** The header and rows of one Explored run; each member's body follows its rows when expanded. */
+function groupLines(owner: object, run: Segment[], width: number): string[] {
+	const actions = run.flatMap(segment => segment.actions);
 	const running = actions.some(action => action.status === "running");
-	const failed = actions.some(action => action.status === "error");
-	const groupStatus: Status = running ? "running" : failed ? "error" : "done";
 	const timed = actions.flatMap(action => (action.durationMs === undefined ? [] : [action.durationMs]));
 	const total = timed.reduce((sum, ms) => sum + ms, 0);
 	const elapsed = timed.length > 0 ? ` ${paint("dim", `· ${formatElapsed(total)}`)}` : "";
-	const verb = running ? "Exploring" : "Explored";
-	const out = [`${paint(DOT[groupStatus], GLYPH.circle)} ${verb} ${paint("dim", countsText(files, searches))}${elapsed}`];
+	const counts = countsText(
+		totalOf(actions, "files"),
+		totalOf(actions, "searches"),
+		totalOf(actions, "tools"),
+		totalOf(actions, "commands"),
+	);
+	const status: Status = running ? "running" : "done";
+	const out = [`${paint(DOT[status], GLYPH.circle)} ${running ? "Exploring" : "Explored"} ${paint("dim", counts)}${elapsed}`];
 	if (isExpanded(owner)) {
-		for (const action of actions) out.push(rowLine(action, true, width, "  "));
+		for (const segment of run) {
+			for (const action of segment.actions) out.push(rowLine(action, true, width, "  "));
+			if (segment.call) out.push(...bodyOfCall(segment.call).map(text => `    ${text}`));
+		}
 	}
+	return out;
+}
+
+/** The segments of the Explored run around one segment: the neighbors join only at the run's two ends. */
+function runAround(owner: object, width: number, segments: Segment[], index: number): Segment[] {
+	const before = index === 0 ? neighbors(owner, width, -1) : [];
+	const after = index === segments.length - 1 ? neighbors(owner, width, 1) : [];
+	return [...before, segments[index]!, ...after];
+}
+
+/** Lines a component owns in its Explored runs: a header for each run it starts, and each error as its own row. */
+function exploreLines(owner: object, width: number, segments: Segment[]): string[] {
+	const out: string[] = [];
+	segments.forEach((segment, index) => {
+		if (segment.error) {
+			for (const action of segment.actions) out.push(rowLine(action, true, width));
+			return;
+		}
+		const run = runAround(owner, width, segments, index);
+		if (run[0] === segment) out.push(...groupLines(owner, run, width));
+	});
 	return out.map(text => fitLine(text, width));
 }
 
-/** Lines of a tool block that has marker data. */
-function ownerLines(owner: object, width: number, units: Unit[]): string[] {
-	const call = callOf(units);
-	if (EXPLORE_TOOLS[call.toolName] !== true) return standaloneLines(owner, call, width);
-	const self: Member = { component: owner, actions: [actionOf(call, owner)] };
-	const run = exploreRun(owner, width, self);
-	const counted = run.some(member => member.actions.some(action => action.row.files + action.row.searches > 0));
-	if (!counted) return standaloneLines(owner, call, width);
-	return run[0]?.component === owner ? groupLines(owner, run, width) : [];
+/** Lines of a tool block: its own card, or its part of the Explored run it joins. */
+function ownerLines(owner: object, width: number, call: Call): string[] {
+	if (!joinsRun(call.toolName, call.args) || isOwnRow(call)) return standaloneLines(owner, call, width);
+	const segments: Segment[] = [{ component: owner, actions: actionsOf(call, owner), call, error: false }];
+	const run = runAround(owner, width, segments, 0);
+	const counted = run.some(segment => segment.actions.some(action => action.row.files + action.row.searches > 0));
+	if (run.length < 2 && !counted) return standaloneLines(owner, call, width);
+	return exploreLines(owner, width, segments);
 }
 
 function patchTranscript(): void {
@@ -548,9 +687,7 @@ function patchReadGroup(): void {
 		try {
 			const entries = readGroups.get(this);
 			if (!entries || entries.size === 0) return [];
-			const self: Member = { component: this, actions: groupActions(entries) };
-			const run = exploreRun(this, width, self);
-			return run[0]?.component === this ? groupLines(this, run, width) : [];
+			return exploreLines(this, width, segmentsOf(this, groupActions(entries)));
 		} catch {
 			return render.call(this, width);
 		}
@@ -561,11 +698,13 @@ function patchToolExecution(): void {
 	const proto = ToolExecutionComponent.prototype;
 	if (!claim(proto, "tool-execution")) return;
 	const render = proto.render;
+	nativeRender = (owner, width) => render.call(owner, width);
 	const setExecutionStarted = proto.setExecutionStarted;
 	const updateResult = proto.updateResult;
 	const setExpanded = proto.setExpanded;
 	const setToolActivityVisible = proto.setToolActivityVisible;
 	const setTranscriptAllocation = proto.setTranscriptAllocation;
+	const updateArgs = proto.updateArgs;
 	// Blocks whose tool has no marker keep their original view.
 	const plain = new WeakSet<object>();
 
@@ -577,7 +716,14 @@ function patchToolExecution(): void {
 		timing.startedAt ??= performance.now();
 		return setExecutionStarted.apply(this, args);
 	};
+	proto.updateArgs = function (this: ToolExecutionComponent, ...args: Parameters<ToolExecutionComponent["updateArgs"]>) {
+		captureOf(this).args = args[0];
+		return updateArgs.apply(this, args);
+	};
 	proto.updateResult = function (this: ToolExecutionComponent, ...args: Parameters<ToolExecutionComponent["updateResult"]>) {
+		const capture = captureOf(this);
+		if (isCallResult(args[0])) capture.result = args[0];
+		capture.isPartial = args[1] === true;
 		const out = updateResult.apply(this, args);
 		if (args[1] !== true) timingOf(this).endedAt ??= performance.now();
 		return out;
@@ -612,11 +758,12 @@ function patchToolExecution(): void {
 				blockKinds.set(this, kind);
 				return painter(this, width, units.length > 0 ? callOf(units).args : undefined) ?? render.call(this, width);
 			}
-			if (units.length === 0) {
+			const call = units.length > 0 ? callOf(units) : markerlessCall(this, width);
+			if (call === undefined) {
 				if (this.children.length > 0) plain.add(this);
 				return render.call(this, width);
 			}
-			return ownerLines(this, width, units);
+			return ownerLines(this, width, call);
 		} catch {
 			return render.call(this, width);
 		}

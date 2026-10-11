@@ -63,7 +63,7 @@ gh run watch "$RUN" -R ARQAWA/my-omp-harness --exit-status && gh release view lc
 ```
 
 Without a push that started it, run `gh workflow run lcm-native.yml -R ARQAWA/my-omp-harness`
-first. Then update the module on the current host by step 8 of
+first. Then update the module on the current host by step 7 of
 [harness.md](../../../install-instructions/harness.md).
 
 ## herdr

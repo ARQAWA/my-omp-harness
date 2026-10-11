@@ -61,6 +61,12 @@ const ENVIRONMENT = (() => {
 	const winExtra = process.platform === "win32" ? ", never /c/... or backslashes" : "";
 	return `Environment: shell: the bash tool runs an embedded bash-compatible shell with built-in grep, sed, find, xargs, jq and coreutils; paths: absolute like ${home}/... with forward slashes${winExtra}; programs on PATH: ${found.length ? found.join(", ") : "none found"}.`;
 })();
+const GPT_NOTES =
+	"GPT tool notes, from recorded sessions: " +
+	"Use paths returned by listing, search or read; get the settings directory with `omp config path` and setting names with `omp config list`. " +
+	"Use the listed PATH programs. Read internal URLs with `read`; selectors such as `:raw` are not shell paths. " +
+	"Read `xd://` topics without line selectors. In computer calls, use a window ID from the current window list; refresh the list after a missing-window error. " +
+	"A rejected patch hunk comes back with its expected lines and the closest match: re-read that region and resend only the rejected hunks.";
 export default function harness(pi: ExtensionAPI) {
 	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped.
 	const syncTools = async (kind: string) => {
@@ -178,7 +184,9 @@ export default function harness(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
-		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}\n\n${ENVIRONMENT}`;
+		const model = (ctx as any).models?.current?.() ?? (ctx as any).model;
+		const gpt = /gpt/i.test(model?.id ?? "");
+		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}\n\n${ENVIRONMENT}${gpt ? `\n\n${GPT_NOTES}` : ""}`;
 		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt, tools] };
 		const define = /^Define goal(?::|$)/.test(event.prompt.trimStart());
 		let mode: string | undefined;

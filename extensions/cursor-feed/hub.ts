@@ -8,6 +8,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@oh-my-pi/pi-tui";
+import { type AgentTask, getAgentTask } from "./agent-tasks";
 import { fitLine } from "./fit";
 import { GLYPH } from "./glyphs";
 import { type AgentRecord, agentRecords } from "./state";
@@ -20,12 +21,13 @@ interface AgentHubOpenOptions {
 }
 
 /** The one state an agent shows on the board. */
-type Verdict = "Working" | "Done" | "Failed" | "Stopped";
+type Verdict = "Working" | "Idle" | "Done" | "Failed" | "Stopped";
 
 /** One sub-agent of the registry with its latest record and verdict. */
 interface Row {
 	ref: AgentRef;
 	record: AgentRecord | undefined;
+	task: AgentTask | undefined;
 	verdict: Verdict;
 }
 
@@ -52,8 +54,9 @@ const EMPTY_TEXT = "No agents yet. Agents started with the task tool show up her
 const THINKING_SUFFIX = /:(off|minimal|low|medium|high|xhigh|max)$/;
 export const ASSIGNMENT = /^\s*Complete assignment thoroughly:\s*/i;
 const VERDICT: Record<Verdict, { glyph: string; color: ThemeColor }> = {
-	Working: { glyph: GLYPH.circle, color: "warning" },
-	Done: { glyph: GLYPH.circle, color: "success" },
+	Working: { glyph: GLYPH.circle, color: "success" },
+	Idle: { glyph: GLYPH.circle, color: "warning" },
+	Done: { glyph: GLYPH.circle, color: "dim" },
 	Failed: { glyph: GLYPH.circle, color: "error" },
 	Stopped: { glyph: GLYPH.circle, color: "error" },
 };
@@ -109,28 +112,34 @@ function verdictOf(ref: AgentRef, record: AgentRecord | undefined): Verdict {
 	if (ref.status === "running") return "Working";
 	if (ref.status === "aborted" || record?.status === "aborted") return "Stopped";
 	if (record?.status === "failed") return "Failed";
-	return "Done";
+	if (ref.status === "parked") return "Done";
+	if (record?.status === "completed" || ref.lifecycle?.acceptedAt !== undefined) return "Done";
+	return "Idle";
 }
 
-/** Sub-agents of the registry, Working first, then the newest activity first. */
-function listRows(): Row[] {
+/** Place of a verdict in the list: Working first, Idle next, the rest after. */
+function rankOf(verdict: Verdict): number {
+	if (verdict === "Working") return 0;
+	return verdict === "Idle" ? 1 : 2;
+}
+
+/** Sub-agents of the registry, Working first, Idle next, then the newest activity first. */
+function listRows(onReady?: () => void): Row[] {
 	return AgentRegistry.global()
 		.list()
 		.filter(ref => ref.kind === "sub")
 		.map((ref): Row => {
 			const record = agentRecords.get(ref.id);
-			return { ref, record, verdict: verdictOf(ref, record) };
+			return { ref, record, task: getAgentTask(ref, onReady), verdict: verdictOf(ref, record) };
 		})
-		.sort(
-			(a, b) =>
-				Number(b.verdict === "Working") - Number(a.verdict === "Working") || b.ref.lastActivity - a.ref.lastActivity,
-		);
+		.sort((a, b) => rankOf(a.verdict) - rankOf(b.verdict) || b.ref.lastActivity - a.ref.lastActivity);
 }
 
 function elapsedOf(row: Row, now: number): number {
-	const start = row.record?.startedAt ?? row.ref.createdAt;
-	if (row.verdict === "Working") return Math.max(0, now - start);
-	return row.record?.durationMs ?? Math.max(0, row.ref.lastActivity - start);
+	const task = row.task;
+	if (!task) return 0;
+	if (row.verdict === "Working") return Math.max(0, now - task.startedAt);
+	return task.durationMs;
 }
 
 /** The elapsed time text, or empty when the time is 0 or unknown. */
@@ -163,17 +172,17 @@ function modelOf(row: Row): string {
 	return [model, row.record?.thinking ?? ""].filter(Boolean).join(" ");
 }
 
-function usageOf(record: AgentRecord | undefined): string {
+function usageOf(task: AgentTask): string {
 	const parts: string[] = [];
-	if (record?.tokens) {
-		const shown = record.tokens < 1000 ? String(record.tokens) : `${(record.tokens / 1000).toFixed(1)}k`;
-		parts.push(`${shown} ${record.tokens === 1 ? "token" : "tokens"}`);
+	if (task.tokens) {
+		const shown = task.tokens < 1000 ? String(task.tokens) : `${(task.tokens / 1000).toFixed(1)}k`;
+		parts.push(`${shown} ${task.tokens === 1 ? "token" : "tokens"}`);
 	}
-	if (record?.toolCount) {
-		parts.push(record.toolCount === 1 ? "1 tool" : `${record.toolCount} tools`);
+	if (task.toolCount) {
+		parts.push(task.toolCount === 1 ? "1 tool" : `${task.toolCount} tools`);
 	}
-	if (record?.requests) {
-		parts.push(record.requests === 1 ? "1 request" : `${record.requests} requests`);
+	if (task.requests) {
+		parts.push(task.requests === 1 ? "1 request" : `${task.requests} requests`);
 	}
 	return parts.join(" · ");
 }
@@ -196,10 +205,12 @@ function headerLine(rows: Row[], width: number): string {
 	const count = (verdicts: Verdict[]): number => rows.filter(row => verdicts.includes(row.verdict)).length;
 	const parts: string[] = [];
 	const working = count(["Working"]);
+	const idle = count(["Idle"]);
 	const done = count(["Done"]);
 	const failed = count(["Failed", "Stopped"]);
-	if (working > 0) parts.push(theme.fg("warning", `${working} working`));
-	if (done > 0) parts.push(theme.fg("success", `${done} done`));
+	if (working > 0) parts.push(theme.fg("success", `${working} working`));
+	if (idle > 0) parts.push(theme.fg("warning", `${idle} idle`));
+	if (done > 0) parts.push(theme.fg("dim", `${done} done`));
 	if (failed > 0) parts.push(theme.fg("error", `${failed} failed`));
 	const title = theme.bold(" Agents");
 	const left = parts.length > 0 ? `${title}   ${parts.join(theme.fg("dim", " · "))}` : title;
@@ -219,7 +230,8 @@ function footerLine(current: Row | undefined, width: number): string {
 function itemLines(row: Row, selected: boolean, width: number, now: number): string[] {
 	const style = VERDICT[row.verdict];
 	const mark = selected ? theme.fg("text", "▌") : " ";
-	const id = selected ? theme.bold(row.ref.id) : row.ref.id;
+	const label = `${row.ref.id} #${row.task?.number ?? "?"}`;
+	const id = selected ? theme.bold(label) : label;
 	const elapsedText = elapsedTextOf(row, now);
 	const elapsed = elapsedText ? theme.fg("dim", elapsedText) : "";
 	const title = `${mark} ${theme.fg(style.color, style.glyph)} ${id}`;
@@ -249,7 +261,7 @@ function cardLines(row: Row, now: number, width: number): string[] {
 	const style = VERDICT[row.verdict];
 	const valueWidth = Math.max(1, width - LABEL_WIDTH);
 	const lines: string[] = [
-		spread(theme.bold(ref.id), theme.fg(style.color, row.verdict), width),
+		spread(theme.bold(`${ref.id} #${row.task?.number ?? "?"}`), theme.fg(style.color, row.verdict), width),
 	];
 	const meta = [record?.agent || row.ref.history?.agent || "", modelOf(row)].filter(Boolean).join(" · ");
 	lines.push(fit(theme.fg("dim", meta), width), fit("", width));
@@ -271,13 +283,13 @@ function cardLines(row: Row, now: number, width: number): string[] {
 	}
 	if (row.verdict === "Done") field("Result", wrapLines(record?.output ?? "", valueWidth, RESULT_LINES), "dim");
 	if (row.verdict === "Failed") field("Error", wrapLines(record?.error ?? "", valueWidth, ERROR_LINES), "error");
-	const startedAt = record?.startedAt ?? ref.createdAt;
+	const startedAt = row.task?.startedAt ?? 0;
 	const timeParts = [
 		elapsedTextOf(row, now),
 		Number.isFinite(startedAt) && startedAt > 0 ? `started ${clockOf(startedAt)}` : "",
 	].filter(Boolean);
 	field("Time", timeParts.length > 0 ? [timeParts.join(" · ")] : []);
-	const usage = usageOf(record);
+	const usage = row.task ? usageOf(row.task) : "";
 	field("Usage", usage ? [usage] : []);
 	return lines;
 }
@@ -330,7 +342,7 @@ class AgentBoard {
 
 	handleInput(data: string): void {
 		if (isKeyRelease(data)) return;
-		if (matchesKey(data, "escape") || matchesKey(data, "q") || matchesKey(data, "left")) {
+		if (matchesKey(data, "escape") || matchesKey(data, "q")) {
 			this.actions.close();
 			return;
 		}
@@ -354,7 +366,7 @@ class AgentBoard {
 
 	private draw(width: number, height: number): string[] {
 		const now = Date.now();
-		const rows = listRows();
+		const rows = listRows(() => this.host.requestRender());
 		const index = this.indexIn(rows);
 		const current = rows[index];
 		const bodyHeight = Math.max(0, height - 4);
@@ -410,6 +422,11 @@ function openBoard(mode: InteractiveMode, options: AgentHubOpenOptions | undefin
 	active = { board, hide: () => handle.hide() };
 	mode.ui.setFocus(board);
 	mode.ui.requestRender();
+}
+
+/** Whether the agent board overlay is open. */
+export function isAgentBoardOpen(): boolean {
+	return active !== undefined;
 }
 
 /** Replaces omp's Agent Hub with the agent board; every opener of showAgentHub reaches it. Installed once per process. */

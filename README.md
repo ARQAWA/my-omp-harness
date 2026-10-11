@@ -16,9 +16,10 @@ a fork, so `omp update` keeps working.
   Standard keep the agent on the exact scope, the shortest direct path and the
   smallest result. Heavy work, such as deep research, experiments or new tests,
   runs only on your order.
-- **Plans you can follow.** Every task except a single answer gets a todo
-  panel, the current item shows a bar of its plan steps, and a long task gets an
-  omp goal. `/define-goal` interviews
+- **Plans you can follow.** Before a multi-step task starts, Main creates or
+  extends its todo list; a closed list is replaced for the next task and leaves
+  the panel. The current item shows a bar of its plan steps, and a long task gets
+  an omp goal. `/define-goal` interviews
   you, keeps your words as verbatim quotes and ends with a mandatory reviewer
   check. A paused goal resumes with your next message, and a goal that omp
   paused itself resumes as soon as Main works again.
@@ -36,15 +37,20 @@ a fork, so `omp update` keeps working.
   family: all Claude models at 270 000 tokens, all GPT models at 258 400.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
-  and `write`, `edit` and `todo` run in parallel with other calls.
+  and `write`, replacement edits and `todo` run in parallel with other calls.
+  GPT patches keep applicable files and hunks and return rejected parts with
+  their errors; batch edits show the real line counts for each file.
 - **A Cursor-style interface.** The `titanium-arq` theme follows Cursor Dark:
   black and graphite backgrounds, white-grey and grey text and no accent color,
-  while green, yellow and red mark only statuses and diffs. Every status line
+  while green, yellow and red mark only statuses and diffs. Each item or result
   starts with the same circle `●` in one column. A tool call is one line with
-  its status, verb, target and time, reads and searches merge into
-  "Explored", a long path loses its start so that the file name and `+N −M`
+  its status, verb, target and time; reads, searches, other tools and commands
+  merge into "Explored". A long path loses its start so the file name and `+N −M`
   stay visible, and a finished turn folds into "Worked for". Ctrl+O expands
-  everything. The agent board shows the subagents on the left and a clear card
+  tool results and the full to-do list; reasoning stays hidden. A shimmering
+  phrase shows the current action without a timer. The session name is bold
+  gold; the compaction bar uses the same natural gold at its trigger.
+  The agent board shows the subagents on the left and a clear card
   of the selected one on the right. All interface text is plain English.
 - **Small comforts.** `grep` runs on the `rg` engine,
   Mermaid diagrams appear as a PNG image across the full terminal width, the

@@ -50,12 +50,6 @@ function wrap(text: string, width: number): string[] {
 	return text.split("\n").flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(line, Math.max(10, width))));
 }
 
-/** Keeps the first four lines unless expanded, then adds a notice for the rest. */
-function cut(lines: string[], expanded: boolean): string[] {
-	if (expanded || lines.length <= 4) return lines;
-	return [...lines.slice(0, 4), `… ${lines.length - 4} more lines`];
-}
-
 function fit(lines: string[], width: number): string[] {
 	return lines.map(line => fitLine(line, width));
 }
@@ -223,6 +217,18 @@ function objectiveSection(objective: string): string {
 	return body.join("\n").trim();
 }
 
+/** The header label of a goal op. */
+export function goalLabel(op: string): string {
+	return (
+		op === "create" ? "Goal set"
+		: op === "complete" ? "Goal complete"
+		: op === "get" ? "Goal checked"
+		: op === "resume" ? "Goal resumed"
+		: op === "drop" ? "Goal dropped"
+		: `Goal ${op || "?"}`
+	);
+}
+
 /** The goal card: a header, and for create the objective body. */
 export function goalToolLines(
 	args: unknown,
@@ -233,20 +239,10 @@ export function goalToolLines(
 ): string[] {
 	const a = asRecord(args);
 	const op = str(a.op);
-	const label =
-		op === "create" ? "Goal set"
-		: op === "complete" ? "Goal complete"
-		: op === "get" ? "Goal checked"
-		: op === "resume" ? "Goal resumed"
-		: op === "drop" ? "Goal dropped"
-		: `Goal ${op || "?"}`;
-	const out = [`${paint(DOT[status], GLYPH.circle)} ${label}`];
+	const out = [`${paint(DOT[status], GLYPH.circle)} ${goalLabel(op)}`];
 	if (op === "create") {
 		const section = objectiveSection(str(a.objective));
-		const body = cut(
-			wrap(section, width - 2).filter(line => line.trim() !== ""),
-			expanded,
-		);
+		const body = wrap(section, width - 2).filter(line => line.trim() !== "");
 		for (const line of body) out.push(`  ${paint("text", line)}`);
 	}
 	return fit(out, width);

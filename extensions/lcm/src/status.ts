@@ -18,7 +18,8 @@ export function updateStatus(
   try {
     const stats = store.getStats(conversationId);
     // Short text: the status line has little room.
-    ctx.ui.setStatus("lcm", `${stats.messages} msgs · ${stats.summaries} summaries`);
+    const body = ctx.ui.theme.fg("muted", `${stats.messages} \uF27A / ${stats.summaries} \uF15C`);
+    ctx.ui.setStatus("lcm", ctx.ui.theme.bg("customMessageBg", ` ${body} `));
   } catch {
     ctx.ui.setStatus("lcm", "");
   }

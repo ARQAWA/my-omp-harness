@@ -35,7 +35,7 @@ Main's tools: `harness.ts` keeps the omp goal tool `goal` enabled;
 `diagram.ts` adds `diagram`, a Mermaid diagram as a PNG image across the full
 terminal width with the link "Open full size", in herdr through Kitty
 graphics. Subagents do not get these tools. `rg.ts` gives all agents, including
-`codebase_explorer`, `spotty`, `smarty` and `bossy`, one set of context-gathering
+`codebase_explorer`, `spotty`, `smarty` and `bossy`, one set of search and read
 tools: `glob` (replaces the built-in one; `glob_pattern`, `target_directory`,
 `offset`, newest files first, hidden files included, .gitignore applied), `grep`
 (replaces the built-in one: content search on the `rg` engine, lines
@@ -44,7 +44,7 @@ tools: `glob` (replaces the built-in one; `glob_pattern`, `target_directory`,
 ruby, php, swift, kotlin, html, css, sql and other languages; an invalid regex
 is searched as literal text; a path with a URL, for example `history://`,
 `artifact://` or `local://`, goes to the native omp `grep`, which takes only
-`pattern`, `path` and `-i`, and `xd://` filters the list of tool devices) and
+`pattern`, `path` and `-i`) and
 `read` (`path`, `offset`, `limit`; every tenth line is numbered, a long file is
 cut off with the line `[Use offset=N to continue]`; a line that does not fit
 into the output is returned in fragments with the tail
@@ -97,6 +97,13 @@ of that file are skipped. A file that another `edit` or `write` is already
 changing gets the "busy" rejection at once, and the other files are edited. A
 failed edit shows the nearest match with line numbers.
 
+For GPT, the wrapper splits `apply_patch` by file and applies files
+independently through omp's patcher. If a plain update with several hunks
+fails, it retries those hunks in order; applicable ones stay applied and
+rejected ones return with their file, hunk number and native error. Add,
+delete and move sections remain whole operations. Batch replacement and patch
+results carry the actual diff and per-file results for the `+N −M` feed counts.
+
 `bash.ts` replaces the built-in `bash` with a wrapper over it. A command
 without `timeout` has no deadline and is never killed, neither at once nor in
 the background; `timeout` in seconds sets the deadline. `block_until_ms` sets
@@ -115,7 +122,13 @@ get `ask`.
 The `grep`, `glob`, `read`, `bash` and `edit` wrappers treat as absent the empty
 fields that GPT models send: an empty string, `0` in numeric fields and `ready`
 without `log` and `port`. `read` of a URL that does not accept a line range
-repeats the request without the range.
+repeats the request without the range; `xd://` reads ignore `offset` and `limit`,
+strip trailing numeric line selectors, and invoke the native reader. For GPT
+models, `harness.ts` appends short tool
+notes about known paths and setting names, listed PATH programs, internal URLs,
+current computer windows and retrying only rejected hunks.
+For write batches, empty single-file defaults do not count as a second target;
+empty content with a real path remains a valid empty-file write.
 
 A subagent's step is visible in its row at the parent: `tools.intentTracing
 true` in step 4 of [omp.md](omp.md) adds a short intent to every tool call, and
@@ -130,14 +143,17 @@ kept, and the answer names the failed operation, its fix, the operations not
 applied and the current list. An item is found by its number `phase.item`, for
 example `2.3`, or by its text even when dashes, arrows, quotes, spaces and case
 differ. An item has a title and a plan of steps in order; `step` marks the
-current step, and the step bar stands in the item's row on the panel. The
+current step, and the step bar stands directly beneath the item's row on the panel. The
 answer is one or two lines: what changed and what to do next. While the list
 has open items, Main sees the open items with their numbers and the plan of the
 current item in every model request, and omp's list block is removed from the
 goal context. Closed items fold into counts: a phase without open items takes
 one line, and the other phases show only their open items with their numbers.
 The `closed` operation with an optional phase shows the closed items and does
-not change the list. A closed list leaves the context. Empty fields that GPT
+not change the list. A closed list leaves the context and panel, but stays in
+session history. With no open items, Main receives an ephemeral reminder to
+create the next multi-step task's list before acting, extend unfinished work
+with `append`, and replace a closed list with `init`. Empty fields that GPT
 models send are ignored. While the list has `pending` or `in_progress` items,
 Main cannot finish its turn (`session_stop`): it closes them, drops them or
 marks them as waiting.
@@ -183,8 +199,10 @@ larger than its context to `codebase_explorer` by the hidden skill
 `main-workflow` applies only to root Main:
 
 - Root Main automatically keeps a `todo` list for every task except one answer
-  or one short action, and always for work with a review; when it starts an
-  item, it writes the item's plan as steps and marks the steps as it goes. All
+  or one short action, and always for work with a review. It creates or extends
+  the list before the first action; continued unfinished work uses `append`,
+  and a new task after a closed list uses `init`. When it starts an item, it
+  writes the item's plan as steps and marks the steps as it goes. All
   list changes of one moment go in one call. The list holds stages with draft
   decisions; findings lie in `local://<subject>.md` files named in the list
   items.
@@ -260,32 +278,39 @@ the skill and the table. `node tests/run.mjs` catches a mismatch between them.
 
 On omp start, `default-model.ts` sets the root session's model to `anthropic/claude-opus-5-5` and reasoning medium if the session is new and the command line has no model selection flags (`--model`, `--models`, `--thinking`, `--provider`) and no session continuation flags (`-c`, `--continue`, `-r`, `--resume`, `--session`). It fires once at omp start (the `session_start` event does not repeat on `/new` and `/resume`), does not touch subagents and sessions with history, and does not change `config.yml`; `modelRoles.default` stays a machine setting.
 
-`subagent-reuse.ts` lets Main reuse an unoccupied subagent with a context reset: when an IRC message from Main (`write agent://<id>`) starts with the marker `[task <id>#<n>]`, the extension, in the subagent's session, cuts everything before the last such message before each model request, so the model sees only the system prompt and the new task. The session file keeps all tasks whole; an earlier task is found by its marker in `history://<id>`. The extension relies only on the public `context` event. Main's reuse rule is in the `subagents` skill.
+`subagent-reuse.ts` lets Main reuse an unoccupied subagent with a context reset: when an IRC message from Main (`write agent://<id>`) starts with the marker `[task <id>#<n>]`, the extension, in the subagent's session, cuts everything before the last such message before each model request, so the model sees only the system prompt and the new task. The session file keeps all tasks whole; an earlier task is found by its marker in `history://<id>`. The public `context`, `message_end` and `agent_end` events keep the current numbered task's statistics for the hub; a new marker resets its displayed tokens, tools, requests and time. Main's reuse rule is in the `subagents` skill.
 
 `cursor-feed.ts` redraws the omp feed in a compact Cursor style with plain
 English labels; the model sees the tools unchanged, only the drawing in the
-terminal changes. Every status line in the feed, the todo panel, the `task`
+terminal changes. Each state-bearing item or result in the feed, todo panel, `task`
 card, the agent panel and the agent board starts with the same circle `●` in
 one column and one space after it; its color is the state (yellow — running or
 waiting, green — done, red — error or stopped, grey — not started), and a nested
 line moves right by exactly two columns. Headers and summary lines carry no
 icon and no circle: "To-dos", "N agents working", the board title "Agents", the
-agent card, "Task from Main", the goal card, "Thought for Ns" and "Worked for
+agent card, "Task from Main", the goal card and "Worked for
 7m 11s ›"; an icon stands only where it says something that the text does not. A line that is cut at its end ends with "…" in
 the color of the text it cuts. Every call of a built-in tool is one
 line: the circle, a verb, the essence of the call (path, pattern, command) and
 the time. A path is
 shown relative to the working folder, or with `~` for the home folder; when the
 line is too long, the path loses its start (`…/cursor-feed/rows.ts`), so the
-file name and the `+N −M` counts always stay visible. Consecutive reads and
-searches are merged into "Explored N files, M searches", an edit is shown as
-"Edited path +N −M", one line per edited file, reasoning as the line
-"Thought for Ns" only when the measured reasoning took at least four seconds;
-shorter or unknown durations have no summary row. Reasoning text is shown only
-in expanded mode, including while it streams. Bash and memory tools have one
-compact row when folded, without raw argument fields, output or an Expand hint.
-Each LCM memory tool is one line: `Searched memory "query" ·
-N found`, "Viewed memory map" or "Opened memory summary". A finished Main turn
+file name and the `+N −M` counts always stay visible. Consecutive reads,
+searches, other tools including MCP, and bash commands merge into
+"Explored N files, M searches, K tools, ran C commands"; zero counts are
+omitted and the live group says "Exploring". Goal get/resume count as tools;
+text, todo, ask, goal create/complete/drop, subagent cards and errors split
+the group. Edits and writes keep one row per file: "Edited path +N −M" or
+"Wrote path +N". Expanded groups retain every call and its available output.
+Reasoning text stays hidden in both modes, during streaming and replay.
+The current-action row says "Planning next moves" while the model thinks,
+then a tool phrase such as "Reading client.py", "Searching files", "Running
+command" or "Waiting for subagent" while a tool runs. A light sheen crosses
+the whole phrase, without an icon or timer; the row disappears when no action
+is active. No reasoning-duration rows remain in the transcript. Collapsed
+calls have no raw argument fields, output body or Expand hint. Standalone
+LCM tools say `Searched memory "query" · N found`, "Viewed memory map" or
+"Opened memory summary". A finished Main turn
 is folded: everything between the question and the final answer becomes the
 line "Worked for 7m 11s ›"; text that the agent wrote right before an `ask` stays
 outside the fold. Ctrl+O expands and folds everything at once: edits show the
@@ -294,47 +319,64 @@ output, Worked for the turn. So that lines that have scrolled up also
 change, at the end of a turn and after Ctrl+O omp redraws the screen once and
 erases the terminal history, including the text that was in the window before
 omp started. A `task` call is a card: the header "Running 2 agents · 1 done" or
-"3 agents finished · 1 failed · 4m 10s", then one line per subagent with the status
-circle, its name, its description and what it does now or how it ended
-("done · 41s", "failed · <first error line>", "stopped"). The panel above the
-input field is "N agents working" with up to four agents and the current action
-of each, without clicks.
+"3 agents finished · 1 failed · 4m 10s", then two rows per subagent: its status
+circle, name and agent type, followed by its indented live action with a
+light sheen. That second row has no circle and ends as "Completed", "Stopped"
+or "Failed". Main's live-subagent rows in the feed carry the grey hint
+"alt+a agents" beside each agent ID. Their panel shows "N agents working", up to
+four agents and the current action of each, without clicks.
 
 Every way of opening omp's Agent Hub (a double ← in an empty field, alt+a,
 ctrl+s, `/hub`, the agents pill) opens the harness agent board instead, a
 fullscreen view split into two equal halves. The top line shows "Agents", the
-counts "N working · N done · N failed" and "esc close". The left half lists the
-subagents, working ones first, in two lines each: status circle, name and time,
+counts of working, idle, done and failed agents and "esc close". Hub lifecycle
+colours are green for working, yellow for idle, grey for done or parked, and red
+for failed or stopped; circles, labels and counts agree. The left half lists the
+subagents, working ones first, in two lines each: status circle, name with its
+current numbered task `#n` and time,
 then the description. The right half is the card of the selected agent: its type
 and model, then Task, Now (while it works), Result (when done) or Error (when it
-failed), Time with the start time, and Usage in tokens, tools and requests. Keys:
+failed), Time with the start time, and Usage in tokens, tools and requests,
+counted only since the current task's `[task id#n]` marker. Keys:
 ↑/↓ or j/k select, Enter opens the agent's feed in the main window in the same
 style, where its assignment is shown as a "Task from Main" card, x stops a
-working agent, Esc, q or ← close the board. Below 60 columns only the list is
-shown; in a collab guest session the stock Agent Hub opens. Esc from an agent's
-feed returns to the board, and a second Esc closes it. The extension does not
-capture the mouse; wheel scrolling and selection work everywhere. This look
+working agent, and Esc or q close the board; left has no action. Below 60
+columns only the list is shown; in a collab guest session the stock Agent Hub
+opens. In a subagent's feed the input says
+"Subagent view · esc main · ←← agents" and accepts no typing or Enter.
+Model and reasoning-level changes are blocked. Esc returns to Main; double-left
+opens the hub. Every subagent view has the red hint
+"alt+x alt+x stops this agent"; pressing alt+x twice within 500 ms stops only
+that agent. Its title and status rows show its own state in colours reduced
+by 10%. The title shows its full session ID and current task `#n`.
+The main draft returns when leaving the view; wheel scrolling remains
+available. This look
 comes from the owner's settings from [omp.md](omp.md):
 `display.hideToolActivity: false` (with `true` omp hides calls entirely) and
 `hideThinkingBlock: true`.
 
-The todo panel above the input field is also drawn by `cursor-feed.ts`: the line
-"To-dos 3/7 · Stage" and up to five tasks of the current stage (the circle is green
-for done, yellow for the current task, grey for waiting), the rest
-as the line "… N more"; Ctrl+O shows all stages. The bar of the plan steps
-replaces the circle of the current task's row: a smooth bar of eight cells from
-the Nerd Font progress glyphs, then the task and "· 2/3 substep". It appears as
-a separate line of the same look only
-when there is no panel, for example on a terminal lower than 18 rows with omp's
-compact todo line. A `todo` call in the feed is the line
+One widget directly above the input draws, top to bottom, the current action
+if present, one blank row after it, the todo panel and the session title/ID
+row; omp's divider and input follow. The action and blank row disappear
+together when no action is active. The collapsed panel shows
+"To-dos: 12 total · 3 left" and up to three tasks across all stages: the previous,
+current and next task. Near the end it shifts back to keep three tasks visible;
+fewer tasks use fewer rows. Done keeps a green circle and dim text, the current
+task a yellow circle, and waiting a grey circle. The current task's plan bar
+sits directly beneath it, indented two more columns: eight Nerd Font progress
+cells followed by "2/4 step text". This nested row is additional to the header
+and task rows. Ctrl+O shows every stage and task and all steps of the current
+task, with done and current step marks. The panel hides when every task is completed or abandoned; blocked
+tasks keep it visible. There is no separate native todo panel or progress widget. A `todo` call in the feed is the line
 "● To-do 4/7 ● closed ● started", where the closed task's circle is
 green and the started task's circle is yellow. Interactive actions stay in
 the feed and split the "Worked for" fold into parts. While an `ask` waits, its
 row is one line "Waiting for your answer · N questions", because the questions
 themselves stand in the `ask` panel below; after the answer the card shows each
 question in full with the answer under it (the chosen option as is, the
-owner's own text in «», otherwise "— no answer"), and Ctrl+O adds all options. `goal` is "Goal set" with the goal's Objective section (four lines,
-Ctrl+O shows all), "Goal complete", "Goal checked", "Goal resumed" or
+owner's own text in «», otherwise "— no answer"), and Ctrl+O adds all options.
+`goal` is "Goal set" with the complete wrapped Objective section in both modes,
+"Goal complete", "Goal checked", "Goal resumed" or
 "Goal dropped" after the status circle; `/goal <objective>` and `/define-goal`
 messages are the cards "Goal" and "Define goal", with the complete initial
 goal text in the normal text colour, visible in both modes and selectable
@@ -351,25 +393,30 @@ The queued-message band refreshes when the queue changes, including the first
 owner message. It uses omp's existing band and input behavior.
 
 `status-bar.ts` builds the omp status line under the input field up to three
-rows and a row above the line over the field: on the left the session name
+rows and a row above the line over the field: on the left the bold session
+name with the same natural gold gradient as the full compaction bar
 and "Worked …" for the last turn, on the right the full session ID without
-an icon. A long title is cut before the ID. The first row under the field, right
+an icon, followed by two spaces before the edge. A long title is cut before
+the ID. The first row under the field, right
 next to it, is the compaction bar: a full-width white-grey bar with a grey label
 `N% <tokens>/<trigger>` that measures the context up to the compaction trigger
 (`compaction.thresholdTokens`, else `compaction.thresholdPercent`, else the
 window minus the reserve) and shows 100% at or above it; the bar fills by the
 same share. At the trigger the bar
-turns bright gold, and while compaction runs (`auto_compaction_start` or
+turns natural gold, a gradient from dark gold `#8a6d1c` through `#c9a227` to
+light gold `#e3c45a`, and while compaction runs (`auto_compaction_start` or
 `session_before_compact` until `auto_compaction_end` or `session_compact`) a
-gold glow moves along it. The second is omp's native row: the model, the generation
+warm glint moves along it. The second is omp's native row: the model, the generation
 speed `token_rate` (the extension takes the live speed of the omp session, the
 same counter as the built-in `composer.tokenRate`, which is turned off, updates
 it every 80 ms during a turn, keeps the last value between turns, puts the
 theme's speed icon right in front of the number and colors it: below 30 tok/s
 red, below 60 yellow, below 90 pale green, otherwise bright green), the modes
-(plan and goal together), the time of the current turn through
-`setStatus` (it stays after the turn ends) and the counters of working
+(plan and goal together), the memory counters `86  / 12 ` on a faint panel
+background and the counters of working
 subagents (the one-cell Nerd Font users glyph U+F0C0) and background jobs.
+The model row has no turn timer; the completed turn keeps "Worked …" above
+the input. In a subagent view the rows use its model, speed and context.
 The third is omp's right segments: folder, git branch and PR; the
 extension moves them here from the line above the input field, and that line
 stays a plain grey line whose brightness follows the reasoning level.
@@ -404,7 +451,7 @@ the hook hands compaction to omp, and the regular chain (`soft`) works. The
 prompts require carrying facts over as they are, inventing nothing and
 dropping nothing. The tools `lcm_grep`, `lcm_describe` and `lcm_expand` load on
 request through `xd://` and search and expand the original messages; the
-commands `/lcm` and `/lcm-settings` show the state and the settings. In the status line LCM shows "N msgs · M summaries", and while it writes summaries the same place shows
+commands `/lcm` and `/lcm-settings` show the state and the settings. In the status line LCM shows the muted counters `86  / 12 ` on a faint panel background, and while it writes summaries the same place shows
 "saving memory · N parts…" or "merging memory…"; a failure is one short notice
 that says what will happen next. The databases `<cwd hash>.db`, the cost log
 `costs.jsonl` and the shared `/lcm-settings` settings (`settings.json`) lie in
@@ -442,7 +489,7 @@ message, for example with a subagent's result, while the goal is paused,
 `harness.ts` tells Main in a hidden message to resume it with its first call,
 the `goal` tool with op `resume`. shift+↑ works thanks to `keybindings.yml` from [omp.md](omp.md).
 `reasoning-arrows.js`: shift+← and shift+→ lower and raise reasoning among the
-levels the model supports; no reasoning (`off`) is added: for Sonnet 5.5 it is
+levels the model supports; `off` is added as the no-reasoning level: for Sonnet 5.5 it is
 `between_tools` with effort medium, for Haiku 5.5 thinking is turned off
 (`thinking: disabled`) with effort high; the request hook sets them on send.
 
@@ -523,17 +570,17 @@ The commands are the same on macOS and Windows (bash).
    path to `bash.exe`: by default `C:/Program Files/Git/bin/bash.exe`, and for a
    single-user Git installation `%LOCALAPPDATA%/Programs/Git/bin/bash.exe` (the
    variable expands to an absolute path).
-6. If the system prompt is part of the order, install it by
+5. If the system prompt is part of the order, install it by
    [its instruction](system-prompt.md).
-7. Install the package dependencies from `bun.lock`:
+6. Install the package dependencies from `bun.lock`:
    `BUN_BE_BUN=1 omp install --cwd "$CLONE" --frozen-lockfile`. The
    `BUN_BE_BUN=1` variable runs the Bun built into omp; a separate Bun is not
    needed.
-8. Download the LCM native module for your OS from the `lcm` release:
+7. Download the LCM native module for your OS from the `lcm` release:
    `P=darwin-arm64` on macOS Apple Silicon, `P=win32-x64` on Windows x64, then
    `mkdir -p "$CLONE/extensions/lcm/native" && curl -fsSL -o "$CLONE/extensions/lcm/native/lcm_native.$P.node" "https://github.com/ARQAWA/my-omp-harness/releases/download/lcm/lcm_native.$P.node" && ls -l "$CLONE/extensions/lcm/native/lcm_native.$P.node"`.
    The module supports no other platforms.
-9. Extensions load in a new omp process. Ask the owner to restart omp without
+8. Extensions load in a new omp process. Ask the owner to restart omp without
    interrupting the current task.
 
 ## Post-installation check
@@ -578,7 +625,7 @@ start new processes.
    installs the package dependencies from `bun.lock` and changes nothing if they
    are already in place.
 5. If `pull` changed `crates/lcm-native/` or the LCM module file is missing,
-   download the module again with the command of step 8 of the first
+   download the module again with the command of step 7 of the first
    installation.
 6. Ask the owner to restart omp: open sessions keep the previous context.
 7. Run the checks of the changed parts. If `extensions/` or `agents/` changed,

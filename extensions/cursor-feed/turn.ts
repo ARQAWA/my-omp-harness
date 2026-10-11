@@ -39,25 +39,13 @@ interface Cached {
 	model: Model;
 }
 
-interface Thinking {
-	/** The message has a thinking block. */
-	has: boolean;
-	/** The thinking has ended: a visible answer followed it, or the message is final. */
-	ended: boolean;
-	start?: number;
-	end?: number;
-}
-
 const INSTALLED = Symbol.for("my-omp-harness.cursor-feed.turn");
 const ANSI = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 const EMPTY: readonly string[] = [];
 
 /** The view of each transcript child before the fold wrap. */
 const originals = new WeakMap<object, Render>();
-const thinking = new WeakMap<object, Thinking>();
 const models = new WeakMap<object, Cached>();
-/** Components whose original render is running (their stable-row publication happens inside it). */
-const rendering = new WeakSet<object>();
 
 /** Bumped on every change that can alter a turn model. */
 let epoch = 0;
@@ -84,18 +72,6 @@ function textOf(block: unknown): string | undefined {
 function contentOf(message: unknown): readonly unknown[] {
 	if (typeof message !== "object" || message === null || !("content" in message)) return EMPTY;
 	return Array.isArray(message.content) ? message.content : EMPTY;
-}
-
-function isThinkingBlock(block: unknown): boolean {
-	const type = blockType(block);
-	return type === "thinking" || type === "redactedThinking";
-}
-
-/** A block that ends the thinking before it: visible text or a tool call. */
-function isAnswerBlock(block: unknown): boolean {
-	const type = blockType(block);
-	if (type === "toolCall") return true;
-	return type === "text" && (textOf(block)?.trim() ?? "") !== "";
 }
 
 /** A final assistant message: it has a stop reason, is not a tool-use stop, and carries no tool call. */
@@ -143,57 +119,6 @@ function formatSpan(ms: number): string {
 	const total = Math.max(0, Math.round(ms / 1000));
 	if (total < 60) return `${total}s`;
 	return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
-}
-
-function stopReasonOf(message: unknown): unknown {
-	if (typeof message !== "object" || message === null || !("stopReason" in message)) return undefined;
-	return message.stopReason;
-}
-
-/**
- * Thinking timing: the first live update that holds a thinking block starts it; a visible
- * answer block ends it in a live update, and a final update (one with a stop reason) ends it too.
- */
-function recordThinking(component: object, message: unknown, transient: boolean): void {
-	const content = contentOf(message);
-	const at = content.findIndex(isThinkingBlock);
-	if (at < 0) return;
-	const state = thinking.get(component) ?? { has: false, ended: false };
-	thinking.set(component, state);
-	state.has = true;
-	const now = performance.now();
-	if (transient) {
-		state.start ??= now;
-		if (!state.ended && content.slice(at + 1).some(isAnswerBlock)) {
-			state.ended = true;
-			state.end = now;
-		}
-	} else if (!state.ended && stopReasonOf(message) !== undefined) {
-		// A replayed message has no start, so it ends without a duration.
-		state.ended = true;
-		if (state.start !== undefined) state.end = now;
-	}
-}
-
-/** The Thought label; undefined while the thinking streams, when the message has none, when its duration is unknown, or when it is under 4 seconds. */
-function thoughtLabel(component: object): string | undefined {
-	const state = thinking.get(component);
-	if (!state?.has || !state.ended) return undefined;
-	if (state.start === undefined || state.end === undefined) return undefined;
-	const duration = state.end - state.start;
-	if (duration < 4000) return undefined;
-	return `Thought for ${formatSpan(duration)}`;
-}
-
-/**
- * The Thought row of a component, or undefined when it shows none. Both the render
- * and the stable-row render take their row from here, so they carry the same bytes.
- */
-function thoughtRow(component: object, width: number): string | undefined {
-	if (!enabled()) return undefined;
-	const label = thoughtLabel(component);
-	if (label === undefined || (roleOf(component)?.kind === "final" && !expandedNow())) return undefined;
-	return fitLine(paint(label), width);
 }
 
 /** Final answer of the turn (start, end): the last final assistant block with no tool row after it. */
@@ -401,27 +326,22 @@ function patchAssistant(): void {
 	const renderStable = proto.renderTranscriptStableRows;
 	const setExpanded = proto.setExpanded;
 	const setHideThinkingBlock = proto.setHideThinkingBlock;
-	/** The latest full updateContent arguments of each component, as the host passed them. */
-	const updates = new WeakMap<object, Parameters<AssistantMessageComponent["updateContent"]>>();
-	/** The Ctrl+O state each component's hide value was last set from. */
-	const applied = new WeakMap<object, boolean>();
+	/** Components whose underlying view hides reasoning. */
+	const hidden = new WeakSet<object>();
 
-	/** Sets the hide value from the Ctrl+O state. Collapsing drops the stable rows that may still hold reasoning. */
-	const setView = (component: AssistantMessageComponent): void => {
-		const expanded = expandedNow();
-		const previous = applied.get(component);
-		setHideThinkingBlock.call(component, !expanded);
-		applied.set(component, expanded);
-		if (!expanded && previous !== false) component.resetTranscriptStableRows();
+	/** Forces the underlying view to hide reasoning. The first hide drops the stable rows that may still hold reasoning. */
+	const hideReasoning = (component: AssistantMessageComponent): void => {
+		const first = !hidden.has(component);
+		setHideThinkingBlock.call(component, true);
+		hidden.add(component);
+		if (first) component.resetTranscriptStableRows();
 	};
 
-	/** Brings a component's reasoning view in line with the Ctrl+O state, replaying its last full update when it changed. */
-	const syncReasoning = (component: AssistantMessageComponent): void => {
-		if (!enabled() || applied.get(component) === expandedNow()) return;
+	/** Hides reasoning on a component that has not been hidden yet, while cursor-feed is enabled. */
+	const ensureHidden = (component: AssistantMessageComponent): void => {
+		if (!enabled() || hidden.has(component)) return;
 		try {
-			setView(component);
-			const args = updates.get(component);
-			if (args) updateContent.apply(component, args);
+			hideReasoning(component);
 		} catch {
 			// Fail safe: the original view stands.
 		}
@@ -429,67 +349,49 @@ function patchAssistant(): void {
 
 	proto.setHideThinkingBlock = function (this: AssistantMessageComponent, _hide: boolean): void {
 		if (!enabled()) {
-			applied.delete(this);
+			hidden.delete(this);
 			setHideThinkingBlock.call(this, _hide);
 			return;
 		}
-		syncReasoning(this);
+		try {
+			hideReasoning(this);
+		} catch {
+			// Fail safe: the original view stands.
+		}
 	};
 
 	proto.updateContent = function (
 		this: AssistantMessageComponent,
 		...args: Parameters<AssistantMessageComponent["updateContent"]>
 	) {
-		updates.set(this, args);
 		try {
-			if (enabled() && applied.get(this) !== expandedNow()) setView(this);
+			if (enabled()) hideReasoning(this);
 		} catch {
 			// Fail safe: the host's hide value stands.
 		}
 		const out = updateContent.apply(this, args);
-		try {
-			recordThinking(this, args[0], args[1]?.transient === true);
-		} catch {
-			// Fail safe: the duration is simply not shown.
-		}
 		epoch++;
 		return out;
 	};
 
 	proto.render = function (this: AssistantMessageComponent, width: number): readonly string[] {
-		syncReasoning(this);
-		// While the original render runs, its stable-row publication must see the unprefixed rows it publishes.
-		rendering.add(this);
-		let rows: readonly string[];
-		try {
-			rows = render.call(this, width);
-		} finally {
-			rendering.delete(this);
-		}
-		try {
-			const row = thoughtRow(this, width);
-			return row === undefined ? rows : [row, ...rows];
-		} catch {
-			return rows;
-		}
+		ensureHidden(this);
+		return render.call(this, width);
 	};
 
 	proto.renderTranscriptStableRows = function (this: AssistantMessageComponent, count: number, width: number): readonly string[] {
-		syncReasoning(this);
-		const rows = renderStable.call(this, count, width);
-		try {
-			if (!(count > 0) || rendering.has(this)) return rows;
-			const row = thoughtRow(this, width);
-			return row === undefined ? rows : [row, ...rows];
-		} catch {
-			return rows;
-		}
+		ensureHidden(this);
+		return renderStable.call(this, count, width);
 	};
 
 	proto.setExpanded = function (this: AssistantMessageComponent, ...args: Parameters<AssistantMessageComponent["setExpanded"]>) {
 		recordExpanded(this, args[0]);
 		const out = setExpanded.apply(this, args);
-		syncReasoning(this);
+		try {
+			if (enabled()) hideReasoning(this);
+		} catch {
+			// Fail safe: the original view stands.
+		}
 		return out;
 	};
 }

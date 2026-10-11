@@ -837,7 +837,7 @@ export default function rg(pi: ExtensionAPI) {
 			"-A, -B, -C (context lines; -C fills whichever of -A/-B is absent); -i (case insensitive; search is case-sensitive by default); head_limit and offset (count matches in content mode, files in files_with_matches mode, entries in count mode); multiline. " +
 			"Hidden files are searched and .gitignore is respected. Matches print as path:line:text, ready for read path:line. Files are ordered newest-modified first. " +
 			"Output holds up to 100,000 characters; a cut result ends with a line giving the offset to continue. " +
-			"A path with a URL scheme, such as history://, artifact:// or local://, goes to omp's native search, which uses only pattern, path and -i; path xd:// lists the tool devices whose names or summaries match the pattern.",
+			"A path with a URL scheme, such as history://, artifact:// or local://, goes to omp's native search, which uses only pattern, path and -i.",
 		parameters: z.object({
 			pattern: z.string().optional(),
 			path: z.string().optional(),
@@ -861,26 +861,6 @@ export default function rg(pi: ExtensionAPI) {
 				return { content: [{ type: "text", text: "pattern is required" }] };
 			}
 			const pattern = params.pattern;
-			if (params.path === "xd://") {
-				const listing = resultText(await ctx.invokeTool!({ path: "xd://" }, { signal, onUpdate }));
-				let matches: (line: string) => boolean;
-				try {
-					const re = new RegExp(pattern, "i");
-					matches = line => re.test(line);
-				} catch {
-					const needle = pattern.toLowerCase();
-					matches = line => line.toLowerCase().includes(needle);
-				}
-				const lines = listing.split("\n").filter(line => matches(line));
-				return {
-					content: [
-						{
-							type: "text",
-							text: `<workspace_result workspace_path="${ctx.cwd}">\n${lines.length > 0 ? lines.join("\n") : "No matches found"}\n</workspace_result>`,
-						},
-					],
-				};
-			}
 			if (params.path?.includes("://")) {
 				return ctx.invokeTool!(
 					{ pattern, path: params.path, ...(params["-i"] ? { case: false } : {}) },
@@ -1058,6 +1038,7 @@ export default function rg(pi: ExtensionAPI) {
 				...(r.error ? { isError: true } : {}),
 			});
 
+			if (pathArg.startsWith("xd://")) return native(pathArg.replace(/:(?:raw:)?-?\d+(?:[-+]\d*)?$/, ""));
 			if (pathArg.includes("://") && !urlHasSelector(pathArg)) {
 				const agent = pathArg.match(/^agent:\/\/([\w-]+)$/);
 				const agentFile = agent ? agentOutputPath(ctx.sessionManager, agent[1]!) : undefined;

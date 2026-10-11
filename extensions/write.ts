@@ -56,7 +56,7 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 			const filesGiven = params.files !== undefined && params.files.length > 0;
-			const singleGiven = params.path !== undefined && params.content !== undefined;
+			const singleGiven = params.path !== undefined && params.path !== "" && params.content !== undefined;
 			if (!filesGiven && !singleGiven && params.path !== undefined) {
 				return ctx.invokeTool!({ path: params.path }, { signal, onUpdate });
 			}

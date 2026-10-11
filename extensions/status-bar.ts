@@ -1,19 +1,39 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { visibleWidth } from "@oh-my-pi/pi-tui";
+import { shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
+import { todoPanelLines } from "./cursor-feed/panel";
+import { enabled } from "./cursor-feed/state";
+import { viewMode } from "./cursor-feed";
+import { getAgentTask } from "./cursor-feed/agent-tasks";
+import { actionPhrase } from "./cursor-feed/rows";
+import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 
 const TITLE = "my-omp-harness.title";
 
 let latest: any;
 let turnStart: number | undefined;
 let lastTurnMs: number | undefined;
-let turnInterval: ReturnType<typeof setInterval> | undefined;
 let piApi: ExtensionAPI | undefined;
 let compacting = false;
 let glow: ReturnType<typeof setInterval> | undefined;
 let tui: any;
+
+interface ActionState {
+	thinking: boolean;
+	/** Still-running tool calls by toolCallId, in start order. */
+	tools: Map<string, { toolName: string; args: unknown }>;
+}
+
+interface ActionSlot {
+	states: Map<string, ActionState>;
+	timer?: ReturnType<typeof setInterval>;
+}
+
+// Process-global: the action state of every agent, keyed by agent id.
+const ACTION = Symbol.for("my-omp-harness.current-action");
+const actions = ((globalThis as Record<symbol, unknown>)[ACTION] ??= { states: new Map<string, ActionState>() }) as ActionSlot;
 
 const lastRateInvalidate = new WeakMap<object, number>();
 
@@ -47,6 +67,7 @@ function patchMode() {
 	mode[MODE_PATCHED] = true;
 	const original = mode.render;
 	mode.render = (ctx: any) => {
+		if (focusedId() !== undefined) return original({ ...ctx, planMode: undefined, goalMode: undefined, prewalk: undefined });
 		const result = original(ctx);
 		const planActive = ctx.planMode?.enabled || ctx.planMode?.paused;
 		const goalActive = ctx.goalMode?.enabled || ctx.goalMode?.paused;
@@ -65,6 +86,7 @@ function patchStatusJoin() {
 	const originalRender = segment.render;
 	const originalDescribe = segment.describe;
 	segment.render = (ctx: any) => {
+		if (focusedId() !== undefined) return { content: "", visible: false };
 		const hooks: unknown[] = Array.isArray(ctx?.hookStatuses) ? ctx.hookStatuses : [];
 		if (hooks.length < 2) return originalRender(ctx);
 		const theme = latest?.ui?.theme;
@@ -76,6 +98,7 @@ function patchStatusJoin() {
 		return { content: visible.map(result => result.content).join(sep), visible: true };
 	};
 	segment.describe = (ctx: any) => {
+		if (focusedId() !== undefined) return null;
 		const hooks: unknown[] = Array.isArray(ctx?.hookStatuses) ? ctx.hookStatuses : [];
 		if (hooks.length < 2) return originalDescribe(ctx);
 		const views = hooks.map(item => originalDescribe({ ...ctx, hookStatuses: [item] })).filter(Boolean);
@@ -90,7 +113,10 @@ function patchStatusJoin() {
 
 function rowLeftRight(left: string, right: string, width: number): string {
 	if (!left && !right) return "";
-	if (!left) return fitLine(right, width);
+	if (!left) {
+		const part = fitLine(right, width);
+		return " ".repeat(Math.max(0, width - visibleWidth(part))) + part;
+	}
 	if (!right) return fitLine(left, width);
 	const lw = visibleWidth(left);
 	const rw = visibleWidth(right);
@@ -99,6 +125,23 @@ function rowLeftRight(left: string, right: string, width: number): string {
 	if (room <= 0) return fitLine(right, width);
 	const leftPart = fitLine(left, room);
 	return leftPart + " ".repeat(Math.max(0, width - visibleWidth(leftPart) - rw)) + right;
+}
+
+/** The focused subagent's id while its view is open and the harness is on; undefined for the main session. */
+function focusedId(): string | undefined {
+	return enabled() ? viewMode()?.focusedAgentId : undefined;
+}
+
+/** The session whose context the bar measures: the focused subagent's while its view is open, else the main one. */
+function contextSession(): any {
+	return focusedId() === undefined ? latest : viewMode()?.viewSession;
+}
+
+/** Scales every truecolor RGB channel to 90%, for the darker rows of the focused view. */
+function dimRgb(line: string): string {
+	const scale = (value: string) => Math.round(Number(value) * 0.9);
+	return line.replace(/\x1b\[(38|48);2;(\d+);(\d+);(\d+)m/g, (_seq, layer: string, r: string, g: string, b: string) =>
+		`\x1b[${layer};2;${scale(r)};${scale(g)};${scale(b)}m`);
 }
 
 function patchStatusLine() {
@@ -119,9 +162,10 @@ function patchStatusLine() {
 			}
 		}
 		const base: string[] = render.call(this, width);
+		const focused = focusedId() !== undefined;
 		const theme = latest?.ui?.theme;
 		const k = base.findIndex(line => line !== "");
-		if (!theme || k < 0) return base;
+		if (!theme || k < 0) return focused ? base.map(dimRgb) : base;
 		// omp draws the running subagent and background job counters only with the right segments; move them to the model row.
 		const agentCount = this.subagentCount;
 		const jobCount = this.runningBackgroundJobCount();
@@ -139,27 +183,84 @@ function patchStatusLine() {
 		let place: string = rightPart.call(this, width)?.content ?? "";
 		for (const [badge, omp] of [[agents, ompAgents], [jobs, jobs]] as const) {
 			if (!badge) continue;
-			model += `${theme.fg("statusLineSep", "·")} ${badge}`;
+			if (!focused) model += `${theme.fg("statusLineSep", "·")} ${badge}`;
 			place = place.replace(omp + sep, "");
 		}
 		// Drop omp's blank gap row so the context bar sits right under the input.
 		const textColor = theme.getFgAnsi("text");
 		const rows = [contextLine(width, theme, textColor), fitLine(model, width)];
 		if (place) rows.push(fitLine(place, width));
-		return [...rows, ...base.slice(k + 1)];
+		const lines = [...rows, ...base.slice(k + 1)];
+		return focused ? lines.map(dimRgb) : lines;
 	};
 }
 
-function fmtTurn(ms: number): string {
-	const totalSec = Math.floor(ms / 1000);
-	const sec = totalSec % 60;
-	if (totalSec < 3600) {
-		const min = Math.floor(totalSec / 60);
-		return `${min}:${String(sec).padStart(2, "0")}`;
+function stateOf(agentId: string): ActionState {
+	let state = actions.states.get(agentId);
+	if (state === undefined) {
+		state = { thinking: false, tools: new Map() };
+		actions.states.set(agentId, state);
 	}
-	const h = Math.floor(totalSec / 3600);
-	const min = Math.floor((totalSec % 3600) / 60);
-	return `${h}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+	return state;
+}
+
+// The working loader's shimmer cadence.
+const THINKING_FRAME_MS = 1000 / 30;
+
+/** The phrase of the current action: the last still-running tool, else Planning next moves while thinking; undefined when idle. */
+function phraseOf(state: ActionState | undefined): string | undefined {
+	if (state === undefined) return undefined;
+	let last: { toolName: string; args: unknown } | undefined;
+	for (const call of state.tools.values()) last = call;
+	if (last !== undefined) return actionPhrase(last.toolName, last.args);
+	return state.thinking ? "Planning next moves" : undefined;
+}
+
+function hasAction(state: ActionState): boolean {
+	return state.thinking || state.tools.size > 0;
+}
+
+// The render ticker runs only while some action row is shown and the shimmer is on: ~30fps. Otherwise each state change requests one render.
+function refreshAction(): void {
+	const animate = shimmerEnabled() && [...actions.states.values()].some(hasAction);
+	if (animate && actions.timer === undefined) {
+		actions.timer = setInterval(() => tui?.requestRender?.(), THINKING_FRAME_MS);
+		actions.timer.unref?.();
+	} else if (!animate && actions.timer !== undefined) {
+		clearInterval(actions.timer);
+		actions.timer = undefined;
+	}
+	tui?.requestRender?.();
+}
+
+function stopThinking(agentId: string): void {
+	const state = actions.states.get(agentId);
+	if (state?.thinking !== true) return;
+	state.thinking = false;
+	refreshAction();
+}
+
+/** The current-action row of an agent: a shimmering phrase while it plans or runs a tool; empty otherwise. */
+export function currentActionLines(agentId: string, width: number, theme: any): string[] {
+	const phrase = phraseOf(actions.states.get(agentId));
+	if (phrase === undefined) return [];
+	return [fitLine(shimmerText(phrase, theme), width)];
+}
+
+// The working loader repeats the current-action row, so the normal loader leaves the status container while cursor-feed is on; the loader object and its timer stay.
+function patchLoadingAnimation() {
+	const LOADER_PATCHED = Symbol.for("my-omp-harness.single-working-row");
+	const proto = InteractiveMode.prototype;
+	const record = proto as unknown as Record<symbol, unknown>;
+	if (record[LOADER_PATCHED]) return;
+	record[LOADER_PATCHED] = true;
+	const ensureLoadingAnimation = proto.ensureLoadingAnimation;
+	proto.ensureLoadingAnimation = function (this: InteractiveMode): void {
+		ensureLoadingAnimation.call(this);
+		const loader = this.loadingAnimation;
+		if (!enabled() || loader === undefined || !this.statusContainer.children.includes(loader)) return;
+		this.statusContainer.removeChild(loader);
+	};
 }
 
 function fmtWorked(ms: number): string {
@@ -213,16 +314,36 @@ function triggerTokens(cw: number): number {
 	return Math.max(1, cw - reserve);
 }
 
-const GOLD = "\x1b[38;2;255;215;0m";
-const GLOW = "\x1b[38;2;255;243;176m";
-const GLOW_EDGE = "\x1b[38;2;255;230;110m";
+const GOLD_STOPS: [number, [number, number, number]][] = [[0, [0x8a, 0x6d, 0x1c]], [0.5, [0xc9, 0xa2, 0x27]], [1, [0xe3, 0xc4, 0x5a]]];
+const SHEEN = "\x1b[38;2;242;222;138m";
+const SHEEN_EDGE = "\x1b[38;2;217;184;74m";
 
-// Colour of filled cell i while compacting: a 6-cell band starting at `start`, with the cells either side of it in GLOW_EDGE.
+// Truecolor gold at position t (0..1) along the bar: dark at 0, through mid gold at 0.5, to light at 1.
+function goldAt(t: number): string {
+	const x = Math.min(1, Math.max(0, t));
+	let k = 0;
+	while (k < GOLD_STOPS.length - 2 && x > GOLD_STOPS[k + 1][0]) k++;
+	const [t0, c0] = GOLD_STOPS[k];
+	const [t1, c1] = GOLD_STOPS[k + 1];
+	const f = t1 === t0 ? 0 : (x - t0) / (t1 - t0);
+	const [r, g, b] = c0.map((v, j) => Math.round(v + (c1[j] - v) * f));
+	return `\x1b[38;2;${r};${g};${b}m`;
+}
+
+/** Bold natural gold across the code points of a title, then resets bold and the foreground. */
+function goldBold(text: string): string {
+	const chars = Array.from(text);
+	const last = chars.length - 1;
+	const body = chars.map((ch, i) => `${goldAt(last <= 0 ? 0.5 : i / last)}${ch}`).join("");
+	return `\x1b[1m${body}\x1b[22m\x1b[39m`;
+}
+
+// Colour of filled cell i while compacting: a sheen band of 6 cells moves along the bar from `start`, lit in SHEEN with its trailing edge and the cell before start in SHEEN_EDGE; other cells keep their gold.
 function glowColor(i: number, filled: number, start: number): string {
 	const d = (i - start + filled) % filled;
-	if (d < 6) return GLOW;
-	if (d === 6 || d === filled - 1) return GLOW_EDGE;
-	return GOLD;
+	if (d < 6) return SHEEN;
+	if (d === 6 || d === filled - 1) return SHEEN_EDGE;
+	return goldAt(filled <= 1 ? 0.5 : i / (filled - 1));
 }
 
 function startGlow() {
@@ -244,7 +365,7 @@ function stopGlow() {
 }
 
 function contextLine(width: number, theme: any, textColor: string): string {
-	const u = latest?.getContextUsage?.();
+	const u = contextSession()?.getContextUsage?.();
 	if (!u?.contextWindow) return theme.fg("dim", "─".repeat(width));
 	const t = triggerTokens(u.contextWindow);
 	const tokens = u.tokens ?? 0;
@@ -259,7 +380,7 @@ function contextLine(width: number, theme: any, textColor: string): string {
 		fill = `${textColor}${"━".repeat(filled)}`;
 	} else {
 		const start = compacting && filled > 0 ? Math.floor(Date.now() / 60) % filled : 0;
-		for (let i = 0; i < filled; i++) fill += `${compacting ? glowColor(i, filled, start) : GOLD}━`;
+		for (let i = 0; i < filled; i++) fill += `${compacting ? glowColor(i, filled, start) : goldAt(filled <= 1 ? 0.5 : i / (filled - 1))}━`;
 	}
 	const line =
 		`${fill}\x1b[39m`
@@ -273,17 +394,35 @@ function showTitle(ctx: any) {
 		TITLE,
 		(_tui, theme) => (tui = _tui, {
 			render(width: number) {
-				const name = ctx.sessionManager?.getSessionName?.();
-				const id = ctx.sessionManager?.getSessionId?.();
+				const focus = focusedId();
+				const ref = focus === undefined ? undefined : AgentRegistry.global().get(focus);
+				const task = ref ? getAgentTask(ref, () => tui?.requestRender?.()) : undefined;
+				const session = focus === undefined ? ctx.sessionManager : viewMode()?.viewSession?.sessionManager;
+				const id = session?.getSessionId?.();
 				const parts: string[] = [];
-				if (name) parts.push(`${theme.getFgAnsi("text")}${name}\x1b[39m`);
-				if (turnStart === undefined && lastTurnMs !== undefined) {
-					parts.push(theme.fg("dim", `Worked ${fmtWorked(lastTurnMs)}`));
+				if (focus === undefined) {
+					const name = ctx.sessionManager?.getSessionName?.();
+					if (name) parts.push(goldBold(name));
+					if (turnStart === undefined && lastTurnMs !== undefined) {
+						parts.push(theme.fg("dim", `Worked ${fmtWorked(lastTurnMs)}`));
+					}
+				} else {
+					parts.push(goldBold(`Subagent ${focus}${task ? ` #${task.number}` : ""}`));
+					if (ref && ref.status !== "running" && task) {
+						parts.push(theme.fg("dim", `Worked ${fmtWorked(task.durationMs)}`));
+					}
 				}
 				const left = parts.join(" · ");
-				const right = id ? theme.fg("muted", id) : "";
-				if (!left && !right) return [""];
-				return [rowLeftRight(left, right, width)];
+				const right = id ? `\x1b[22m${theme.fg("muted", id)}` : "";
+				const action = currentActionLines(focus ?? ctx.agent.id, width, theme);
+				const rows = [...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
+				if (focus !== undefined) {
+					rows.push(fitLine(theme.fg("error", "alt+x alt+x stops this agent"), width));
+				}
+				if (!left && !right) return [...rows, ""];
+				const row = rowLeftRight(left, right, Math.max(0, width - 2)) + "  ";
+				const titleRow = width < 2 ? fitLine(row, width) : row;
+				return [...rows, focus === undefined ? titleRow : dimRgb(titleRow)];
 			},
 			invalidate() {},
 		}),
@@ -297,10 +436,12 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchMode();
 	patchStatusJoin();
 	patchStatusLine();
+	patchLoadingAnimation();
 
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		latest = ctx;
+		ctx.ui.setStatus("turn", undefined);
 		showTitle(ctx);
 	});
 
@@ -308,33 +449,52 @@ export default function statusBar(pi: ExtensionAPI) {
 		if (!ctx.hasUI) return;
 		latest = ctx;
 		lastTurnMs = undefined;
+		ctx.ui.setStatus("turn", undefined);
 		showTitle(ctx);
 	});
 
 	pi.on("before_agent_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		latest = ctx;
-		if (turnInterval !== undefined) return;
+		if (turnStart !== undefined) return;
 		turnStart = Date.now();
-		const update = () => {
-			if (turnStart === undefined) return;
-			ctx.ui.setStatus("turn", fmtTurn(Date.now() - turnStart));
-		};
-		update();
-		turnInterval = setInterval(update, 1000);
-		turnInterval.unref?.();
 	});
 
-	pi.on("agent_end", (_event, ctx) => {
+	// Runs for every agent, subagents included, so the focused view can show their current action.
+	pi.on("message_update", (event, ctx) => {
+		const update = event.assistantMessageEvent;
+		if (update.type === "thinking_start" || update.type === "thinking_delta") {
+			const state = stateOf(ctx.agent.id);
+			if (state.thinking) return;
+			state.thinking = true;
+			refreshAction();
+		} else if (update.type === "thinking_end" || update.type === "text_start" || update.type === "toolcall_start") {
+			stopThinking(ctx.agent.id);
+		}
+	});
+
+	pi.on("message_end", (_event, ctx) => {
+		stopThinking(ctx.agent.id);
+	});
+
+	pi.on("tool_execution_start", (event, ctx) => {
+		const state = stateOf(ctx.agent.id);
+		state.thinking = false;
+		state.tools.set(event.toolCallId, { toolName: event.toolName, args: event.args });
+		refreshAction();
+	});
+
+	pi.on("tool_execution_end", (event, ctx) => {
+		const state = actions.states.get(ctx.agent.id);
+		if (state?.tools.delete(event.toolCallId)) refreshAction();
+	});
+
+	pi.on("agent_end", (event, ctx) => {
+		if (!event.willContinue && actions.states.delete(ctx.agent.id)) refreshAction();
 		if (!ctx.hasUI) return;
 		latest = ctx;
 		if (turnStart === undefined) return;
-		if (turnInterval !== undefined) {
-			clearInterval(turnInterval);
-			turnInterval = undefined;
-		}
 		lastTurnMs = Date.now() - turnStart;
-		ctx.ui.setStatus("turn", fmtTurn(lastTurnMs));
 		turnStart = undefined;
 		showTitle(ctx);
 	});

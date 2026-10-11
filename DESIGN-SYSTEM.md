@@ -24,7 +24,7 @@ The reference is the stock Cursor IDE (3.24.12, theme Cursor Dark, agents window
 | ember | `#1a0f10` | background of a failed tool row, the darkest red tint |
 | ash | `#4a4846` | the line over the omp input field at the lowest reasoning level |
 
-There is no accent colour. Focus is white-grey (chalk), selection is a slightly lighter surface (cardHi), and nothing is blue, purple, teal or gold. The one gold element is the compaction bar below, by the owner's order.
+There is no accent colour. Focus is white-grey (chalk), selection is a slightly lighter surface (cardHi), and nothing is blue, purple or teal. By the owner's order, the session name and the full compaction bar use natural gold.
 
 ## Indicators
 
@@ -39,27 +39,37 @@ Green, yellow and red mean state and nothing else.
 
 The tok/s number in the omp status line keeps its own scale: red below 30, yellow below 60, pale green below 90, green from 90.
 
+The agent hub uses its own lifecycle colours: green for working, yellow for idle, grey for done or parked, and red for failed or stopped. Its circles, status labels and header counts use the same colours.
+
 ## Status circle
 
-Every row that has a state starts with one circle `●` in one column, followed by one space, coloured by the indicator table. The same glyph and size everywhere: omp feed rows, the to-do panel, the `task` card, the agent panel, the agent board, omp background job rows, herdr sidebar, agent panel, navigator, toasts, mobile view and machine states. Nested rows shift by exactly two columns. The one exception is the current to-do row with substeps: an 8-cell progress bar of Nerd Font glyphs U+EE00–U+EE05 replaces its circle.
+Each state-bearing item or result starts with one circle `●` in one column, followed by one space, coloured by its indicator table. The same glyph and size everywhere: omp feed rows, the to-do panel, the `task` card, the agent panel, the agent board, omp background job rows, herdr sidebar, agent panel, navigator, toasts, mobile view and machine states. A subagent's indented action line continues its title and has no second circle; the live current-action phrase has no icon. Nested rows shift by exactly two columns. The current to-do item keeps its yellow circle; its eight-cell progress bar of Nerd Font glyphs U+EE00–U+EE05 sits on the next row, indented two more columns.
 
 ## Icons and font
 
-The font is IosevkaTerm Nerd Font Mono; its Mono build draws every icon in one cell, so rows do not shift. An icon appears only where it says something the text does not, such as the git branch or a pin. Headers and summary lines carry no icon: «To-dos», «Agents», «Thought for 4s», «Worked for 2m 10s», the memory status, the turn time. Never add an icon for decoration.
+The font is IosevkaTerm Nerd Font Mono; its Mono build draws every icon in one cell, so rows do not shift. An icon appears only where it says something the text does not, such as the git branch or a pin. Headers and summary lines such as «To-dos», «Agents» and «Worked for 2m 10s» carry no icon. The memory counters use the messages glyph U+F27A and the summary glyph U+F15C: `86  / 12 `, with muted text and a faint panel background.
 
 ## Text
 
 All interface text is plain English at A2 level, without Russian. Each element says what happens, on what, and with what result, in one compact line where possible: `Edited …/cursor-feed/rows.ts +12 −3 · 0.4s`, `Searched memory "theme" · 4 found`, `Waiting for your answer · 2 questions`.
 
-Collapsed bash and memory calls have one compact summary row, with no raw argument fields, output body or Expand hint. Their details appear only in expanded mode. Reasoning text is also shown only in expanded mode, including while it streams. The summary `Thought for …` appears only when the measured reasoning took at least four seconds; shorter or unknown durations have no summary row.
+Consecutive reads, searches, other tools including MCP, and bash commands merge into `Explored N files, M searches, K tools, ran C commands`; zero counts are omitted and a running group says `Exploring`. Edits and writes keep per-file `Edited path +N −M` and `Wrote path +N` rows. Text, todo, ask, subagent cards, goal create/complete/drop and errors split the group; goal get/resume count as tools. Expanded mode shows each call and its available output. Collapsed calls show no raw argument fields, output body or Expand hint.
+
+Reasoning text stays hidden in both modes, during streaming and replay. The live current-action row shows `Planning next moves` while the model thinks and a tool phrase such as `Reading client.py`, `Searching files`, `Running command` or `Waiting for subagent` while a tool runs. A light sheen moves across the phrase; it has no timer and disappears when no action is active. No reasoning-duration rows remain in the transcript. Each subagent card has its name and agent type on one row, its live action beneath, and then `Completed`, `Stopped` or `Failed` when it ends.
 
 Goal and assignment instruction bodies use the normal text colour. The initial Goal or Define goal card shows its complete wrapped source text in both modes, so it can be selected and copied.
 
-The session title is on the left of the header row and the session ID is on the right, without an icon. A long title is cut before the ID. The bottom status line marks the subagent count with the one-cell Nerd Font users glyph U+F0C0 instead of an emoji.
+The session name is bold with the natural gold gradient on the left of the header row; the session ID is muted on the right, without an icon and with two spaces before the right edge. A long title is cut before the ID. The bottom status line marks the subagent count with the one-cell Nerd Font users glyph U+F0C0 instead of an emoji. It has no turn timer; the completed turn keeps its «Worked …» label.
+
+The collapsed to-do panel shows `To-dos: 12 total · 3 left` followed by up to three items across all phases: the previous item, the current item and the next item. Near the end, earlier items fill the window; with the current item last, the two previous items remain visible. The current item's step bar is an additional row directly beneath it, followed by `2/4 step text`. Expanded mode shows every phase and item and all steps of the current item, with done and current step marks. The panel disappears when every item is completed or abandoned; blocked items keep it visible.
+
+The agent hub shows the current numbered task `#n` next to each agent ID. Tokens, tool calls, requests and time count only that task, starting again at a new `[task id#n]` message. The main agent's feed carries the dim hint `alt+a agents` alongside its running-subagent rows.
+
+The subagent feed is a read-only view of its whole action log. Its input says `Subagent view · esc main · ←← agents`; typing, Enter, model changes and reasoning-level changes are blocked. Esc returns to Main, double-left opens the hub, and left has no action inside the hub. Every subagent view shows the red hint `alt+x alt+x stops this agent`; press alt+x twice within 500 ms to stop it. The title and status rows show the viewed subagent's state with colours reduced by 10%. The title includes its full session ID and current task `#n`.
 
 The queued-message band appears when the first owner message waits, without needing a second message to reveal it.
 
-The line under the omp input field is the compaction bar: it measures the context up to the compaction trigger, not up to the model's context window. Its label is `N% <tokens>/<trigger>`, N is tokens divided by the trigger, and at or above the trigger it shows 100%; the bar fills by the same share. Below the trigger the bar is white-grey with a grey label. When it reaches the trigger it turns bright gold `#ffd700`, and while compaction runs a gold glow (`#fff3b0`, edges `#ffe66e`) moves along it.
+The line under the omp input field is the compaction bar: it measures the context up to the compaction trigger, not up to the model's context window. Its label is `N% <tokens>/<trigger>`, N is tokens divided by the trigger, and at or above the trigger it shows 100%; the bar fills by the same share. Below the trigger the bar is white-grey with a grey label. When it reaches the trigger it turns natural metallic gold: a gradient from dark gold `#8a6d1c` through `#c9a227` to light gold `#e3c45a`. While compaction runs a warm sheen (`#f2de8a`, edges `#d9b84a`) moves along the gradient.
 
 ## Cutting long lines
 
@@ -69,7 +79,9 @@ The line under the omp input field is the compaction bar: it measures the contex
 
 ## Layout
 
-Compact and flat: no boxes around rows, no extra blank lines, the status line flows after the transcript and is not pinned to the bottom of the screen. Split views divide the screen into two equal halves, list on the left and card on the right.
+Compact and flat: no boxes around rows; one blank line separates the live action from the to-do panel. The status line flows after the transcript and is not pinned to the bottom of the screen. Split views divide the screen into two equal halves, list on the left and card on the right.
+
+One widget above the editor draws, top to bottom, the live action if present, one blank line after it, the to-do panel and the title/ID row; omp's divider and editor follow. When no action is active its row and spacer disappear. The to-do panel does not appear separately in the transcript, and its step bar has no separate widget. This fixed order also applies after restoring a session.
 
 ## How omp follows the rules
 
@@ -77,12 +89,14 @@ Compact and flat: no boxes around rows, no extra blank lines, the status line fl
 |---|---|
 | Palette, no accent, indicators | `settings/titanium-arq.json` (`accent` empty) |
 | Status circle | `extensions/cursor-feed/` (`glyphs.ts` holds `●`), theme symbols `status.done` and `status.error` = `●` |
-| Progress bar | `extensions/cursor-feed/panel.ts` |
+| To-do window and nested step bar | `extensions/cursor-feed/panel.ts`, `extensions/todo.ts` |
 | Icons | `symbolPreset nerd` (`install-instructions/omp.md` step 4); font in step 5 |
 | Text, one-line rows | `extensions/cursor-feed/rows.ts`, `tools.ts`, `cards.ts`, `subagents.ts`, `hub.ts`, `extensions/lcm/` |
-| Reasoning only when expanded, duration from four seconds | `extensions/cursor-feed/turn.ts` |
+| Hidden reasoning, live current action | `extensions/cursor-feed/turn.ts`, `extensions/status-bar.ts` |
 | Readable instruction bodies, full initial goal | `extensions/cursor-feed/cards.ts`, `subagents.ts` |
 | Title left, session ID right, subagent glyph, compaction bar | `extensions/status-bar.ts` |
+| Hub lifecycle colours and numbered-task statistics | `extensions/cursor-feed/hub.ts`, `agent-tasks.ts`, `extensions/subagent-reuse.ts` |
+| Read-only subagent view and navigation | `extensions/cursor-feed.ts`, `extensions/status-bar.ts` |
 | Queue refresh from the first message | `extensions/cursor-feed.ts` (`queue_update`) |
 | Cutting | `extensions/cursor-feed/fit.ts`, `tools.ts` (`rowLine`) |
 | Quiet settings | `install-instructions/omp.md` step 4: `tui.tight`, `recap.enabled false`, `statusLine.sessionAccent false`, `tui.codexResetFireworks false` |

@@ -1,7 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { type Component, Text } from "@oh-my-pi/pi-tui";
 import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
-import { bar } from "./cursor-feed/panel";
 
 const DESCRIPTION = `Manage your todo list in one call: ops is a list of operations applied in order, each seeing the result of the previous ones; on the first failing op the earlier ones are kept and the result names the failing op, its fix, the ops not applied and the current list. Ops: init (list: phases with items; replaces the list), append (items, optional phase; default the current phase), start, done, drop, block (reason), unblock, rm, plan (steps of an item, default the current one), step (step number of the current plan step; omitted = next step), closed (optional phase; lists closed items, changes nothing). An item is a title string or {title, plan: [steps]}. Address items by number like 2.3 (phase.item) or by text; dashes, quotes, spaces and letter case may differ. Batch every change you need now into one call, e.g. [{op:"done",item:"1.2"},{op:"start",item:"1.3"},{op:"plan",steps:["…","…"]}]. While items are open, the list is shown to you every turn: open items with their numbers and the plan of the current item; closed items are folded into counts, list them with closed (optional phase).`;
 
@@ -25,32 +24,19 @@ type Op = {
 type Entry = { phase: number; index: number; item: Item; num: string };
 
 const MARK: Record<Status, string> = { completed: "✓", in_progress: "●", pending: "○", blocked: "⊘", abandoned: "✗" };
-const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>/g;
+const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>|<todo>[\s\S]*?<\/todo>|<todo-reminder>[\s\S]*?<\/todo-reminder>/g;
+const TODO_REMINDER = [
+	"<todo-reminder>",
+	"No todo items are open. Before the first action of a new task, create its list with init. Extend an unfinished list with append for continued work. Plan items before acting, mark progress during the work, and close every item at handover. A closed list is replaced for the next multi-step task. Skip the list only for one answer, one short action, or the owner's explicit request to work without todo.",
+	"</todo-reminder>",
+].join("\n");
 
 const SLOT = Symbol.for("my-omp-harness.progress");
 type ProgressSlot = {
 	state?: { item: string; steps: string[]; current: number };
-	canShow?: (item: string) => boolean;
-	sync?: () => void;
 	setTodos?: (phases: Phase[]) => void;
 };
 const slot = ((globalThis as Record<symbol, unknown>)[SLOT] ??= {}) as ProgressSlot;
-const PROGRESS = "my-omp-harness.progress";
-let progressUi: ExtensionContext["ui"] | undefined;
-let barLine: string[] | undefined;
-let barHidden = false;
-// The panel calls sync after it changes whether it draws the bar; the separate widget follows that decision.
-slot.sync = () => {
-	if (!progressUi || !barLine || !slot.state) return;
-	const hide = slot.canShow?.(slot.state.item) === true;
-	if (hide === barHidden) return;
-	barHidden = hide;
-	try {
-		progressUi.setWidget(PROGRESS, hide ? undefined : barLine);
-	} catch {
-		// The UI may already be gone; the next commit sets the widget again.
-	}
-};
 
 let state: TodoState | undefined;
 
@@ -463,25 +449,17 @@ function currentState(sessionManager: { getBranch(): unknown }): TodoState {
 	return (state ??= restore(sessionManager));
 }
 
-// Shows the bar for the in-progress item when it has a plan; otherwise removes it.
-function showProgress(next: TodoState, ui: ExtensionContext["ui"] | undefined): void {
-	if (ui) progressUi = ui;
+// Publishes the in-progress item and its plan to the slot that the todo panel draws; clears the slot without a plan.
+function showProgress(next: TodoState): void {
 	const active = allItems(next).find(entry => entry.item.status === "in_progress");
 	const plan = active ? next.plans.get(itemKey(next, active)) : undefined;
 	if (!active || !plan) {
 		slot.state = undefined;
-		barLine = undefined;
-		progressUi?.setWidget(PROGRESS, undefined);
 		return;
 	}
 	const total = plan.steps.length;
 	const current = Math.min(Math.max(1, plan.current), total);
-	const item = active.item.content;
-	slot.state = { item, steps: plan.steps, current };
-	const cells = bar(current, total).map(cell => cell.glyph).join("");
-	barLine = [`${cells} ${current}/${total} ${plan.steps[current - 1]}`];
-	barHidden = slot.canShow?.(item) === true;
-	progressUi?.setWidget(PROGRESS, barHidden ? undefined : barLine);
+	slot.state = { item: active.item.content, steps: plan.steps, current };
 }
 
 function stripTodoBlock<T>(message: T): T {
@@ -535,7 +513,7 @@ export default function todo(pi: ExtensionAPI) {
 	const restoreOnSession = (_event: unknown, ctx: ExtensionContext) => {
 		state = undefined;
 		if (ctx.agent.kind !== "main" || !ctx.hasUI) return;
-		showProgress(currentState(ctx.sessionManager), ctx.ui);
+		showProgress(currentState(ctx.sessionManager));
 	};
 	pi.on("session_start", restoreOnSession);
 	pi.on("session_switch", restoreOnSession);
@@ -547,15 +525,14 @@ export default function todo(pi: ExtensionAPI) {
 		const current = currentState(ctx.sessionManager);
 		const messages = event.messages.map(message => stripTodoBlock(message));
 		let changed = messages.some((message, index) => message !== event.messages[index]);
-		if (allItems(current).some(entry => isOpen(entry.item.status))) {
-			messages.push({
-				role: "user",
-				content: [{ type: "text", text: snapshot(current) }],
-				attribution: "agent",
-				timestamp: Date.now(),
-			} as unknown as (typeof messages)[number]);
-			changed = true;
-		}
+		const text = allItems(current).some(entry => isOpen(entry.item.status)) ? snapshot(current) : TODO_REMINDER;
+		messages.push({
+			role: "user",
+			content: [{ type: "text", text }],
+			attribution: "agent",
+			timestamp: Date.now(),
+		} as unknown as (typeof messages)[number]);
+		changed = true;
 		return changed ? { messages } : undefined;
 	});
 
@@ -610,13 +587,14 @@ export default function todo(pi: ExtensionAPI) {
 				const rest = ops.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${label(op)})`);
 				if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
 				lines.push(parts.join(" "));
+				lines.push(snapshot(committed));
 			} else {
 				lines.push(nextLine(committed));
 			}
 			lines.push(...report);
 			if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
 			state = committed;
-			showProgress(committed, ctx.hasUI ? ctx.ui : undefined);
+			showProgress(committed);
 			if (stop !== undefined && ctx.agent.kind === "main" && ctx.hasUI) slot.setTodos?.(committed.phases);
 			const completedTasks = allItems(committed)
 				.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))

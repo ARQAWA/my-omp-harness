@@ -1,12 +1,13 @@
 import { SubagentHudComponent, ToolExecutionComponent, UserMessageComponent } from "@oh-my-pi/pi-coding-agent";
 import { TaskTool } from "@oh-my-pi/pi-coding-agent/task";
-import { theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
+import { shimmerText, theme, type ThemeColor } from "@oh-my-pi/pi-tui";
 import type { AgentProgress, SingleResult, TaskToolDetails } from "@oh-my-pi/pi-coding-agent/task";
 import { type AgentRecord, agentRecords, blockKinds, enabled, expandedNow, painters } from "./state";
 import { markerOf } from "./tools";
 import { fitLine } from "./fit";
 import { GLYPH } from "./glyphs";
 import { ASSIGNMENT, actionText, formatElapsed } from "./hub";
+import { viewMode } from "../cursor-feed";
 
 type Status = AgentRecord["status"];
 
@@ -60,6 +61,15 @@ function paint(color: ThemeColor, text: string): string {
 		return theme.fg(color, text);
 	} catch {
 		return text;
+	}
+}
+
+/** A live phrase with the theme's shimmer; plain dim text where the theme cannot shimmer. */
+function shimmer(text: string): string {
+	try {
+		return shimmerText(text, theme);
+	} catch {
+		return paint("dim", text);
 	}
 }
 
@@ -178,36 +188,30 @@ function entriesOf(details: TaskToolDetails | undefined, resolved: boolean, args
 	return resolved ? [] : entriesOfArgs(args);
 }
 
-/** The state word of one subagent row of a task card. */
+/** The state row of one subagent in a task card: a shimmering live action while it runs, a plain dim word once settled. */
 function stateTextOf(entry: Entry): string {
 	switch (entry.status) {
 		case "pending":
-			return "starting";
+			return paint("dim", STARTING);
 		case "running":
-			return entry.action || "working";
+			return shimmer(oneLine(entry.action ?? "") || "Planning next moves");
 		case "completed":
-			return entry.durationMs === undefined ? "done" : `done · ${formatElapsed(entry.durationMs)}`;
-		case "failed": {
-			const first = (entry.error ?? "").split("\n")[0]?.trim() ?? "";
-			return first ? `failed · ${first}` : "failed";
-		}
+			return paint("dim", "Completed");
+		case "failed":
+			return paint("dim", "Failed");
 		case "aborted":
-			return "stopped";
+			return paint("dim", "Stopped");
 	}
 }
 
-/** One subagent row of a task card; the description is cut at its end so the id and the state stay whole. */
-function agentLine(entry: Entry, width: number): string {
+/** Two rows of one subagent in a task card: the id with its agent label, then the state row indented under it. */
+function agentLines(entry: Entry, width: number): string[] {
 	const color = STATUS_GLYPH[entry.status];
-	const head = `  ${paint(color, GLYPH.circle)} ${oneLine(entry.id)}`;
-	const state = stateTextOf(entry);
-	const tail = paint("dim", state);
-	const base = visibleWidth(head) + 1 + visibleWidth(state);
-	if (base > width) return fitLine(`${head} ${tail}`, width);
-	const description = oneLine(entry.description ?? "");
-	const room = width - base - 1;
-	if (!description || room < 1) return `${head} ${tail}`;
-	return `${head} ${paint("dim", fitLine(description, room))} ${tail}`;
+	const agent = oneLine(entry.agent);
+	const working = (entry.status === "pending" || entry.status === "running") && viewMode()?.focusedAgentId === undefined;
+	const shortcut = working ? paint("dim", " · alt+a agents") : "";
+	const head = `  ${paint(color, GLYPH.circle)} ${oneLine(entry.id)}${agent ? `  ${paint("dim", agent)}` : ""}${shortcut}`;
+	return [fitLine(head, width), fitLine(`    ${stateTextOf(entry)}`, width)];
 }
 
 /** The task card header: overall state glyph, running or done counts, failures, and the total time once settled. */
@@ -237,7 +241,7 @@ function paintTask(owner: object, width: number, args: unknown): readonly string
 	const state = states.get(owner);
 	const entries = entriesOf(state?.details, state?.resolved === true, args);
 	if (entries.length === 0) return undefined;
-	return [fitLine(headerOf(entries, state?.details), width), ...entries.map(entry => agentLine(entry, width))];
+	return [fitLine(headerOf(entries, state?.details), width), ...entries.flatMap(entry => agentLines(entry, width))];
 }
 
 /** Records the details of every task result (partial or settled) and claims the block as a task block. */
@@ -353,7 +357,7 @@ function actionOf(record: AgentRecord): string {
 
 function panelLine(record: AgentRecord): string {
 	const action = actionOf(record);
-	return `  ${paint(record.status === "pending" ? "dim" : "warning", GLYPH.circle)} ${oneLine(record.id)}${action ? ` · ${paint("dim", action)}` : ""}`;
+	return `  ${paint(record.status === "pending" ? "dim" : "warning", GLYPH.circle)} ${oneLine(record.id)}${viewMode()?.focusedAgentId === undefined ? paint("dim", " · alt+a agents") : ""}${action ? ` · ${paint("dim", action)}` : ""}`;
 }
 
 function patchHud(): void {

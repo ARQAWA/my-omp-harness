@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { goalLabel } from "./cards";
 import type { CallResult } from "./state";
 
 /** Plain row model; colors are applied in tools.ts. */
@@ -10,6 +11,10 @@ export interface Row {
 	removed?: number;
 	files: number;
 	searches: number;
+	/** Other tool calls: lsp, eval, memory, MCP, goal get and resume. */
+	tools?: number;
+	/** Shell commands. */
+	commands?: number;
 }
 
 export interface Line {
@@ -19,16 +24,32 @@ export interface Line {
 
 export type Status = "running" | "error" | "done";
 
-/** Tools that merge into an Explored row. */
-export const EXPLORE_TOOLS: Record<string, true | undefined> = {
-	read: true,
-	grep: true,
-	glob: true,
-	find: true,
-	ast_grep: true,
-	lsp: true,
-	web_search: true,
+/** Tools that keep their own row: edits and writes, and the cards of todo, ask, task and wait. */
+const OWN_ROW_TOOLS: Record<string, true | undefined> = {
+	todo: true,
+	ask: true,
+	task: true,
+	wait: true,
+	write: true,
+	edit: true,
+	ast_edit: true,
+	apply_patch: true,
 };
+
+/** Whether a tool call joins an Explored run: every tool that keeps no row of its own, and goal get and resume. */
+export function joinsRun(toolName: string, args: unknown): boolean {
+	if (OWN_ROW_TOOLS[toolName] === true) return false;
+	if (toolName === "goal") {
+		const op = asRecord(args).op;
+		return op === "get" || op === "resume";
+	}
+	return true;
+}
+
+/** Edit tools: each result carries a path and a diff. */
+export function isEditTool(toolName: string): boolean {
+	return toolName === "edit" || toolName === "ast_edit" || toolName === "apply_patch";
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== "object" || value === null) return {};
@@ -57,6 +78,14 @@ function lines(text: string): string[] {
 	return out;
 }
 
+/** Lines of written content: the final newline ends the last line, and blank lines count. */
+function writeLineCount(text: string): number {
+	if (text === "") return 0;
+	const out = text.split("\n");
+	if (text.endsWith("\n")) out.pop();
+	return out.length;
+}
+
 function outputLines(results: CallResult[]): Line[] {
 	const text = results.flatMap(r => r.content.filter(c => c.type === "text").map(c => c.text ?? "")).join("\n");
 	return lines(text).map(text => ({ tone: "dim", text }));
@@ -83,7 +112,15 @@ function diffTotals(results: CallResult[]): { added: number; removed: number } {
 }
 
 function editPaths(args: Record<string, unknown>, results: CallResult[]): string[] {
-	const fromDetails = results.map(r => str(asRecord(r.details).path)).filter(Boolean);
+	const fromDetails = results
+		.flatMap(r => {
+			const details = asRecord(r.details);
+			const perFile = Array.isArray(details.perFileResults)
+				? details.perFileResults.map(entry => str(asRecord(entry).path))
+				: [];
+			return [str(details.path), ...perFile];
+		})
+		.filter(Boolean);
 	if (fromDetails.length > 0) return fromDetails;
 	const direct = str(args.path) || str(args.file_path);
 	if (direct) return [direct];
@@ -93,9 +130,25 @@ function editPaths(args: Record<string, unknown>, results: CallResult[]): string
 
 /** The results of an edit call that each carry a path, when there are more than one; otherwise none. */
 export function editResults(toolName: string, results: CallResult[]): CallResult[] {
-	if (toolName !== "edit" && toolName !== "ast_edit") return [];
-	const withPath = results.filter(result => str(asRecord(result.details).path) !== "");
-	return withPath.length > 1 ? withPath : [];
+	if (!isEditTool(toolName)) return [];
+	const entries: CallResult[] = [];
+	for (const result of results) {
+		const details = asRecord(result.details);
+		if (Array.isArray(details.perFileResults)) {
+			for (const entry of details.perFileResults) {
+				const item = asRecord(entry);
+				if (typeof item.path !== "string") continue;
+				entries.push({
+					content: [],
+					isError: item.isError === true,
+					details: { path: item.path, diff: str(item.diff) },
+				});
+			}
+		} else if (str(details.path) !== "") {
+			entries.push(result);
+		}
+	}
+	return entries.length > 1 ? entries : [];
 }
 
 /** The row of one edit result: its own path and its own +N −M. */
@@ -113,6 +166,11 @@ export function editResultRow(result: CallResult): Row {
 
 function search(verb: string, detail: string): Row {
 	return { verb, detail, files: 0, searches: 1 };
+}
+
+/** A row of one other tool call. */
+function tool(verb: string, detail: string): Row {
+	return { verb, detail, files: 0, searches: 0, tools: 1 };
 }
 
 /** The first non-empty string argument, in argument order. */
@@ -162,6 +220,18 @@ function resultCount(results: CallResult[]): number | undefined {
 	return undefined;
 }
 
+/** The files of a write call with the line count of each content: its files batch, else its one path. */
+export function writeFiles(args: unknown): Array<{ path: string; added: number }> {
+	const a = asRecord(args);
+	if (Array.isArray(a.files) && a.files.length > 0) {
+		return a.files.map(item => {
+			const file = asRecord(item);
+			return { path: str(file.path), added: writeLineCount(str(file.content)) };
+		});
+	}
+	return [{ path: str(a.path) || str(a.file_path), added: writeLineCount(str(a.content)) }];
+}
+
 /** One-line description of a tool call and its results. */
 export function rowOf(toolName: string, args: unknown, results: CallResult[]): Row {
 	const a = asRecord(args);
@@ -177,19 +247,20 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 		case "ast_grep":
 			return search("Searched code", str(a.pat) || str(a.pattern));
 		case "lsp":
-			return search("Inspected", [str(a.action), str(a.symbol) || str(a.file) || str(a.path)].filter(Boolean).join(" "));
+			return tool("Inspected", [str(a.action), str(a.symbol) || str(a.file) || str(a.path)].filter(Boolean).join(" "));
 		case "web_search":
 			return search("Searched web", str(a.query));
 		case "think":
-			return { verb: "Noted", detail: str(a.thoughts).split("\n", 1)[0] ?? "", files: 0, searches: 0 };
+			return tool("Noted", str(a.thoughts).split("\n", 1)[0] ?? "");
 		case "wait":
-			return { verb: "Waited", detail: firstString(a), files: 0, searches: 0 };
+			return tool("Waited", firstString(a));
 		case "yield": {
 			const data = yieldData(a, results);
-			return { verb: "Returned", detail: data === undefined ? "" : JSON.stringify(data), files: 0, searches: 0 };
+			return tool("Returned", data === undefined ? "" : JSON.stringify(data));
 		}
 		case "edit":
-		case "ast_edit": {
+		case "ast_edit":
+		case "apply_patch": {
 			const row: Row = {
 				verb: "Edited",
 				detail: editPaths(a, results)
@@ -219,20 +290,23 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 				detail: str(a.command).replace(/\s*[\r\n]+\s*/g, " ").trim(),
 				files: 0,
 				searches: 0,
+				commands: 1,
 			};
 		case "eval":
-			return { verb: "Ran eval", detail: str(a.title) || str(a.language), files: 0, searches: 0 };
+			return tool("Ran eval", str(a.title) || str(a.language));
 		case "lcm_grep": {
 			const found = resultCount(results);
 			const count = found === undefined ? "" : ` · ${found} found`;
-			return { verb: "Searched memory", detail: `"${str(a.query)}"${count}`, files: 0, searches: 0 };
+			return tool("Searched memory", `"${str(a.query)}"${count}`);
 		}
 		case "lcm_describe":
-			return { verb: "Viewed memory map", detail: "", files: 0, searches: 0 };
+			return tool("Viewed memory map", "");
 		case "lcm_expand":
-			return { verb: "Opened memory summary", detail: "", files: 0, searches: 0 };
+			return tool("Opened memory summary", "");
+		case "goal":
+			return tool(goalLabel(str(a.op)), "");
 		default: {
-			return { verb: toolName, detail: firstString(a), files: 0, searches: 0 };
+			return tool(toolName, firstString(a));
 		}
 	}
 }
@@ -252,6 +326,7 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 	switch (toolName) {
 		case "edit":
 		case "ast_edit":
+		case "apply_patch":
 			return diffLines(results);
 		case "bash": {
 			const command: Line[] = str(asRecord(args).command)
@@ -269,12 +344,63 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 	}
 }
 
-/** "2 files, 1 search" without the verb. */
-export function countsText(files: number, searches: number): string {
+/** "2 files, 1 search, 3 tools, ran 2 commands" without the verb: the nonzero parts in that order. */
+export function countsText(files: number, searches: number, tools: number, commands: number): string {
 	const parts: string[] = [];
 	if (files > 0) parts.push(`${files} ${files === 1 ? "file" : "files"}`);
 	if (searches > 0) parts.push(`${searches} ${searches === 1 ? "search" : "searches"}`);
+	if (tools > 0) parts.push(`${tools} ${tools === 1 ? "tool" : "tools"}`);
+	if (commands > 0) parts.push(`ran ${commands} ${commands === 1 ? "command" : "commands"}`);
 	return parts.join(", ");
+}
+
+/** The first path in a tool call's args: its path, the first file of a batch, or the first file of a patch. */
+function firstPath(a: Record<string, unknown>): string {
+	const first = Array.isArray(a.files) ? asRecord(a.files[0]).path : undefined;
+	const firstEdit = Array.isArray(a.edits) ? asRecord(a.edits[0]).path : undefined;
+	const firstBatchPath = Array.isArray(a.paths) ? a.paths[0] : undefined;
+	const patch = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/m.exec(str(a.input));
+	return str(a.path) || str(a.file_path) || str(first) || str(firstEdit) || str(firstBatchPath) || (patch?.[1] ?? "").trim();
+}
+
+/** The phrase a status line shows while a tool call runs. */
+export function actionPhrase(toolName: string, args: unknown): string {
+	const path = firstPath(asRecord(args)).replace(/:\d+(?:[-+]\d*)?$/, "");
+	const name = path === "" ? "" : basename(path);
+	switch (toolName) {
+		case "read":
+			return name === "" ? "Reading file" : `Reading ${name}`;
+		case "grep":
+		case "glob":
+		case "find":
+		case "ast_grep":
+			return "Searching files";
+		case "web_search":
+			return "Searching the web";
+		case "lsp":
+			return "Inspecting code";
+		case "bash":
+			return "Running command";
+		case "eval":
+			return "Running code";
+		case "edit":
+		case "ast_edit":
+		case "apply_patch":
+			return name === "" ? "Editing file" : `Editing ${name}`;
+		case "write":
+			return name === "" ? "Writing file" : `Writing ${name}`;
+		case "todo":
+			return "Updating to-do list";
+		case "goal":
+			return "Updating goal";
+		case "task":
+		case "wait":
+			return "Waiting for subagent";
+		case "ask":
+			return "Waiting for your answer";
+		default:
+			return `Running ${toolName}`;
+	}
 }
 
 /** Seconds with one decimal under 10 s, whole seconds under a minute, then m and s. */

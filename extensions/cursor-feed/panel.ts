@@ -13,11 +13,10 @@ export type ModeLike = Pick<
 type Phase = ModeLike["todoPhases"][number];
 type Task = Phase["tasks"][number];
 type Container = ModeLike["todoContainer"];
+type Progress = { cur: number; total: number; steps: string[] };
 
 interface ProgressSlot {
 	state?: { item: string; steps: string[]; current: number };
-	canShow?: (item: string) => boolean;
-	sync?: () => void;
 	setTodos?: (phases: Phase[]) => void;
 }
 
@@ -53,97 +52,110 @@ export function bar(cur: number, total: number): { glyph: string; filled: boolea
 	});
 }
 
-/** One task row: the prefix, a status symbol and the text; the in-progress row carries the substep bar. */
-function taskLine(prefix: string, task: Task, width: number): string {
+/** One task row: the prefix, a status symbol and the text. */
+function taskLine(prefix: string, task: Task): string {
 	const { content, status } = task;
 	if (status === "completed" || status === "abandoned") return `${prefix}${paint("success", GLYPH.circle)} ${paint("dim", content)}`;
 	if (status === "pending" || status === "blocked") return `${prefix}${paint("dim", GLYPH.circle)} ${paint("muted", content)}`;
-
-	const state = slot.state;
-	if (status === "in_progress" && state !== undefined && state.item === content && state.steps.length > 0) {
-		const total = state.steps.length;
-		const cur = Math.min(Math.max(1, Math.round(state.current)), total);
-		const cells = bar(cur, total).map(cell => paint(cell.filled ? "warning" : "dim", cell.glyph)).join("");
-		return fitLine(`${prefix}${cells} ${paint("text", content)}${paint("dim", ` · ${cur}/${total} ${state.steps[cur - 1]}`)}`, width);
-	}
 	return `${prefix}${paint("warning", GLYPH.circle)} ${paint("text", content)}`;
 }
 
-/** The panel rows: a collapsed window of one phase, or every phase when expanded. */
+/** The progress of the in-progress item that the slot describes, or undefined for any other task. */
+function progressOf(task: Task): Progress | undefined {
+	const state = slot.state;
+	if (task.status !== "in_progress" || state === undefined || state.item !== task.content || state.steps.length === 0) return undefined;
+	const total = state.steps.length;
+	const cur = Math.min(Math.max(1, Math.round(state.current)), total);
+	return { cur, total, steps: state.steps };
+}
+
+/** The row under the current item in the collapsed panel: the substep bar and the current step. */
+function barLine(progress: Progress): string {
+	const cells = bar(progress.cur, progress.total).map(cell => paint(cell.filled ? "warning" : "dim", cell.glyph)).join("");
+	return `    ${cells} ${paint("dim", `${progress.cur}/${progress.total} ${progress.steps[progress.cur - 1]}`)}`;
+}
+
+/** The rows under the current item in the expanded panel: earlier steps done, the current one in progress, later ones pending. */
+function stepLines(progress: Progress): string[] {
+	return progress.steps.map((step, index) => {
+		const n = index + 1;
+		if (n < progress.cur) return `      ${paint("success", GLYPH.circle)} ${paint("dim", step)}`;
+		if (n === progress.cur) return `      ${paint("warning", GLYPH.circle)} ${paint("text", step)}`;
+		return `      ${paint("dim", GLYPH.circle)} ${paint("muted", step)}`;
+	});
+}
+
+function headerLine(total: number, left: number): string {
+	return `${paint("text", "To-dos:")} ${paint("dim", `${total} total · ${left} left`)}`;
+}
+
+/** The panel rows: the header, then up to three items around the current one, or every phase when expanded. */
 function panelLines(mode: ModeLike, width: number): string[] {
 	const phases = mode.todoPhases.filter(phase => phase.tasks.length > 0);
 	const all = phases.flatMap(phase => phase.tasks);
-	if (all.length === 0) return [];
-	const done = all.filter(isDone).length;
 	const total = all.length;
+	const left = all.filter(task => !isDone(task)).length;
+	if (left === 0) return [];
 	const expanded = mode.toolOutputExpanded === true || mode.todoExpanded === true;
-	const lines: string[] = [];
+	const lines: string[] = [headerLine(total, left)];
 
 	if (expanded) {
-		lines.push("", `${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)}`);
 		for (const phase of phases) {
 			const phaseDone = phase.tasks.filter(isDone).length;
 			lines.push(`  ${paint("muted", phase.name)} ${paint("dim", `${phaseDone}/${phase.tasks.length}`)}`);
-			for (const task of phase.tasks) lines.push(taskLine("    ", task, width));
+			for (const task of phase.tasks) {
+				lines.push(taskLine("    ", task));
+				const progress = progressOf(task);
+				if (progress) lines.push(...stepLines(progress));
+			}
 		}
 	} else {
-		const phase: Phase =
-			phases.find(item => item.tasks.some(task => task.status === "pending" || task.status === "in_progress")) ??
-			phases[phases.length - 1]!;
-		const tasks = phase.tasks;
-		const n = tasks.length;
-		const inProgress = tasks.findIndex(task => task.status === "in_progress");
-		const open = tasks.findIndex(task => !isDone(task));
+		const n = all.length;
+		const inProgress = all.findIndex(task => task.status === "in_progress");
+		const open = all.findIndex(task => !isDone(task));
 		const anchor = inProgress >= 0 ? inProgress : open >= 0 ? open : n - 1;
-		const start = Math.max(0, Math.min(anchor - 1, n - 5));
-		const windowTasks = tasks.slice(start, start + 5);
-		const shown = windowTasks.length;
-
-		lines.push("", `${paint("text", "To-dos")} ${paint("dim", `${done}/${total}`)} ${paint("dim", "·")} ${paint("muted", phase.name)}`);
-		for (const task of windowTasks) lines.push(taskLine("  ", task, width));
-		if (n - shown > 0) lines.push(`  ${paint("dim", `… ${n - shown} more`)}`);
+		const start = Math.max(0, Math.min(anchor - 1, n - 3));
+		for (const task of all.slice(start, start + 3)) {
+			lines.push(taskLine("  ", task));
+			const progress = progressOf(task);
+			if (progress) lines.push(barLine(progress));
+		}
 	}
 
 	return lines.map(line => fitLine(line, width));
 }
 
-/** Gives one todo container the panel render; the original render stays the fallback. */
-function installContainer(mode: ModeLike, container: Container): void {
+/** Empties the native todo container while the panel is on, so the todo list is drawn once; the original render stays when the panel is off. */
+function installContainer(container: Container): void {
 	const record = container as unknown as Record<symbol, unknown>;
 	if (record[GUARD]) return;
 	record[GUARD] = true;
 	const original = container.render;
-	container.render = (width: number): readonly string[] => {
-		queueMicrotask(() => slot.sync?.());
-		if (!enabled() || mode.isCompactTodoMode() || container.children.length === 0) return original.call(container, width);
-		try {
-			return panelLines(mode, width);
-		} catch {
-			return original.call(container, width);
-		}
-	};
+	container.render = (width: number): readonly string[] => (enabled() ? [] : original.call(container, width));
 }
 
-/** Whether the panel draws the bar for this item: the todo panel is shown and the item is in progress. */
-function canShow(item: string): boolean {
+/** The todo panel rows for the status bar title widget; empty when the panel is off or the todo container is hidden. */
+export function todoPanelLines(width: number): string[] {
 	const mode = current;
-	if (!enabled() || mode === undefined) return false;
-	if (mode.isCompactTodoMode() || mode.todoContainer.children.length === 0) return false;
-	return mode.todoPhases.some(phase => phase.tasks.some(task => task.status === "in_progress" && task.content === item));
+	if (!enabled() || mode === undefined || mode.todoContainer.children.length === 0) return [];
+	try {
+		return panelLines(mode, width);
+	} catch {
+		return [];
+	}
 }
 
-/** Draws the todo panel with cursor-feed; the progress bar of the in-progress item goes inside its row. */
+/** Captures the interactive mode and empties its native todo container while the panel is on. */
 export function installPanel(): void {
 	const proto = InteractiveMode.prototype;
 	const record = proto as unknown as Record<symbol, unknown>;
 	if (record[GUARD]) return;
 	record[GUARD] = true;
-	slot.canShow = canShow;
 	slot.setTodos = phases => current?.setTodos(phases);
 	const isCompactTodoMode = proto.isCompactTodoMode;
 	proto.isCompactTodoMode = function (this: InteractiveMode): boolean {
 		current = this;
-		if (this.todoContainer) installContainer(this, this.todoContainer);
+		if (this.todoContainer) installContainer(this.todoContainer);
 		return isCompactTodoMode.call(this);
 	};
 }
