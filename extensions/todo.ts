@@ -1,0 +1,614 @@
+import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
+
+const DESCRIPTION = `Manage your todo list in one call: ops is a list of operations applied in order, each seeing the result of the previous ones; on the first failing op the earlier ones are kept and the result names the failing op, its fix, the ops not applied and the current list. Ops: init (list: phases with items; replaces the list), append (items, optional phase; default the current phase), start, done, drop, block (reason), unblock, rm, plan (steps of an item, default the current one), step (step number of the current plan step; omitted = next step), closed (optional phase; lists closed items, changes nothing). An item is a title string or {title, plan: [steps]}. Address items by number like 2.3 (phase.item) or by text; dashes, quotes, spaces and letter case may differ. Batch every change you need now into one call, e.g. [{op:"done",item:"1.2"},{op:"start",item:"1.3"},{op:"plan",steps:["…","…"]}]. While items are open, the list is shown to you every turn: open items with their numbers and the plan of the current item; closed items are folded into counts, list them with closed (optional phase).`;
+
+type Status = "pending" | "in_progress" | "completed" | "abandoned" | "blocked";
+type Item = { content: string; status: Status; blocker?: string };
+type Phase = { name: string; tasks: Item[] };
+type Plan = { steps: string[]; current: number };
+type TodoState = { phases: Phase[]; plans: Map<string, Plan> };
+type ItemSpec = string | { title?: string; plan?: string[] };
+type OpName = "init" | "append" | "start" | "done" | "drop" | "block" | "unblock" | "rm" | "plan" | "step" | "closed";
+type Op = {
+	op: OpName;
+	item?: string;
+	phase?: string;
+	list?: { phase?: string; items?: ItemSpec[] }[];
+	items?: ItemSpec[];
+	reason?: string;
+	steps?: string[];
+	step?: number;
+};
+type Entry = { phase: number; index: number; item: Item; num: string };
+
+const MARK: Record<Status, string> = { completed: "✓", in_progress: "●", pending: "○", blocked: "⊘", abandoned: "✗" };
+const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>/g;
+
+const SLOT = Symbol.for("my-omp-harness.progress");
+type ProgressSlot = {
+	state?: { item: string; steps: string[]; current: number };
+	canShow?: (item: string) => boolean;
+	sync?: () => void;
+	setTodos?: (phases: Phase[]) => void;
+};
+const slot = ((globalThis as Record<symbol, unknown>)[SLOT] ??= {}) as ProgressSlot;
+const PROGRESS = "my-omp-harness.progress";
+let progressUi: ExtensionContext["ui"] | undefined;
+let barLine: string[] | undefined;
+let barHidden = false;
+// The panel calls sync after it changes whether it draws the bar; the separate widget follows that decision.
+slot.sync = () => {
+	if (!progressUi || !barLine || !slot.state) return;
+	const hide = slot.canShow?.(slot.state.item) === true;
+	if (hide === barHidden) return;
+	barHidden = hide;
+	try {
+		progressUi.setWidget(PROGRESS, hide ? undefined : barLine);
+	} catch {
+		// The UI may already be gone; the next commit sets the widget again.
+	}
+};
+
+let state: TodoState | undefined;
+
+class OpError extends Error {
+	constructor(
+		readonly reason: string,
+		readonly fix: string,
+	) {
+		super(reason);
+	}
+}
+
+function fail(text: string) {
+	return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+function normalize(text: string): string {
+	return text
+		.normalize("NFKC")
+		.toLowerCase()
+		.replace(/\u2192|\u21D2|\u27F6|=>|->/g, "->")
+		.replace(/[\u2014\u2013\u2212\u2010\u2011]/g, "-")
+		.replace(/[\u00AB\u00BB\u201C\u201D\u201E\u2018\u2019"'`]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function matchBy<T>(pool: T[], text: (value: T) => string, query: string): T[] {
+	const wanted = normalize(query);
+	if (wanted === "") return [];
+	const exact = pool.filter(value => normalize(text(value)) === wanted);
+	if (exact.length > 0) return exact;
+	return pool.filter(value => {
+		const candidate = normalize(text(value));
+		return candidate !== "" && (candidate.includes(wanted) || wanted.includes(candidate));
+	});
+}
+
+function keyOf(phaseName: string, title: string): string {
+	return `${phaseName}\u0000${title}`;
+}
+
+function isOpen(status: Status): boolean {
+	return status === "pending" || status === "in_progress" || status === "blocked";
+}
+
+function capitalize(text: string): string {
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function label(op: Op): string {
+	return op.item !== undefined ? `${op.op} ${op.item}` : op.op;
+}
+
+// Drops optional fields that are empty strings or empty arrays, and a non-positive step.
+function clean(value: unknown): unknown {
+	if (typeof value === "string") return value.trim() === "" ? undefined : value;
+	if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : undefined;
+	if (Array.isArray(value)) {
+		const kept = value.map(clean).filter(part => part !== undefined);
+		return kept.length > 0 ? kept : undefined;
+	}
+	if (value !== null && typeof value === "object") {
+		const out: Record<string, unknown> = {};
+		for (const [key, part] of Object.entries(value)) {
+			const cleaned = clean(part);
+			if (cleaned !== undefined) out[key] = cleaned;
+		}
+		return out;
+	}
+	return value;
+}
+
+function allItems(next: TodoState): Entry[] {
+	return next.phases.flatMap((phase, p) => phase.tasks.map((item, i) => ({ phase: p, index: i, item, num: `${p + 1}.${i + 1}` })));
+}
+
+function itemKey(next: TodoState, entry: Entry): string {
+	return keyOf(next.phases[entry.phase]!.name, entry.item.content);
+}
+
+function show(entry: Entry): string {
+	return `${entry.num} "${entry.item.content}"`;
+}
+
+function openList(next: TodoState): string {
+	return allItems(next).filter(entry => isOpen(entry.item.status)).map(show).join("; ") || "none";
+}
+
+function itemSpec(spec: ItemSpec): { title: string; plan?: string[] } {
+	const title = (typeof spec === "string" ? spec : (spec.title ?? "")).trim();
+	if (title === "") throw new OpError("an item has no title", "give every item a title");
+	const plan = typeof spec === "string" ? undefined : spec.plan;
+	return plan?.length ? { title, plan } : { title };
+}
+
+function claim(titles: Set<string>, title: string): void {
+	const key = normalize(title);
+	if (titles.has(key)) throw new OpError(`item "${title}" is listed twice`, "keep each title once; give one of them another title or drop it");
+	titles.add(key);
+}
+
+// Phase by number (1-based, when in range), else by forgiving name match; an unknown name is a new phase.
+function resolvePhase(next: TodoState, query: string): number | string {
+	const text = query.trim();
+	const number = /^\d+$/.test(text) ? Number(text) : 0;
+	if (number >= 1 && number <= next.phases.length) return number - 1;
+	const found = matchBy(
+		next.phases.map((phase, i) => ({ phase, i })),
+		entry => entry.phase.name,
+		text,
+	);
+	if (found.length === 1) return found[0]!.i;
+	if (found.length > 1) {
+		throw new OpError(
+			`several phases match "${text}": ${found.map(entry => `${entry.i + 1} ${entry.phase.name}`).join(", ")}`,
+			"repeat the op with phase set to one of these numbers or exact names",
+		);
+	}
+	return text;
+}
+
+function defaultPhase(next: TodoState): number {
+	const active = next.phases.findIndex(phase => phase.tasks.some(item => item.status === "in_progress"));
+	if (active >= 0) return active;
+	const pending = next.phases.findIndex(phase => phase.tasks.some(item => item.status === "pending"));
+	if (pending >= 0) return pending;
+	return next.phases.length - 1;
+}
+
+// Item by number ("2.3") or by text; several text matches resolve to the single open one.
+function locate(next: TodoState, query: string | undefined, op: OpName): Entry {
+	if (query === undefined) throw new OpError(`${op} needs an item`, 'pass item: "<number like 2.3 or the exact item text>"');
+	const text = query.trim();
+	const entries = allItems(next);
+	if (/^\d+\.\d+$/.test(text)) {
+		const exact = entries.find(entry => entry.num === text);
+		if (exact) return exact;
+		throw new OpError(`no item ${text}. Open items: ${openList(next)}`, "repeat the op with item set to a number from the open items above");
+	}
+	const found = matchBy(entries, entry => entry.item.content, text);
+	if (found.length === 1) return found[0]!;
+	if (found.length > 1) {
+		const open = found.filter(entry => isOpen(entry.item.status));
+		if (open.length === 1) return open[0]!;
+		throw new OpError(`several items match "${text}": ${found.map(show).join("; ")}`, "repeat the op with item set to one of these numbers");
+	}
+	throw new OpError(`no item matches "${text}". Open items: ${openList(next)}`, "repeat the op with item set to the number or exact text of an open item above");
+}
+
+// plan and step default to the in-progress item.
+function resolveDefault(next: TodoState, query: string | undefined, op: OpName): Entry {
+	if (query !== undefined) return locate(next, query, op);
+	const active = allItems(next).find(entry => entry.item.status === "in_progress");
+	if (!active) throw new OpError(`${op} has no item and none is in progress`, 'pass item: "<number like 2.3 or the exact item text>"');
+	return active;
+}
+
+function init(next: TodoState, op: Op): string {
+	if (!op.list?.length) throw new OpError("init has no list", `pass list: [{phase, items: [...]}]`);
+	const phases: Phase[] = [];
+	const plans = new Map<string, Plan>();
+	const names = new Set<string>();
+	const titles = new Set<string>();
+	for (const group of op.list) {
+		const name = (group.phase ?? "").trim();
+		if (name === "") throw new OpError("a phase has no name", `give every phase a name in list, e.g. {phase: "Research", items: [...]}`);
+		if (!group.items?.length) throw new OpError(`phase "${name}" has no items`, `give "${name}" at least one item, or drop it from list`);
+		if (names.has(normalize(name))) throw new OpError(`phase "${name}" is listed twice`, "merge its items into one phase entry");
+		names.add(normalize(name));
+		const tasks: Item[] = [];
+		for (const spec of group.items) {
+			const { title, plan } = itemSpec(spec);
+			claim(titles, title);
+			tasks.push({ content: title, status: "pending" });
+			if (plan) plans.set(keyOf(name, title), { steps: plan, current: 1 });
+		}
+		phases.push({ name, tasks });
+	}
+	next.phases = phases;
+	next.plans = plans;
+	return `list set: ${allItems(next).length} items in ${phases.length} phases`;
+}
+
+function append(next: TodoState, op: Op): string {
+	if (!op.items?.length) throw new OpError("append has no items", `pass items: ["title", {title, plan: [...]}]`);
+	const specs = op.items.map(itemSpec);
+	const taken = new Set(allItems(next).map(entry => normalize(entry.item.content)));
+	let index = -1;
+	let name = "Todos";
+	if (op.phase !== undefined) {
+		const target = resolvePhase(next, op.phase);
+		if (typeof target === "number") {
+			index = target;
+			name = next.phases[target]!.name;
+		} else {
+			name = target;
+		}
+	} else {
+		index = defaultPhase(next);
+		if (index >= 0) name = next.phases[index]!.name;
+	}
+	if (index < 0) {
+		next.phases.push({ name, tasks: [] });
+		index = next.phases.length - 1;
+	}
+	const phase = next.phases[index]!;
+	const added: string[] = [];
+	for (const { title, plan } of specs) {
+		if (taken.has(normalize(title))) throw new OpError(`item "${title}" already exists`, "use the existing item by its number, or give this one another title");
+		taken.add(normalize(title));
+		phase.tasks.push({ content: title, status: "pending" });
+		if (plan) next.plans.set(keyOf(phase.name, title), { steps: plan, current: 1 });
+		added.push(`${index + 1}.${phase.tasks.length} "${title}"`);
+	}
+	return `added ${added.join(", ")} to ${phase.name}`;
+}
+
+// Lists the closed items of the covered phases: every phase, or the one phase given.
+function closedLines(next: TodoState, op: Op): string[] {
+	let covered = next.phases.map((_phase, p) => p);
+	if (op.phase !== undefined) {
+		const target = resolvePhase(next, op.phase);
+		if (typeof target === "string") {
+			const known = next.phases.map((phase, i) => `${i + 1} ${phase.name}`).join(", ") || "none";
+			throw new OpError(`no phase matches "${target}". Phases: ${known}`, "repeat the op with phase set to a number or exact name from the phases above");
+		}
+		covered = [target];
+	}
+	const lines: string[] = [];
+	for (const p of covered) {
+		const phase = next.phases[p]!;
+		const items = phase.tasks.flatMap((item, i) => (isOpen(item.status) ? [] : [`${p + 1}.${i + 1} ${MARK[item.status]} ${item.content}`]));
+		if (items.length > 0) lines.push(`${p + 1} ${phase.name}`, ...items);
+	}
+	return lines.length > 0 ? lines : ["No closed items."];
+}
+
+function applyOp(next: TodoState, op: Op, report: string[]): string {
+	switch (op.op) {
+		case "init":
+			return init(next, op);
+		case "append":
+			return append(next, op);
+		case "start": {
+			const target = locate(next, op.item, "start");
+			for (const entry of allItems(next)) if (entry.item.status === "in_progress") entry.item.status = "pending";
+			target.item.status = "in_progress";
+			return `started ${target.num} "${target.item.content}"`;
+		}
+		case "done":
+		case "drop": {
+			const target = locate(next, op.item, op.op);
+			delete target.item.blocker;
+			target.item.status = op.op === "done" ? "completed" : "abandoned";
+			return `${op.op === "done" ? "done" : "dropped"} ${target.num}`;
+		}
+		case "block": {
+			const target = locate(next, op.item, "block");
+			const reason = op.reason?.trim();
+			if (!reason) throw new OpError("block has no reason", `pass reason: "what the item waits for"`);
+			target.item.status = "blocked";
+			target.item.blocker = reason;
+			return `blocked ${target.num}: ${reason}`;
+		}
+		case "unblock": {
+			const target = locate(next, op.item, "unblock");
+			delete target.item.blocker;
+			target.item.status = "pending";
+			return `unblocked ${target.num}`;
+		}
+		case "rm": {
+			const target = locate(next, op.item, "rm");
+			const key = itemKey(next, target);
+			next.phases[target.phase]!.tasks.splice(target.index, 1);
+			next.plans.delete(key);
+			return `removed ${target.num} "${target.item.content}"`;
+		}
+		case "plan": {
+			if (!op.steps?.length) throw new OpError("plan has no steps", `pass steps: ["first step", "second step"]`);
+			const target = resolveDefault(next, op.item, "plan");
+			next.plans.set(itemKey(next, target), { steps: op.steps, current: 1 });
+			return `plan ${target.num}: ${op.steps.length} steps`;
+		}
+		case "step": {
+			const target = resolveDefault(next, op.item, "step");
+			const plan = next.plans.get(itemKey(next, target));
+			if (!plan) throw new OpError(`${target.num} has no plan`, `add its steps first: {op:"plan", item:"${target.num}", steps:[...]}`);
+			const total = plan.steps.length;
+			if (op.step !== undefined) {
+				if (op.step > total) throw new OpError(`step ${op.step} is outside 1..${total}`, `pass step from 1 to ${total}, or omit step to move on by one`);
+				plan.current = op.step;
+			} else {
+				plan.current = Math.min(plan.current + 1, total + 1);
+			}
+			return plan.current > total ? `all ${total} steps of ${target.num} marked` : `step ${target.num}: ${plan.current}/${total}`;
+		}
+		case "closed":
+			report.push(...closedLines(next, op));
+			return "listed closed items";
+		default:
+			throw new OpError(`unknown op ${String(op.op)}`, "use one of init, append, start, done, drop, block, unblock, rm, plan, step, closed");
+	}
+}
+
+// At most one item in progress; with none, the first pending item in list order starts.
+function settle(next: TodoState): TodoState {
+	const entries = allItems(next);
+	const active = entries.filter(entry => entry.item.status === "in_progress");
+	for (const extra of active.slice(1)) extra.item.status = "pending";
+	if (active.length === 0) {
+		const pending = entries.find(entry => entry.item.status === "pending");
+		if (pending) pending.item.status = "in_progress";
+	}
+	return next;
+}
+
+function nextLine(next: TodoState): string {
+	const entries = allItems(next);
+	if (!entries.some(entry => isOpen(entry.item.status))) return "All items are closed; the list leaves the context.";
+	const active = entries.find(entry => entry.item.status === "in_progress");
+	if (!active) return `No item is in progress; start one with {op:"start",item:"…"}.`;
+	const plan = next.plans.get(itemKey(next, active));
+	if (!plan) return `Next: ${active.num} "${active.item.content}" has no plan; add its steps with {op:"plan", steps:[…]}.`;
+	if (plan.current > plan.steps.length) return `All steps of ${active.num} are marked; close it with {op:"done"}.`;
+	return `Now: ${active.num} "${active.item.content}", step ${plan.current}/${plan.steps.length} "${plan.steps[plan.current - 1]}".`;
+}
+
+function planText(plan: Plan): string {
+	const total = plan.steps.length;
+	const text = plan.steps
+		.map((step, index) => {
+			const mark = index + 1 < plan.current ? "✓" : index + 1 === plan.current ? "▸" : "○";
+			return `${mark}${index + 1} ${step}`;
+		})
+		.join(" · ");
+	return plan.current > total ? `${text} · all steps marked` : text;
+}
+
+function snapshot(next: TodoState): string {
+	const entries = allItems(next);
+	const open = entries.filter(entry => isOpen(entry.item.status)).length;
+	const lines = ["<todo>", `Your todo list; item numbers work in every todo op. ${open} of ${entries.length} open; closed items are folded, list them with {op:"closed"}.`];
+	next.phases.forEach((phase, p) => {
+		if (phase.tasks.length === 0) {
+			lines.push(`${p + 1} ${phase.name} — empty`);
+			return;
+		}
+		const closedCount = phase.tasks.filter(item => !isOpen(item.status)).length;
+		lines.push(`${p + 1} ${phase.name} — ${closedCount}/${phase.tasks.length} закрыто`);
+		phase.tasks.forEach((item, i) => {
+			if (!isOpen(item.status)) return;
+			const blocked = item.status === "blocked" ? ` — blocked: ${item.blocker ?? ""}` : "";
+			lines.push(`  ${p + 1}.${i + 1} ${MARK[item.status]} ${item.content}${blocked}`);
+			const plan = next.plans.get(keyOf(phase.name, item.content));
+			if (item.status === "in_progress" && plan) lines.push(`      plan: ${planText(plan)}`);
+		});
+	});
+	lines.push("</todo>");
+	return lines.join("\n");
+}
+
+// Plans are kept only for items that still exist.
+function livePlans(raw: unknown, phases: Phase[]): Map<string, Plan> {
+	const plans = new Map<string, Plan>();
+	if (typeof raw !== "object" || raw === null) return plans;
+	const live = new Set(phases.flatMap(phase => phase.tasks.map(item => keyOf(phase.name, item.content))));
+	for (const [key, value] of Object.entries(raw)) {
+		const plan = value as Partial<Plan> | null;
+		if (!plan || !live.has(key)) continue;
+		if (!Array.isArray(plan.steps) || plan.steps.length === 0 || typeof plan.current !== "number") continue;
+		plans.set(key, { steps: plan.steps, current: plan.current });
+	}
+	return plans;
+}
+
+// The newest branch entry that omp accepts as the todo state.
+function restore(sessionManager: { getBranch(): unknown }): TodoState {
+	const entries = sessionManager.getBranch();
+	if (!Array.isArray(entries)) return { phases: [], plans: new Map() };
+	for (let index = entries.length - 1; index >= 0; index--) {
+		const entry = entries[index] as
+			| {
+					type?: string;
+					customType?: string;
+					data?: { phases?: unknown };
+					message?: {
+						role?: string;
+						toolName?: string;
+						isError?: boolean;
+						details?: { phases?: unknown; plans?: unknown };
+					};
+			  }
+			| undefined;
+		const edited = entry?.data?.phases;
+		if (entry?.type === "custom" && entry.customType === "user_todo_edit" && Array.isArray(edited)) {
+			return { phases: edited as Phase[], plans: new Map() };
+		}
+		const message = entry?.message;
+		if (entry?.type !== "message" || !message || message.role !== "toolResult" || message.toolName !== "todo") continue;
+		const details = message.details;
+		if (!details || !Array.isArray(details.phases)) continue;
+		const phases = details.phases as Phase[];
+		return { phases, plans: livePlans(details.plans, phases) };
+	}
+	return { phases: [], plans: new Map() };
+}
+
+function currentState(sessionManager: { getBranch(): unknown }): TodoState {
+	return (state ??= restore(sessionManager));
+}
+
+// Shows the bar for the in-progress item when it has a plan; otherwise removes it.
+function showProgress(next: TodoState, ui: ExtensionContext["ui"] | undefined): void {
+	if (ui) progressUi = ui;
+	const active = allItems(next).find(entry => entry.item.status === "in_progress");
+	const plan = active ? next.plans.get(itemKey(next, active)) : undefined;
+	if (!active || !plan) {
+		slot.state = undefined;
+		barLine = undefined;
+		progressUi?.setWidget(PROGRESS, undefined);
+		return;
+	}
+	const total = plan.steps.length;
+	const current = Math.min(Math.max(1, plan.current), total);
+	const item = active.item.content;
+	slot.state = { item, steps: plan.steps, current };
+	const bar = plan.steps.map((_step, index) => (index < current ? "▰" : "▱")).join("");
+	barLine = [`${bar} ${current}/${total} ${plan.steps[current - 1]}`];
+	barHidden = slot.canShow?.(item) === true;
+	progressUi?.setWidget(PROGRESS, barHidden ? undefined : barLine);
+}
+
+function stripTodoBlock<T>(message: T): T {
+	const record = message as unknown as { customType?: unknown; content?: unknown };
+	if (typeof record.content === "string") {
+		const text = record.content.replace(TODO_BLOCK, "");
+		return text === record.content ? message : ({ ...record, content: text } as T);
+	}
+	if (!Array.isArray(record.content)) return message;
+	let changed = false;
+	const parts = record.content.map((part: unknown) => {
+		const p = part as { type?: unknown; text?: unknown } | null;
+		if (p?.type !== "text" || typeof p.text !== "string") return part;
+		const text = p.text.replace(TODO_BLOCK, "");
+		if (text === p.text) return part;
+		changed = true;
+		return { ...p, text };
+	});
+	return changed ? ({ ...record, content: parts } as T) : message;
+}
+
+export default function todo(pi: ExtensionAPI) {
+	const z = pi.zod;
+
+	const ITEM = z.union([z.string(), z.object({ title: z.string(), plan: z.array(z.string()).optional() })]);
+	const OP = z.object({
+		op: z.enum(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"]),
+		item: z.string().optional(),
+		phase: z.string().optional(),
+		list: z.array(z.object({ phase: z.string(), items: z.array(ITEM) })).optional(),
+		items: z.array(ITEM).optional(),
+		reason: z.string().optional(),
+		steps: z.array(z.string()).optional(),
+		step: z.number().optional(),
+	});
+
+	const restoreOnSession = (_event: unknown, ctx: ExtensionContext) => {
+		state = undefined;
+		if (ctx.agent.kind !== "main" || !ctx.hasUI) return;
+		showProgress(currentState(ctx.sessionManager), ctx.ui);
+	};
+	pi.on("session_start", restoreOnSession);
+	pi.on("session_switch", restoreOnSession);
+	pi.on("session_branch", restoreOnSession);
+	pi.on("session_tree", restoreOnSession);
+
+	pi.on("context", (event, ctx) => {
+		if (ctx.agent.kind !== "main") return undefined;
+		const current = currentState(ctx.sessionManager);
+		const messages = event.messages.map(message => stripTodoBlock(message));
+		let changed = messages.some((message, index) => message !== event.messages[index]);
+		if (allItems(current).some(entry => isOpen(entry.item.status))) {
+			messages.push({
+				role: "user",
+				content: [{ type: "text", text: snapshot(current) }],
+				attribution: "agent",
+				timestamp: Date.now(),
+			} as unknown as (typeof messages)[number]);
+			changed = true;
+		}
+		return changed ? { messages } : undefined;
+	});
+
+	pi.on("session_stop", async (_event, ctx) => {
+		if (ctx.agent.kind !== "main") return;
+		const open = allItems(currentState(ctx.sessionManager)).filter(entry => entry.item.status === "pending" || entry.item.status === "in_progress");
+		if (open.length === 0) return;
+		return {
+			decision: "block" as const,
+			reason: [
+				"The todo list still has open items:",
+				...open.map(entry => `- ${entry.num} ${entry.item.content} (${entry.item.status})`),
+				"Before finishing, mark each one done, drop it if it is no longer needed, or block it with a reason if it waits for the user or another event.",
+			].join("\n"),
+		};
+	});
+
+	pi.registerTool({
+		name: "todo",
+		label: "todo",
+		loadMode: "essential",
+		concurrency: "shared",
+		approval: "read",
+		description: DESCRIPTION,
+		parameters: z.object({ ops: z.array(OP).min(1) }),
+		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+			const ops = rawParams.ops.map(raw => (clean(raw) ?? {}) as Op);
+			if (ops.length === 0) return fail(`todo needs at least one op. Fix: pass ops: [{op: "start", item: "1.1"}].`);
+			const start = currentState(ctx.sessionManager);
+			const before = new Set(allItems(start).filter(entry => entry.item.status === "completed").map(entry => itemKey(start, entry)));
+			let working: TodoState = structuredClone(start);
+			const applied: string[] = [];
+			const report: string[] = [];
+			let failure: { index: number; error: OpError } | undefined;
+			for (const [index, op] of ops.entries()) {
+				const trial = structuredClone(working);
+				try {
+					applied.push(applyOp(trial, op, report));
+					working = settle(trial);
+				} catch (failed) {
+					if (!(failed instanceof OpError)) throw failed;
+					failure = { index, error: failed };
+					break;
+				}
+			}
+			const committed = applied.length > 0 ? working : start;
+			const lines: string[] = [];
+			if (applied.length > 0) lines.push(`${capitalize(applied.join("; "))}.`);
+			const stop = failure;
+			if (stop) {
+				const parts = [`Stopped at op ${stop.index + 1} (${ops[stop.index]?.op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
+				const rest = ops.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${label(op)})`);
+				if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
+				lines.push(parts.join(" "));
+			} else {
+				lines.push(nextLine(committed));
+			}
+			lines.push(...report);
+			if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
+			state = committed;
+			showProgress(committed, ctx.hasUI ? ctx.ui : undefined);
+			if (stop !== undefined && ctx.agent.kind === "main" && ctx.hasUI) slot.setTodos?.(committed.phases);
+			const completedTasks = allItems(committed)
+				.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))
+				.map(entry => ({ content: entry.item.content }));
+			return {
+				content: [{ type: "text" as const, text: lines.join("\n") }],
+				isError: stop !== undefined,
+				details: { op: "ops", phases: committed.phases, plans: Object.fromEntries(committed.plans), completedTasks },
+			};
+		},
+	});
+}

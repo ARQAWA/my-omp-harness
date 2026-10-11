@@ -3,19 +3,12 @@
  */
 
 import { createHash } from "crypto";
-import { randomUUID } from "crypto";
 
 // ── Token estimation ──────────────────────────────────────────────
 
 /** Fast heuristic: ~3.5 chars per token for English text. ±15% error. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.5);
-}
-
-// ── UUID ──────────────────────────────────────────────────────────
-
-export function uuid(): string {
-  return randomUUID();
 }
 
 // ── Path hashing ──────────────────────────────────────────────────
@@ -127,21 +120,6 @@ export function timeAgo(timestampMs: number): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-// ── FTS5 query sanitization ───────────────────────────────────────
-
-/**
- * Escape FTS5 special characters by wrapping each token in double quotes.
- * Prevents FTS5 syntax injection (AND, OR, NOT, NEAR, column filters).
- */
-export function sanitizeFtsQuery(query: string): string {
-  // Split on whitespace, wrap each token in double quotes, rejoin
-  return query
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((token) => `"${token.replace(/"/g, '""')}"`)
-    .join(" ");
 }
 
 // ── Concurrent execution ──────────────────────────────────────────

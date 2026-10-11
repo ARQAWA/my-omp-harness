@@ -19,6 +19,7 @@ export function createLcmExpandTool(
   return {
     name: "lcm_expand",
     label: "LCM Expand",
+    loadMode: "discoverable",
     description:
       "Expand a compressed summary node to see the original messages or lower-level summaries " +
       "it was created from. Use this when you need exact details that were compressed away — " +
@@ -113,7 +114,7 @@ function expandNode(
       const msgTokens = estimateTokens(msgText);
 
       if (tokensUsed + msgTokens > tokenBudget) {
-        lines.push(`\n... (${messages.length - i} more messages, budget exhausted)`);
+        lines.push(`\n... (${messages.length - i} more messages, budget exhausted; call again with a larger max_tokens, up to 8000, or a smaller depth)`);
         break;
       }
 
@@ -126,7 +127,7 @@ function expandNode(
   if (summarySources.length > 0 && currentDepth < maxDepth) {
     for (const sourceRef of summarySources) {
       if (tokensUsed >= tokenBudget) {
-        lines.push(`\n... (more summaries available, budget exhausted)`);
+        lines.push(`\n... (more summaries available, budget exhausted; call again with a larger max_tokens, up to 8000, or expand the remaining summary ids one by one)`);
         break;
       }
 
@@ -149,7 +150,7 @@ function expandNode(
       const textTokens = estimateTokens(text);
 
       if (tokensUsed + textTokens > tokenBudget) {
-        lines.push(`\n... (more summaries available, budget exhausted)`);
+        lines.push(`\n... (more summaries available, budget exhausted; call again with a larger max_tokens, up to 8000, or expand the remaining summary ids one by one)`);
         break;
       }
 
@@ -167,7 +168,7 @@ function formatMessage(msg: StoredMessage): string {
   // expand is for recovering full detail
   const content =
     msg.content_text.length > MESSAGE_CHAR_LIMIT
-      ? msg.content_text.slice(0, MESSAGE_CHAR_LIMIT) + `\n... (${msg.content_text.length - MESSAGE_CHAR_LIMIT} chars truncated)`
+      ? msg.content_text.slice(0, MESSAGE_CHAR_LIMIT) + `\n... (${msg.content_text.length - MESSAGE_CHAR_LIMIT} chars truncated; lcm_grep with full: true and a phrase from this message returns the whole text)`
       : msg.content_text;
   return `**[${role}]** (seq ${msg.seq}, ${time})\n${content}\n`;
 }

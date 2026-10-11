@@ -14,8 +14,8 @@ commit or push, and a commit or push never runs without the rest of the
 package. «Установить» or «обновить» without
 them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a commit or a
-push. herdr and omp-vscode are released only when their sources changed or the
-owner names them.
+push. herdr, omp-vscode and lcm are released only when their sources changed or
+the owner names them.
 Every release runs the whole package; a step counts as done only while its
 result still holds, such as a test run or a gate CLEAN after which no file
 changed. Main hands every program run below (tests,
@@ -33,6 +33,23 @@ the VSIX build, checks of the changed parts) to `shell_runner` and keeps only gi
    requirements changed, such as `modelRoles`, apply them by
    [harness.md](../../../install-instructions/harness.md). Run the checks of
    the changed parts and ask the owner to start a new omp session.
+
+## lcm
+
+The sources are `crates/lcm-native`; the ready files are the `lcm` release of
+this repository, built only by the GitHub Actions workflow
+`.github/workflows/lcm-native.yml`. A push to `master` that changes the crate
+or the workflow starts it; otherwise start it by hand. Wait for it and check
+that the release notes name the pushed commit:
+
+```bash
+RUN="$(gh run list -R ARQAWA/my-omp-harness -w lcm-native -L 1 --json databaseId -q '.[0].databaseId')"
+gh run watch "$RUN" -R ARQAWA/my-omp-harness --exit-status && gh release view lcm -R ARQAWA/my-omp-harness --json body -q .body
+```
+
+Without a push that started it, run `gh workflow run lcm-native.yml -R ARQAWA/my-omp-harness`
+first. Then update the module on the current host by step 8 of
+[harness.md](../../../install-instructions/harness.md).
 
 ## herdr
 

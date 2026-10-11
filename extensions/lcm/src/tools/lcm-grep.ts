@@ -7,6 +7,9 @@ import { StringEnum } from "@mariozechner/pi-ai";
 import type { LcmStore, SearchResult } from "../db/store.js";
 import { extractSnippet, timeAgo } from "../utils.js";
 
+/** Time limit for a regex search over the stored messages, in milliseconds. */
+const REGEX_TIMEOUT_MS = 5000;
+
 export function createLcmGrepTool(
   getStore: () => LcmStore | null,
   getConversationId: () => string | null,
@@ -15,6 +18,7 @@ export function createLcmGrepTool(
   return {
     name: "lcm_grep",
     label: "LCM Search",
+    loadMode: "discoverable",
     description:
       "Search through all past conversation messages, including those that have been compacted. " +
       "Returns snippets with context around matches. Use this to find specific error messages, " +
@@ -65,16 +69,19 @@ export function createLcmGrepTool(
 
       const limit = Math.min(params.limit ?? 20, 100);
       let results: SearchResult[] = [];
+      let timedOut = false;
 
       // Search messages
       if (params.scope === "messages" || params.scope === "all") {
         if (params.mode === "regex") {
           // Invalid regex throws — catch and return error
           try {
-            results = store.searchMessagesRegex(conversationId, params.query, {
+            const regex = store.searchMessagesRegex(conversationId, params.query, {
               limit,
-              timeout: 5000,
+              timeout: REGEX_TIMEOUT_MS,
             });
+            results = regex.results;
+            timedOut = regex.timed_out;
           } catch (e: any) {
             return {
               content: [{ type: "text", text: e.message }],
@@ -108,15 +115,26 @@ export function createLcmGrepTool(
         }
       }
 
+      // Regex mode: say what the regex can see and whether the timeout cut the search short.
+      const regexNotes: string[] = [];
+      if (params.mode === "regex") {
+        regexNotes.push("Regex mode checks the first 50 000 characters of each message; mode text searches whole messages.");
+      }
+      if (timedOut) {
+        regexNotes.push(`Regex search stopped after the ${REGEX_TIMEOUT_MS / 1000} s timeout; results are partial. Narrow the pattern or use mode text to search the rest.`);
+      }
+
       if (results.length === 0) {
         return {
-          content: [{ type: "text", text: `No results found for "${params.query}".` }],
+          content: [{ type: "text", text: [`No results found for "${params.query}".`, ...regexNotes].join("\n") }],
           details: { resultCount: 0 },
         };
       }
 
       // Format results
       const lines: string[] = [`Found ${results.length} results for "${params.query}":\n`];
+
+      let hasCutSnippet = false;
 
       for (let i = 0; i < results.length; i++) {
         const r = results[i];
@@ -129,6 +147,7 @@ export function createLcmGrepTool(
           lines.push("");
         } else {
           const snippet = extractSnippet(r.content_text, params.query, 200);
+          if (!r.summary_id && snippet.endsWith("...")) hasCutSnippet = true;
           lines.push(`[${i + 1}] ${r.id} (${r.role}, ${time}, seq ${r.seq})${summaryRef}`);
           lines.push(`  ${snippet}`);
           lines.push("");
@@ -140,6 +159,14 @@ export function createLcmGrepTool(
           `Tip: Use lcm_expand("<summary_id>") to see full context around these messages.`,
         );
       }
+
+      if (!params.full && hasCutSnippet) {
+        lines.push(
+          `Snippets are cut; call lcm_grep again with full: true to get whole messages.`,
+        );
+      }
+
+      lines.push(...regexNotes);
 
       return {
         content: [{ type: "text", text: lines.join("\n") }],

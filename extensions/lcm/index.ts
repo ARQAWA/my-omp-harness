@@ -12,12 +12,11 @@ import { completeSimple, type AssistantMessage } from "@mariozechner/pi-ai";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, type LcmConfig } from "./src/config.js";
-import { openDb, closeDb, checkpointDb, type Database } from "./src/db/connection.js";
-import { runMigrations } from "./src/db/schema.js";
 import { LcmStore } from "./src/db/store.js";
+import { nativeModule, type LcmDb } from "./src/native.js";
 import { CompactionEngine, SUMMARY_MAX_OUTPUT_TOKENS, type CompactionDeps } from "./src/compaction/engine.js";
 import { SUMMARIZER_SYSTEM_PROMPT } from "./src/compaction/prompts.js";
-import { assembleSummary } from "./src/compaction/assembler.js";
+import { hashCwd } from "./src/utils.js";
 import { persistMessage, type PersistorState } from "./src/persistor.js";
 import { LCM_SYSTEM_PREAMBLE } from "./src/context.js";
 import { handleLcmCommand, type CommandState } from "./src/commands.js";
@@ -25,8 +24,19 @@ import { updateStatus } from "./src/status.js";
 import { createLcmGrepTool } from "./src/tools/lcm-grep.js";
 import { createLcmDescribeTool } from "./src/tools/lcm-describe.js";
 import { createLcmExpandTool } from "./src/tools/lcm-expand.js";
-import { loadSettings, saveSettings, type SettingsScope } from "./src/settings.js";
+import { loadSettings, saveSettings, LEGACY_LCM_DIR, type SettingsScope } from "./src/settings.js";
 import { LcmSettingsPanel, type LcmPanelDeps } from "./src/settings-panel.js";
+
+/** TRUNCATE checkpoint of the WAL file. Never throws. */
+function checkpointDb(handle: LcmDb): void {
+  try { handle.checkpoint(); } catch { /* non-fatal */ }
+}
+
+/** Checkpoints and closes the database handle. Never throws. */
+function closeDb(handle: LcmDb): void {
+  checkpointDb(handle);
+  try { handle.close(); } catch { /* ignore close errors */ }
+}
 
 /** Appends one JSON line per model call to costs.jsonl in the DB directory. Never throws. */
 function logCompactionCost(
@@ -75,7 +85,7 @@ export default function (pi: ExtensionAPI) {
   // ── Shared state ────────────────────────────────────────────────
 
   let store: LcmStore | null = null;
-  let db: Database | null = null;
+  let db: LcmDb | null = null;
   let settingsScope: SettingsScope = "global";
   let conversationId: string | null = null;
   let hasCompactedHistory = false;
@@ -120,8 +130,13 @@ export default function (pi: ExtensionAPI) {
     settingsScope = loaded.source === "project" ? "project" : "global";
 
     if (db) { closeDb(db); db = null; }
-    db = openDb(config.dbDir, cwd);
-    runMigrations(db);
+    const dbFile = `${hashCwd(cwd)}.db`;
+    const legacyPath = join(LEGACY_LCM_DIR, dbFile);
+    db = nativeModule().LcmDb.open(join(config.dbDir, dbFile), cwd, legacyPath);
+    const migration = db.lastMigration();
+    if (migration) {
+      ctx.ui.notify(`LCM migrated ${migration.messages} messages and ${migration.summaries} summaries from ${legacyPath}.`, "info");
+    }
 
     store = new LcmStore(db);
     const conv = store.getOrCreateConversation(sessionId, sessionFile, cwd);
@@ -184,11 +199,11 @@ export default function (pi: ExtensionAPI) {
       save: (cfg: LcmConfig, scope: SettingsScope, cwd: string) => {
         // Persist to settings.json
         const { enabled, leafChunkTokens, condensationThreshold, maxDepth,
-                maxSummaryTokens, minMessagesForCompaction, leafPassConcurrency,
+                maxSummaryTokens, leafPassConcurrency,
                 debugMode } = cfg;
         saveSettings(
           { enabled, leafChunkTokens, condensationThreshold, maxDepth,
-            maxSummaryTokens, minMessagesForCompaction, leafPassConcurrency, debugMode },
+            maxSummaryTokens, leafPassConcurrency, debugMode },
           scope,
           cwd,
         );
@@ -273,10 +288,7 @@ export default function (pi: ExtensionAPI) {
     if (bgRunning) return;
     const s = store;
     const convId = conversationId;
-    const uncompacted = s.getUncompactedMessages(convId);
-    let tokens = 0;
-    for (const m of uncompacted) tokens += m.token_estimate;
-    if (tokens <= config.leafChunkTokens) return;
+    if (s.getUncompactedTokens(convId) <= config.leafChunkTokens) return;
 
     bgRunning = true;
     const engine = getEngine(s);
@@ -311,14 +323,6 @@ export default function (pi: ExtensionAPI) {
     const convId = conversationId;
     const s = store;
 
-    // Too few messages and no summaries — Pi's default handles it
-    if (
-      s.getLatestSummaryPerDepth(convId).length === 0 &&
-      s.getUncompactedMessages(convId).length < config.minMessagesForCompaction
-    ) {
-      return;
-    }
-
     // The hook waits at most 25 s for the background run and the top-up; unfinished work
     // continues in the background and its summaries are used at the next compaction.
     const deadline = new AbortController();
@@ -340,6 +344,7 @@ export default function (pi: ExtensionAPI) {
       // finalize queues behind a running background run on the engine's per-conversation lock
       const work = engine.finalize(convId, deps).catch((e: unknown) => {
         console.error("[LCM] Compaction top-up failed:", e instanceof Error ? e.message : e);
+        throw e;
       });
       await Promise.race([work, timedOut]);
       clearTimeout(timer);
@@ -348,7 +353,7 @@ export default function (pi: ExtensionAPI) {
       if (signal?.aborted) return;
       if (s.getLatestSummaryPerDepth(convId).length === 0) return; // nothing to switch to
 
-      const summary = assembleSummary(s, convId, config.maxSummaryTokens);
+      const summary = s.assembleSummary(convId, config.maxSummaryTokens);
 
       hasCompactedHistory = true;
       updateGuidelines();
@@ -380,33 +385,30 @@ export default function (pi: ExtensionAPI) {
 
 // ── LLM call for compaction ─────────────────────────────────────
 
+const SUMMARY_ATTEMPTS = 3; // first try plus two retries
+
 async function callCompactionModel(ctx: any, config: LcmConfig, prompt: string, signal?: AbortSignal, reasoning: "low" | "high" | "xhigh" = "low", kind: "leaf" | "condense" = "leaf"): Promise<string> {
-  for (const cfg of config.compactionModels) {
-    const model = ctx.modelRegistry.find?.(cfg.provider, cfg.id)
-      ?? ctx.modelRegistry.getAll().find((m: any) => m.provider === cfg.provider && m.id === cfg.id);
-    if (!model) continue;
+  let lastError: unknown = null;
+  const model = ctx.modelRegistry.find?.("anthropic", "claude-haiku-5-5")
+    ?? ctx.modelRegistry.getAll().find((m: any) => m.provider === "anthropic" && m.id === "claude-haiku-5-5");
+  if (!model) throw new Error("No model available for compaction summarization");
 
-    let apiKey: string | undefined;
-    let headers: Record<string, string> | undefined;
-    if (typeof ctx.modelRegistry.getApiKeyAndHeaders === "function") {
-      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-      if (!auth || typeof auth.ok !== "boolean") {
-        console.error("[LCM] Unexpected auth response shape");
-        continue;
-      }
-      if (!auth.ok) continue;
-      if (typeof auth.apiKey !== "string" || auth.apiKey.length === 0) {
-        console.error("[LCM] Auth succeeded but apiKey is missing");
-        continue;
-      }
-      apiKey = auth.apiKey;
-      headers = auth.headers != null && typeof auth.headers === "object" ? auth.headers : undefined;
-    } else {
-      apiKey = await ctx.modelRegistry.getApiKey(model);
-    }
-    if (!apiKey) continue;
-
+  for (let attempt = 1; attempt <= SUMMARY_ATTEMPTS; attempt++) {
     try {
+      let apiKey: string | undefined;
+      let headers: Record<string, string> | undefined;
+      if (typeof ctx.modelRegistry.getApiKeyAndHeaders === "function") {
+        const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+        if (!auth || typeof auth.ok !== "boolean") throw new Error("unexpected auth response shape");
+        if (!auth.ok) throw new Error("auth failed");
+        if (typeof auth.apiKey !== "string" || auth.apiKey.length === 0) throw new Error("auth succeeded but apiKey is missing");
+        apiKey = auth.apiKey;
+        headers = auth.headers != null && typeof auth.headers === "object" ? auth.headers : undefined;
+      } else {
+        apiKey = await ctx.modelRegistry.getApiKey(model);
+      }
+      if (!apiKey) throw new Error("no API key");
+
       const started = Date.now();
       const response = await completeSimple(
         model,
@@ -420,46 +422,12 @@ async function callCompactionModel(ctx: any, config: LcmConfig, prompt: string, 
       logCompactionCost(config.dbDir, ctx, kind, `${model.provider}/${model.id}`, reasoning, started, response);
       const text = response.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
       if (text.length > 0) return text;
-    } catch (e: any) {
+      lastError = new Error("empty summary text");
+    } catch (e: unknown) {
       if (signal?.aborted) throw e;
-      continue;
+      lastError = e;
     }
   }
 
-  // Fall back to session model
-  if (ctx.model) {
-    let fallbackApiKey: string | undefined;
-    let fallbackHeaders: Record<string, string> | undefined;
-    if (typeof ctx.modelRegistry.getApiKeyAndHeaders === "function") {
-      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
-      if (!auth || typeof auth.ok !== "boolean") {
-        console.error("[LCM] Unexpected auth response shape for fallback model");
-      } else if (auth.ok) {
-        if (typeof auth.apiKey !== "string" || auth.apiKey.length === 0) {
-          console.error("[LCM] Fallback auth succeeded but apiKey is missing");
-        } else {
-          fallbackApiKey = auth.apiKey;
-          fallbackHeaders = auth.headers != null && typeof auth.headers === "object" ? auth.headers : undefined;
-        }
-      }
-    } else {
-      fallbackApiKey = await ctx.modelRegistry.getApiKey(ctx.model);
-    }
-    if (fallbackApiKey) {
-      const started = Date.now();
-      const response = await completeSimple(
-        ctx.model,
-        {
-          systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
-          messages: [{ role: "user" as const, content: [{ type: "text" as const, text: prompt }], timestamp: Date.now() }],
-        },
-        { apiKey: fallbackApiKey, headers: fallbackHeaders, signal, reasoning, maxTokens: SUMMARY_MAX_OUTPUT_TOKENS, cacheRetention: "none" },
-      );
-      logCompactionCost(config.dbDir, ctx, kind, `${ctx.model.provider}/${ctx.model.id}`, reasoning, started, response);
-      const text = response.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
-      if (text.length > 0) return text;
-    }
-  }
-
-  throw new Error("No model available for compaction summarization");
+  throw new Error(`LCM summarization failed after ${SUMMARY_ATTEMPTS} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }

@@ -353,7 +353,7 @@ function previousTodoPhases(owner: object): TodoPhase[] | undefined {
 		if (!(sibling instanceof ToolExecutionComponent)) continue;
 		const units = collect(sibling, 80);
 		if (units[0]?.toolName !== "todo") continue;
-		const result = callOf(units).results.find(item => item.isError !== true && phasesOf(item) !== undefined);
+		const result = callOf(units).results.find(item => phasesOf(item) !== undefined);
 		if (result) found = phasesOf(result);
 	}
 	const own = callOf(collect(owner, 80));

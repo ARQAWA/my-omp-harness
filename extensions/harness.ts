@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { isKeyRelease, matchesKey } from "@oh-my-pi/pi-tui";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 let goalState: "none" | "active" | "paused" = "none";
@@ -12,84 +13,34 @@ const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL
 const MAIN = join(import.meta.dir, "..", "skills", "main-workflow", "SKILL.md");
 const TOOLS = join(import.meta.dir, "..", "skills", "omp-tools", "SKILL.md");
 const DEFINE = join(import.meta.dir, "define-goal.md");
-const SLOT = Symbol.for("my-omp-harness.progress");
-type ProgressSlot = {
-	state?: { item: string; steps: string[]; current: number };
-	canShow?: (item: string) => boolean;
-	sync?: () => void;
-};
-const slot = ((globalThis as Record<symbol, unknown>)[SLOT] ??= {}) as ProgressSlot;
-const PROGRESS = "my-omp-harness.progress";
-let progressUi: ExtensionContext["ui"] | undefined;
-let barLine: string[] | undefined;
-let barHidden = false;
-// The panel calls sync after it changes whether it draws the bar; the separate widget follows that decision.
-slot.sync = () => {
-	if (!progressUi || !barLine || !slot.state) return;
-	const hide = slot.canShow?.(slot.state.item) === true;
-	if (hide === barHidden) return;
-	barHidden = hide;
-	try {
-		progressUi.setWidget(PROGRESS, hide ? undefined : barLine);
-	} catch {
-		// The UI may already be gone; the next progress call sets the widget again.
-	}
-};
+const ENV_PROGRAMS = ["git", "node", "bun", "npm", "pnpm", "python3", "python", "cargo", "rustc", "go", "java", "docker", "gh", "rg", "fd", "jq", "make", "cmake"];
+const ENVIRONMENT = (() => {
+	const found = ENV_PROGRAMS.filter(name => Bun.which(name) !== null);
+	const home = homedir().replace(/\\/g, "/");
+	const winExtra = process.platform === "win32" ? ", never /c/... or backslashes" : "";
+	return `Environment: shell: the bash tool runs an embedded bash-compatible shell with built-in grep, sed, find, xargs, jq and coreutils; paths: absolute like ${home}/... with forward slashes${winExtra}; programs on PATH: ${found.length ? found.join(", ") : "none found"}.`;
+})();
 export default function harness(pi: ExtensionAPI) {
-	const z = pi.zod;
-	let progressItem: string | undefined;
-
-	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped; subagents get no progress tool.
+	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped.
 	const syncTools = async (kind: string) => {
 		const active = await pi.getActiveTools();
 		const next =
 			kind === "sub"
-				? active.filter(name => name !== "progress")
+				? active
 				: active.includes("goal")
 					? active
 					: [...active, "goal"];
-		if (next.length !== active.length) await pi.setActiveTools(next);
+		// Every agent gets these tools active from session start; a name is added only when omp lists it among all tools.
+		const all = typeof pi.getAllTools === "function" ? ((await pi.getAllTools()) as (string | { name: string })[]) : undefined;
+		const known = all?.map(tool => (typeof tool === "string" ? tool : tool.name));
+		const final = [
+			...next,
+			...["grep", "lsp", "ast_grep"].filter(name => !next.includes(name) && (known === undefined || known.includes(name))),
+		];
+		if (final.length !== active.length || final.some((name, index) => name !== active[index])) await pi.setActiveTools(final);
 	};
 	pi.on("session_start", async (_event, ctx) => syncTools(ctx.agent.kind));
 	pi.on("agent_end", async (_event, ctx) => syncTools(ctx.agent.kind));
-
-	pi.registerTool({
-		name: "progress",
-		label: "Progress",
-		loadMode: "essential",
-		description:
-			"Show the substeps of the in-progress todo item as a bar in the in-progress task's row of the todo panel. item: the exact content of that todo item. steps: its substeps in order. current: the number of the current substep, from 1. Call it when the item starts and whenever the current substep changes; an empty steps list removes the bar. The bar disappears by itself when a todo update leaves the item not in progress.",
-		parameters: z.object({ item: z.string(), steps: z.array(z.string()), current: z.number() }),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const total = params.steps.length;
-			if (total === 0) {
-				progressItem = undefined;
-				slot.state = undefined;
-				barLine = undefined;
-				ctx.ui.setWidget(PROGRESS, undefined);
-				return { content: [{ type: "text", text: "Progress bar removed." }] };
-			}
-			const current = Math.min(Math.max(1, Math.round(params.current)), total);
-			progressItem = params.item;
-			slot.state = { item: params.item, steps: params.steps, current };
-			const bar = params.steps.map((_step, index) => (index < current ? "▰" : "▱")).join("");
-			progressUi = ctx.ui;
-			barLine = [`${bar} ${current}/${total} ${params.steps[current - 1]}`];
-			barHidden = slot.canShow?.(params.item) === true;
-			ctx.ui.setWidget(PROGRESS, barHidden || !barLine ? undefined : barLine);
-			return { content: [{ type: "text", text: `Shown in the in-progress task's row of the todo panel: substep ${current} of ${total}.` }] };
-		},
-	});
-	// The bar belongs to one todo item and disappears once a todo update leaves that item not in progress.
-	pi.on("tool_result", async (event, ctx) => {
-		if (event.toolName !== "todo" || event.isError || progressItem === undefined) return;
-		const phases = (event.details as { phases?: { tasks: { content: string; status: string }[] }[] } | undefined)?.phases ?? [];
-		if (phases.some(phase => phase.tasks.some(task => task.status === "in_progress" && task.content === progressItem))) return;
-		progressItem = undefined;
-		slot.state = undefined;
-		barLine = undefined;
-		ctx.ui.setWidget(PROGRESS, undefined);
-	});
 
 	// ctrl+shift+P pauses or resumes the session goal by sending the matching /goal command, when the editor is empty.
 	const bindPauseKey = (ctx: ExtensionContext) => {
@@ -166,16 +117,23 @@ export default function harness(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
-		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}`;
+		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}\n\n${ENVIRONMENT}`;
 		// A subagent works from its definition and brief: drop block 0 (SYSTEM.md and the skill list) and add only the tool mechanics.
 		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt.slice(1), tools] };
 		const define = /^Define goal(?::|$)/.test(event.prompt.trimStart());
+		let mode: string | undefined;
+		try {
+			mode = ctx.sessionManager.buildSessionContext().mode;
+		} catch {
+			mode = undefined;
+		}
+		const paused = ctx.agent.kind === "main" && mode === "goal_paused";
 		return {
 			systemPrompt: [
 				...event.systemPrompt,
 				`Apply the full Gold Standard to all work. Apply silently. Source: ${GOLD}\n\n${readFileSync(GOLD, "utf8")}`,
 				tools,
-				`Apply the following root Main workflow for plan mode, todo, progress and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
+				`Apply the following root Main workflow for plan mode, todo and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
 				`Apply the following communication skill before every user-facing message. Source: ${COMM}\n\n${readFileSync(COMM, "utf8")}`,
 			],
 			...(define
@@ -186,7 +144,15 @@ export default function harness(pi: ExtensionAPI) {
 							display: false,
 						},
 					}
-				: {}),
+				: paused
+					? {
+							message: {
+								customType: "my-omp-harness.goal-paused",
+								content: "The goal is paused while you are working. Call the goal tool with op resume first, in the same response as your first work calls.",
+								display: false,
+							},
+						}
+					: {}),
 		};
 	});
 }

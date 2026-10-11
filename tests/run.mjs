@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'default-model.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'default-model.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts', 'write.ts', 'edit.ts', 'bash.ts', 'ask.ts', 'todo.ts', 'results.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -124,5 +124,11 @@ for (const doc of docs) {
     assert.ok(existsSync(path.resolve(root, path.dirname(doc), target.split('#')[0])), `${doc}: ${target}`);
   }
 }
+
+const todo = read('extensions/todo.ts');
+assert.match(todo, /registerTool\(\{\s*name: "todo",/, 'todo.ts: todo tool');
+assert.ok(todo.includes('z.enum(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"])'), 'todo.ts: op enum');
+assert.doesNotMatch(todo, /"view"/, 'todo.ts: no view op');
+assert.doesNotMatch(read('extensions/harness.ts'), /name: "progress"/, 'harness.ts: no progress tool');
 
 console.log('PASS: package, routing, models, agents, skills, install docs and links.');

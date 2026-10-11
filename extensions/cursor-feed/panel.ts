@@ -5,7 +5,7 @@ import { enabled } from "./state";
 /** The parts of the interactive mode that the todo panel reads. */
 export type ModeLike = Pick<
 	InteractiveMode,
-	"todoContainer" | "todoPhases" | "todoExpanded" | "toolOutputExpanded" | "isCompactTodoMode"
+	"todoContainer" | "todoPhases" | "todoExpanded" | "toolOutputExpanded" | "isCompactTodoMode" | "setTodos"
 >;
 
 type Phase = ModeLike["todoPhases"][number];
@@ -16,6 +16,7 @@ interface ProgressSlot {
 	state?: { item: string; steps: string[]; current: number };
 	canShow?: (item: string) => boolean;
 	sync?: () => void;
+	setTodos?: (phases: Phase[]) => void;
 }
 
 const GUARD = Symbol.for("my-omp-harness.cursor-feed.panel");
@@ -125,6 +126,7 @@ export function installPanel(): void {
 	if (record[GUARD]) return;
 	record[GUARD] = true;
 	slot.canShow = canShow;
+	slot.setTodos = phases => current?.setTodos(phases);
 	const isCompactTodoMode = proto.isCompactTodoMode;
 	proto.isCompactTodoMode = function (this: InteractiveMode): boolean {
 		current = this;

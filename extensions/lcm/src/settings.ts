@@ -1,14 +1,20 @@
 /**
- * Settings persistence: load/save LCM config from settings.json (global: lcm/settings.json next to the omp executable; project: <cwd>/.omp/lcm/settings.json).
+ * Settings persistence: load/save LCM config from settings.json (global: ~/.omp/lcm/settings.json, read from the legacy lcm/settings.json next to the omp executable while the new file is missing; project: <cwd>/.omp/lcm/settings.json).
  * Order: project > global > defaults.
  * Atomic writes via temp file + rename.
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { LcmConfig } from "./config.js";
 
 export const SETTINGS_KEY = "lcm";
+
+/** LCM home: database files, costs.jsonl and global settings. */
+export const LCM_DIR = path.join(os.homedir(), ".omp", "lcm");
+/** Legacy LCM home next to the omp executable; read for migration only, never modified. */
+export const LEGACY_LCM_DIR = path.join(path.dirname(process.execPath), "lcm");
 
 export type SettingsScope = "global" | "project";
 export type ConfigSource = SettingsScope | "default";
@@ -30,7 +36,13 @@ function readJsonFile(filePath: string): Record<string, unknown> {
 }
 
 export function getGlobalSettingsPath(): string {
-  return path.join(path.dirname(process.execPath), "lcm", "settings.json");
+  return path.join(LCM_DIR, "settings.json");
+}
+
+/** Global settings to read: the new file, or the legacy one while the new file is missing. */
+export function getReadableGlobalSettingsPath(): string {
+  const legacy = path.join(LEGACY_LCM_DIR, "settings.json");
+  return !fs.existsSync(getGlobalSettingsPath()) && fs.existsSync(legacy) ? legacy : getGlobalSettingsPath();
 }
 
 export function getProjectSettingsPath(cwd: string): string {
@@ -46,7 +58,7 @@ export function loadSettings(cwd: string): LoadedConfig {
     return { config: projectRaw as Partial<LcmConfig>, source: "project", globalPath, projectPath };
   }
 
-  const globalRaw = readJsonFile(globalPath)[SETTINGS_KEY];
+  const globalRaw = readJsonFile(getReadableGlobalSettingsPath())[SETTINGS_KEY];
   if (globalRaw && typeof globalRaw === "object") {
     return { config: globalRaw as Partial<LcmConfig>, source: "global", globalPath, projectPath };
   }
@@ -63,7 +75,7 @@ export function saveSettings(
     ? getProjectSettingsPath(cwd)
     : getGlobalSettingsPath();
 
-  const settings = readJsonFile(settingsPath);
+  const settings = readJsonFile(scope === "project" ? settingsPath : getReadableGlobalSettingsPath());
   const existing = settings[SETTINGS_KEY];
   settings[SETTINGS_KEY] = existing && typeof existing === "object" && !Array.isArray(existing)
     ? { ...(existing as Record<string, unknown>), ...config }

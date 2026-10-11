@@ -238,7 +238,7 @@ export default function statusBar(pi: ExtensionAPI) {
 
 	pi.on("tool_result", (_event, ctx) => {
 		if (!ctx.hasUI) return;
-		if (_event.toolName !== "progress") return;
+		if (_event.toolName !== "todo") return;
 		showTitle(ctx);
 	});
 }

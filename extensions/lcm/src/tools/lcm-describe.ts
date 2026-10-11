@@ -14,6 +14,7 @@ export function createLcmDescribeTool(
   return {
     name: "lcm_describe",
     label: "LCM Describe",
+    loadMode: "discoverable",
     description:
       "Get a high-level summary of conversation history sections. Shows the DAG structure " +
       "of summaries and their lineage. Use this to understand what happened in a particular " +

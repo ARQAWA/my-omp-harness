@@ -17,8 +17,6 @@ export interface Line {
 
 export type Status = "running" | "error" | "done";
 
-const DIFF_LIMIT = 20;
-const OUTPUT_LIMIT = 20;
 /** Tools that merge into an Explored row. */
 export const EXPLORE_TOOLS: Record<string, true | undefined> = {
 	read: true,
@@ -56,18 +54,6 @@ function diffLines(results: CallResult[]): Line[] {
 		tone: text.startsWith("+") ? "added" : text.startsWith("-") ? "removed" : "dim",
 		text,
 	}));
-}
-
-/** Keeps the first `limit` lines and adds a notice for the rest. */
-function headCut(body: Line[], limit: number): Line[] {
-	if (body.length <= limit) return body;
-	return [...body.slice(0, limit), { tone: "dim", text: `… ещё ${body.length - limit} строк` }];
-}
-
-/** Adds a notice for the cut head, then keeps the last `limit` lines. */
-function tailCut(body: Line[], limit: number): Line[] {
-	if (body.length <= limit) return body;
-	return [{ tone: "dim", text: `… ещё ${body.length - limit} строк` }, ...body.slice(-limit)];
 }
 
 function diffTotals(results: CallResult[]): { added: number; removed: number } {
@@ -198,20 +184,20 @@ export function statusOf(results: CallResult[], isPartial: boolean): Status {
 	return failed ? "error" : "done";
 }
 
-/** Expanded body of a standalone row, already capped. */
+/** Expanded body of a standalone row. */
 export function bodyOf(toolName: string, args: unknown, results: CallResult[]): Line[] {
 	switch (toolName) {
 		case "edit":
 		case "ast_edit":
-			return headCut(diffLines(results), DIFF_LIMIT);
+			return diffLines(results);
 		case "bash": {
 			const command: Line[] = str(asRecord(args).command)
 				.split("\n")
 				.map((text, index) => ({ tone: "text", text: `${index === 0 ? "$ " : "  "}${text}` }));
-			return [...command, ...tailCut(outputLines(results), OUTPUT_LIMIT)];
+			return [...command, ...outputLines(results)];
 		}
 		case "eval":
-			return tailCut(outputLines(results), OUTPUT_LIMIT);
+			return outputLines(results);
 		default:
 			return [];
 	}

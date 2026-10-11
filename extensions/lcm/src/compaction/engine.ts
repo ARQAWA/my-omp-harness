@@ -6,7 +6,7 @@
  * No mark-compacted on summarization failure.
  */
 
-import type { LcmStore, StoredMessage, SourceRef } from "../db/store.js";
+import type { LcmStore, StoredMessage } from "../db/store.js";
 import type { LcmConfig } from "../config.js";
 import { mapConcurrent } from "../utils.js";
 import {
@@ -62,16 +62,16 @@ export class CompactionEngine {
     });
   }
 
-  /** Compaction-time top-up: summarize every remaining uncompacted message, then condense. */
+  /** Compaction-time top-up: summarize every remaining uncompacted message, then condense. Throws when a summarize call failed after its retries. */
   async finalize(conversationId: string, deps: CompactionDeps, signal?: AbortSignal): Promise<void> {
     return this.enqueue(conversationId, async () => {
       if (signal?.aborted) return;
       const uncompacted = this.store.getUncompactedMessages(conversationId);
       if (uncompacted.length > 0) {
-        await this.leafPass(conversationId, uncompacted, deps, signal);
+        await this.leafPass(conversationId, uncompacted, deps, signal, true);
       }
       if (signal?.aborted) return;
-      await this.condensedPass(conversationId, deps, signal);
+      await this.condensedPass(conversationId, deps, signal, true);
     });
   }
 
@@ -82,6 +82,7 @@ export class CompactionEngine {
     messages: StoredMessage[],
     deps: CompactionDeps,
     signal?: AbortSignal,
+    strict: boolean = false,
   ): Promise<void> {
     const chunks = this.chunkMessages(messages, this.config.leafChunkTokens);
 
@@ -114,12 +115,14 @@ export class CompactionEngine {
       },
     );
 
+    let failedChunks = 0;
     for (const result of results) {
       if (result.status === "rejected") continue;
       const { chunk, summaryText, failed } = result.value;
 
       // Skip failed chunks — messages stay uncompacted for retry next cycle
       if (failed) {
+        failedChunks++;
         deps.notify(
           `LCM: Summarization failed for messages ${chunk[0].seq}-${chunk[chunk.length - 1].seq}, will retry next cycle`,
           "warning",
@@ -127,16 +130,13 @@ export class CompactionEngine {
         continue;
       }
 
-      const sources: SourceRef[] = chunk.map((m) => ({
-        source_type: "message" as const,
-        source_id: m.id,
-      }));
-
-      this.store.createSummary(conversationId, 0, summaryText, sources, {
+      this.store.createLeafSummary(conversationId, summaryText, chunk.map((m) => m.id), {
         messageRange: { from: chunk[0].seq, to: chunk[chunk.length - 1].seq },
       });
+    }
 
-      this.store.markCompacted(chunk.map((m) => m.id));
+    if (strict && failedChunks > 0) {
+      throw new Error(`LCM leaf summarization failed for ${failedChunks} chunk(s)`);
     }
   }
 
@@ -151,6 +151,7 @@ export class CompactionEngine {
     conversationId: string,
     deps: CompactionDeps,
     signal?: AbortSignal,
+    strict: boolean = false,
   ): Promise<void> {
     let didCondense = true;
     let passes = 0;
@@ -193,15 +194,11 @@ export class CompactionEngine {
           summaryText = await deps.summarize(prompt, signal, "low", "condense");
         } catch {
           deps.notify(`LCM: Condensation at D${depth + 1} failed, will retry next cycle`, "warning");
+          if (strict) throw new Error(`LCM condensation at D${depth + 1} failed`);
           return; // Stop cascading on failure
         }
 
-        const sources: SourceRef[] = toCondense.map((s) => ({
-          source_type: "summary" as const,
-          source_id: s.id,
-        }));
-
-        this.store.createSummary(conversationId, depth + 1, summaryText, sources, {
+        this.store.createCondensedSummary(conversationId, depth + 1, summaryText, toCondense.map((s) => s.id), {
           sourceSummaryIds: toCondense.map((s) => s.id),
         });
 

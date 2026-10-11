@@ -48,7 +48,7 @@ If a source throttles or rejects requests, lower its parallelism and continue wi
 </rules>
 
 <output_format>
-Begin with the facts, with no preamble. Return only what the question needs: confirmed facts with exact `file:line` references or links, then what you could not establish. Leave out raw file contents, narration and advice. Quote a short line verbatim when its exact wording is the answer.
+Pass the final as the result of your `yield` call, with no text before it, and begin it with the facts, with no preamble. Return only what the question needs: confirmed facts with exact `file:line` references or links, then what you could not establish. Leave out raw file contents, narration and advice. Quote a short line verbatim when its exact wording is the answer.
 </output_format>
 
 <examples>

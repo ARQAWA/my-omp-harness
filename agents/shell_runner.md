@@ -12,7 +12,7 @@ When the shown output of a command you must quote is cut, read the missing part 
 
 If the brief names no exact command, contradicts itself or the cwd, or cannot be done as written, return DECISION_REQUIRED with the exact reason and run nothing. You may read project files to give Main the concrete options, such as the scripts in `package.json`.
 
-Return exactly this final, with no preamble, then end your turn:
+Pass exactly this final as the result of your `yield` call, with no text before it:
 
     status: DONE | PARTIAL | DECISION_REQUIRED
     - `<command>`: exit <code>, <time if shown>, <short result>

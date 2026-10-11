@@ -75,7 +75,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set statusLine.preset custom
    omp config set statusLine.separator none
    omp config set statusLine.contextLine off
-   omp config set statusLine.sessionAccent true
+   omp config set statusLine.sessionAccent false
    omp config set statusLine.transparent true
    omp config set statusLine.compactThinkingLevel false
    omp config set statusLine.showHookStatus false
@@ -86,14 +86,14 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set composer.tokenRate false
    omp config set tasks.todoClearDelay 0
    omp config set todo.reminders false
-   omp config set symbolPreset unicode
+   omp config set symbolPreset nerd
    omp config set colorBlindMode false
    omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
    omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
    omp config set disabledProviders '["openrouter"]'
-   omp config set browser.enabled false
+   omp config set browser.enabled true
    omp config set computer.enabled true
    omp config set task.agentIdleTtlMs 120000
    omp config set retry.fallbackChains '{"openai-codex/*":[]}'
@@ -105,24 +105,26 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set compaction.methodOrder '["soft"]'
    omp config set compaction.supersedeReads false
    omp config set compaction.dropUseless false
+   omp config set compaction.asyncEnabled false
+   omp config set compaction.keepRecentTokens 8000
    omp config set checkpoint.enabled false
    omp config set astGrep.enabled true
-   omp config set find.enabled on
+   omp config set find.enabled off
    omp config set compaction.experimentalContextManagement false
    omp config set security.enabled false
    omp config set externalThinking false
-   omp config set tools.intentTracing false
+   omp config set tools.intentTracing true
    omp config set tui.resizeScrollback rebuild
    omp config set tui.textSizing false
    omp config set tui.renderMermaid true
-   omp config set tui.codexResetFireworks true
+   omp config set tui.codexResetFireworks false
    omp config set tui.titleSpinner braille
    omp config set tui.titleState true
    omp config set tui.autoGraph smart
    omp config set tui.reactions false
    omp config set tui.mouse false
    omp config set startup.quiet true
-   omp config set tui.tight false
+   omp config set tui.tight true
    omp config set title.icons boring
    omp config set display.collapseCompacted true
    omp config set display.showTurnTime false
@@ -140,6 +142,7 @@ omp ставится штатным установщиком с omp.sh и обн
    omp config set read.summarize.enabled false
    omp config set read.defaultLimit 3000
    omp config set tools.artifactSpillThreshold 100
+   omp config set tools.outputMaxColumns 100000
    ```
 
 5. Настройки действуют в новой сессии omp. Не прерывай текущую задачу ради

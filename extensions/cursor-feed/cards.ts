@@ -85,15 +85,14 @@ export function todoRowLine(
 		return Array.isArray(list) ? list.map(item => asRecord(item)) : [];
 	});
 	const done = tasks.filter(task => task.status === "completed" || task.status === "abandoned").length;
-	const op = found.op;
 	const closed =
-		op !== "view" && Array.isArray(found.completedTasks)
+		Array.isArray(found.completedTasks)
 			? found.completedTasks.map(item => str(asRecord(item).content))
 			: [];
 	const current = activeTask(phases);
 	const prevCurrent = activeTask(previous);
 	const started =
-		op !== "view" && current !== undefined && current.content !== prevCurrent?.content
+		current !== undefined && current.content !== prevCurrent?.content
 			? str(current.content)
 			: undefined;
 	let line = `${paint(DOT[status], "●")} To-do ${paint("dim", `${done}/${tasks.length}`)}`;
