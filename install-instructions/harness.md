@@ -342,8 +342,14 @@ owner message. It uses omp's existing band and input behavior.
 rows and a row above the line over the field: on the left the session name
 and "Worked …" for the last turn, on the right the full session ID without
 an icon. A long title is cut before the ID. The first row under the field, right
-next to it, is the context fill as a full-width white-grey bar with a grey
-label. The second is omp's native row: the model, the generation
+next to it, is the compaction bar: a full-width white-grey bar with a grey label
+`N% <tokens>/<trigger>` that measures the context up to the compaction trigger
+(`compaction.thresholdTokens`, else `compaction.thresholdPercent`, else the
+window minus the reserve) and shows 100% at or above it; the bar fills by the
+same share. At the trigger the bar
+turns bright gold, and while compaction runs (`auto_compaction_start` or
+`session_before_compact` until `auto_compaction_end` or `session_compact`) a
+gold glow moves along it. The second is omp's native row: the model, the generation
 speed `token_rate` (the extension takes the live speed of the omp session, the
 same counter as the built-in `composer.tokenRate`, which is turned off, updates
 it every 80 ms during a turn, keeps the last value between turns, puts the

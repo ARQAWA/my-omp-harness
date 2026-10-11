@@ -24,7 +24,7 @@ The reference is the stock Cursor IDE (3.24.12, theme Cursor Dark, agents window
 | ember | `#1a0f10` | background of a failed tool row, the darkest red tint |
 | ash | `#4a4846` | the line over the omp input field at the lowest reasoning level |
 
-There is no accent colour. Focus is white-grey (chalk), selection is a slightly lighter surface (cardHi), and nothing is blue, purple, teal or gold.
+There is no accent colour. Focus is white-grey (chalk), selection is a slightly lighter surface (cardHi), and nothing is blue, purple, teal or gold. The one gold element is the compaction bar below, by the owner's order.
 
 ## Indicators
 
@@ -59,6 +59,8 @@ The session title is on the left of the header row and the session ID is on the 
 
 The queued-message band appears when the first owner message waits, without needing a second message to reveal it.
 
+The line under the omp input field is the compaction bar: it measures the context up to the compaction trigger, not up to the model's context window. Its label is `N% <tokens>/<trigger>`, N is tokens divided by the trigger, and at or above the trigger it shows 100%; the bar fills by the same share. Below the trigger the bar is white-grey with a grey label. When it reaches the trigger it turns bright gold `#ffd700`, and while compaction runs a gold glow (`#fff3b0`, edges `#ffe66e`) moves along it.
+
 ## Cutting long lines
 
 - A cut line ends with «…» in the colour of the text it cuts (`extensions/cursor-feed/fit.ts`).
@@ -80,7 +82,7 @@ Compact and flat: no boxes around rows, no extra blank lines, the status line fl
 | Text, one-line rows | `extensions/cursor-feed/rows.ts`, `tools.ts`, `cards.ts`, `subagents.ts`, `hub.ts`, `extensions/lcm/` |
 | Reasoning only when expanded, duration from four seconds | `extensions/cursor-feed/turn.ts` |
 | Readable instruction bodies, full initial goal | `extensions/cursor-feed/cards.ts`, `subagents.ts` |
-| Title left, session ID right, subagent glyph | `extensions/status-bar.ts` |
+| Title left, session ID right, subagent glyph, compaction bar | `extensions/status-bar.ts` |
 | Queue refresh from the first message | `extensions/cursor-feed.ts` (`queue_update`) |
 | Cutting | `extensions/cursor-feed/fit.ts`, `tools.ts` (`rowLine`) |
 | Quiet settings | `install-instructions/omp.md` step 4: `tui.tight`, `recap.enabled false`, `statusLine.sessionAccent false`, `tui.codexResetFireworks false` |

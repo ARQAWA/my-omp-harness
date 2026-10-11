@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
 
@@ -9,6 +10,10 @@ let latest: any;
 let turnStart: number | undefined;
 let lastTurnMs: number | undefined;
 let turnInterval: ReturnType<typeof setInterval> | undefined;
+let piApi: ExtensionAPI | undefined;
+let compacting = false;
+let glow: ReturnType<typeof setInterval> | undefined;
+let tui: any;
 
 const lastRateInvalidate = new WeakMap<object, number>();
 
@@ -183,17 +188,81 @@ function fmtK(n: number): string {
 	return `${s.endsWith(".0") ? s.slice(0, -2) : s}k`;
 }
 
+function positive(value: unknown): value is number {
+	return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function setting(key: "compaction.thresholdTokens" | "compaction.thresholdPercent" | "compaction.reserveTokens"): unknown {
+	if (!piApi) return undefined;
+	try {
+		return lookup(key)?.get(piApi.pi.settings);
+	} catch {
+		return undefined;
+	}
+}
+
+// The token count at which compaction triggers; the context bar measures against it.
+function triggerTokens(cw: number): number {
+	const tt = setting("compaction.thresholdTokens");
+	if (positive(tt)) return Math.min(cw - 1, Math.max(1, tt));
+	const tp = setting("compaction.thresholdPercent");
+	if (positive(tp)) return Math.floor(cw * Math.min(99, Math.max(1, tp)) / 100);
+	const rt = setting("compaction.reserveTokens");
+	const reserve = Math.max(Math.floor(cw * 0.15), positive(rt) ? rt : 16384);
+	if (reserve >= cw) return Math.floor(cw * 0.15);
+	return Math.max(1, cw - reserve);
+}
+
+const GOLD = "\x1b[38;2;255;215;0m";
+const GLOW = "\x1b[38;2;255;243;176m";
+const GLOW_EDGE = "\x1b[38;2;255;230;110m";
+
+// Colour of filled cell i while compacting: a 6-cell band starting at `start`, with the cells either side of it in GLOW_EDGE.
+function glowColor(i: number, filled: number, start: number): string {
+	const d = (i - start + filled) % filled;
+	if (d < 6) return GLOW;
+	if (d === 6 || d === filled - 1) return GLOW_EDGE;
+	return GOLD;
+}
+
+function startGlow() {
+	compacting = true;
+	if (glow === undefined) {
+		glow = setInterval(() => tui?.requestRender?.(), 60);
+		glow.unref?.();
+	}
+	tui?.requestRender?.();
+}
+
+function stopGlow() {
+	compacting = false;
+	if (glow !== undefined) {
+		clearInterval(glow);
+		glow = undefined;
+	}
+	tui?.requestRender?.();
+}
+
 function contextLine(width: number, theme: any, textColor: string): string {
 	const u = latest?.getContextUsage?.();
 	if (!u?.contextWindow) return theme.fg("dim", "─".repeat(width));
-	let p = u.percent ?? ((u.tokens ?? 0) / u.contextWindow) * 100;
-	p = Math.min(100, Math.max(0, p));
-	const label = ` ${Math.round(p)}% ${fmtK(u.tokens ?? 0)}/${fmtK(u.contextWindow)}`;
+	const t = triggerTokens(u.contextWindow);
+	const tokens = u.tokens ?? 0;
+	const p = Math.min(100, Math.max(0, tokens / t * 100));
+	const full = tokens >= t || compacting;
+	const label = ` ${Math.round(p)}% ${fmtK(tokens)}/${fmtK(t)}`;
 	const muted = theme.getFgAnsi("muted");
 	const barWidth = Math.max(0, width - visibleWidth(label));
 	const filled = Math.round((barWidth * p) / 100);
+	let fill = "";
+	if (!full) {
+		fill = `${textColor}${"━".repeat(filled)}`;
+	} else {
+		const start = compacting && filled > 0 ? Math.floor(Date.now() / 60) % filled : 0;
+		for (let i = 0; i < filled; i++) fill += `${compacting ? glowColor(i, filled, start) : GOLD}━`;
+	}
 	const line =
-		`${textColor}${"━".repeat(filled)}\x1b[39m`
+		`${fill}\x1b[39m`
 		+ theme.fg("dim", "─".repeat(barWidth - filled))
 		+ `${muted}${label}\x1b[39m`;
 	return fitLine(line, width);
@@ -202,7 +271,7 @@ function contextLine(width: number, theme: any, textColor: string): string {
 function showTitle(ctx: any) {
 	ctx.ui.setWidget(
 		TITLE,
-		(_tui, theme) => ({
+		(_tui, theme) => (tui = _tui, {
 			render(width: number) {
 				const name = ctx.sessionManager?.getSessionName?.();
 				const id = ctx.sessionManager?.getSessionId?.();
@@ -223,6 +292,7 @@ function showTitle(ctx: any) {
 }
 
 export default function statusBar(pi: ExtensionAPI) {
+	piApi = pi;
 	patchTokenRate();
 	patchMode();
 	patchStatusJoin();
@@ -273,5 +343,35 @@ export default function statusBar(pi: ExtensionAPI) {
 		if (!ctx.hasUI) return;
 		if (_event.toolName !== "todo") return;
 		showTitle(ctx);
+	});
+
+	(pi as any).on("auto_compaction_start", (_event: any, ctx: any) => {
+		if (!ctx.hasUI) return;
+		startGlow();
+	});
+
+	(pi as any).on("session_before_compact", (_event: any, ctx: any) => {
+		if (!ctx.hasUI) return;
+		startGlow();
+	});
+
+	(pi as any).on("auto_compaction_end", (_event: any, ctx: any) => {
+		if (!ctx.hasUI) return;
+		stopGlow();
+	});
+
+	(pi as any).on("session_compact", (_event: any, ctx: any) => {
+		if (!ctx.hasUI) return;
+		stopGlow();
+	});
+
+	pi.on("session_start", (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		stopGlow();
+	});
+
+	pi.on("session_switch", (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		stopGlow();
 	});
 }

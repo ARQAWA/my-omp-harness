@@ -53,6 +53,11 @@ function installQueueRefresh(): void {
 		queueMode = this;
 		return updatePendingMessagesDisplay.apply(this, args);
 	};
+	const init = modeProto.init;
+	modeProto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): ReturnType<InteractiveMode["init"]> {
+		queueMode = this;
+		return init.apply(this, args);
+	};
 	const eventProto = EventController.prototype;
 	const handleEvent = eventProto.handleEvent;
 	eventProto.handleEvent = async function (
