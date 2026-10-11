@@ -6,7 +6,7 @@ premium Cursor-style terminal interface. You get a compact feed with Nerd Font
 icons, a two-pane board for subagents, full tool results without rereads,
 parallel `write`, `edit` and `todo`, lossless context memory on a native Rust
 module,
-Claude and GPT subagent routing, and blind reviews that check every result
+fixed-model subagents plus any model you name, and blind reviews that check every result
 against your own words. It installs on top of stock omp as one package, without
 a fork, so `omp update` keeps working.
 
@@ -27,12 +27,13 @@ a fork, so `omp update` keeps working.
   every finding rests on verbatim quotes.
 - **Fast subagents.** Main writes briefs, `codebase_explorer` searches the code
   and external sources, `code_writer` writes the code and `shell_runner` runs
-  tests, builds and applications. Subagent models are routed by the family of
-  the parent model.
+  tests, builds and applications. Each named agent runs on one fixed model;
+  on your direct order Main runs the role-less agent `custom` on the model and
+  reasoning level you name.
 - **Memory that does not lose context.** Only LCM compacts the context: a
   native Rust module keeps background Haiku 5.5 summaries in SQLite, and search
   reaches the original messages. The autocompaction threshold is set by model
-  family: all Claude models at 270 000 tokens, all GPT models at 231 200.
+  family: all Claude models at 270 000 tokens, all GPT models at 258 400.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
   and `write`, `edit` and `todo` run in parallel with other calls.

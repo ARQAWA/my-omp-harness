@@ -26,11 +26,10 @@ On every model request (`before_agent_start`), `harness.ts` appends to the
 system prompt:
 
 - for root Main, the full `skills/gold-standard/SKILL.md`,
-  `skills/omp-tools/SKILL.md`, `skills/main-workflow/SKILL.md` and
-  `skills/clear-communication/SKILL.md`;
-- for a subagent, only `skills/omp-tools/SKILL.md`. The first block of the
-  prompt (`SYSTEM.md` and the skills list) is removed for a subagent: it works
-  from its definition and brief.
+  `skills/omp-tools/SKILL.md`, `skills/main-workflow/SKILL.md`,
+  `skills/subagents/SKILL.md` and `skills/clear-communication/SKILL.md`;
+- for a subagent, only `skills/omp-tools/SKILL.md`. A subagent keeps the whole
+  system prompt, `SYSTEM.md` included, and works from its definition and brief.
 
 Main's tools: `harness.ts` keeps the omp goal tool `goal` enabled;
 `diagram.ts` adds `diagram`, a Mermaid diagram as a PNG image across the full
@@ -177,8 +176,8 @@ independent calls go in one response or in a JS `eval` cell with `Promise.all`,
 output limits are counted for the whole batch, temporary files are created only
 in the OS temporary folder, which the system cleans. Root Main hands searches over
 unfamiliar files, several rounds of searching, external sources and material
-larger than its context to `codebase_explorer` under the routing section of
-`SYSTEM.md`, and writes briefs for `codebase_explorer`, `code_writer` and
+larger than its context to `codebase_explorer` by the hidden skill
+`subagents`, and writes briefs for `codebase_explorer`, `code_writer` and
 `shell_runner` by the visible skill `subagent-brief`.
 
 `main-workflow` applies only to root Main:
@@ -231,24 +230,37 @@ holds the rules for progress messages and a self-contained final answer. Blocks
 with bold labels are the detailed form, only on a direct request. The harness
 has no HTML reports.
 
-`subagent-model-policy.ts` chooses the child's model by the parent's family: a
-GPT parent (model id `gpt-*`) gets the GPT route, any other parent (Claude and
-others) gets the Claude route.
+Main launches only the harness agents from `agents/*.md`; omp's built-in agents
+are turned off by `task.disabledAgents` in [omp.md](omp.md). The hidden skill
+`subagents` lists them for Main: name, when to use it and its model, plus the
+reuse and brief rules. `harness.ts` gives it only to root Main.
 
-- Named agents are started by name in `agent`, without `model`. Each has one
-  model per parent family, the same under any parent: `spotty` on
-  `anthropic/claude-haiku-5-5:low`, `smarty` on
-  `anthropic/claude-haiku-5-5:medium`, `bossy` on
+`subagent-model-policy.ts` sets the models and wraps the `task` tool:
+
+- Each named agent is started by name in `agent` and runs on one model from the
+  `NAMED` table under any parent: `spotty` on `anthropic/claude-haiku-5-5:low`,
+  `smarty` on `anthropic/claude-haiku-5-5:medium`, `bossy` on
   `anthropic/claude-sonnet-5-5:low`, the others on
   `anthropic/claude-haiku-5-5:high`. Without an `anthropic` sign-in these agents
   do not start.
-- Other launches, including omp's built-in agents, pass a `@subagent_*` tier. A
-  launch without a name and without a tier is blocked.
-- In subagents the extension turns off `retry.modelFallback`.
+- The agent `custom` has no role. Main launches it only when the user directly
+  tells it to run a subagent on a named model: one `task` item with
+  `agent: "custom"`, `model` (`provider/model` from the available models) and
+  an optional `effort` (off, minimal, low, medium, high, xhigh, max). The
+  wrapper checks the model, strips both fields, delegates to omp's own `task`
+  and sets that model through `before_subagent_spawn`; such calls run one at a
+  time until their subagent starts. Without `model`, `custom` runs on Main's
+  current model.
+- The extension blocks no launch. In subagents it turns off
+  `retry.modelFallback`.
+
+A new agent is a file `agents/<name>.md`, a line in `NAMED`, a line in the
+`subagents` skill and a row in the table below; a model change touches `NAMED`,
+the skill and the table. `node tests/run.mjs` catches a mismatch between them.
 
 On omp start, `default-model.ts` sets the root session's model to `anthropic/claude-opus-5-5` and reasoning medium if the session is new and the command line has no model selection flags (`--model`, `--models`, `--thinking`, `--provider`) and no session continuation flags (`-c`, `--continue`, `-r`, `--resume`, `--session`). It fires once at omp start (the `session_start` event does not repeat on `/new` and `/resume`), does not touch subagents and sessions with history, and does not change `config.yml`; `modelRoles.default` stays a machine setting.
 
-`subagent-reuse.ts` lets Main reuse an unoccupied subagent with a context reset: when an IRC message from Main (`write agent://<id>`) starts with the marker `[task <id>#<n>]`, the extension, in the subagent's session, cuts everything before the last such message before each model request, so the model sees only the system prompt and the new task. The session file keeps all tasks whole; an earlier task is found by its marker in `history://<id>`. The extension relies only on the public `context` event. Main's reuse rule is in the "Subagent model routing" section of `SYSTEM.md`.
+`subagent-reuse.ts` lets Main reuse an unoccupied subagent with a context reset: when an IRC message from Main (`write agent://<id>`) starts with the marker `[task <id>#<n>]`, the extension, in the subagent's session, cuts everything before the last such message before each model request, so the model sees only the system prompt and the new task. The session file keeps all tasks whole; an earlier task is found by its marker in `history://<id>`. The extension relies only on the public `context` event. Main's reuse rule is in the `subagents` skill.
 
 `cursor-feed.ts` redraws the omp feed in a compact Cursor style with plain
 English labels; the model sees the tools unchanged, only the drawing in the
@@ -363,7 +375,7 @@ extension moves them here from the line above the input field, and that line
 stays a plain grey line whose brightness follows the reasoning level.
 The layout and segments are set by [omp.md](omp.md). `autocompaction.ts` sets
 Main's autocompaction threshold: 270 000 tokens for all Claude models and
-231 200 (272 000 minus 15%) for all GPT models, if the threshold is below the
+258 400 (95% of 272 000) for all GPT models, if the threshold is below the
 context window.
 
 `lcm/index.ts` is the only context compaction: a copy of pi-lcm 0.1.3 with our
@@ -436,25 +448,17 @@ levels the model supports; no reasoning (`off`) is added: for Sonnet 5.5 it is
 
 Named agents:
 
-| Agent | GPT parent | Claude parent | Role |
-|---|---|---|---|
-| `spotty` | `anthropic/claude-haiku-5-5:low` | `anthropic/claude-haiku-5-5:low` | Light review |
-| `smarty` | `anthropic/claude-haiku-5-5:medium` | `anthropic/claude-haiku-5-5:medium` | Blind review |
-| `bossy` | `anthropic/claude-sonnet-5-5:low` | `anthropic/claude-sonnet-5-5:low` | High review |
-| `codebase_explorer` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | greedy read-only search over the code and external sources |
-| `code_writer` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | code and configs from Main's briefs |
-| `shell_runner` | `anthropic/claude-haiku-5-5:high` | `anthropic/claude-haiku-5-5:high` | program runs from Main's briefs |
+| Agent | Model | Role |
+|---|---|---|
+| `spotty` | `anthropic/claude-haiku-5-5:low` | Light review |
+| `smarty` | `anthropic/claude-haiku-5-5:medium` | Blind review |
+| `bossy` | `anthropic/claude-sonnet-5-5:low` | High review |
+| `codebase_explorer` | `anthropic/claude-haiku-5-5:high` | greedy read-only search over the code and external sources |
+| `code_writer` | `anthropic/claude-haiku-5-5:high` | code and configs from Main's briefs |
+| `shell_runner` | `anthropic/claude-haiku-5-5:high` | program runs from Main's briefs |
+| `custom` | the model the user names | no role; only on the user's direct order |
 
-Complexity tiers for other launches:
-
-| Tier | GPT parent | Claude parent | Difficulty of decisions |
-|---|---|---|---|
-| `@subagent_simple` | `openai-codex/gpt-6-luna:low` | `anthropic/claude-sonnet-5-5:off` | primitive, mechanical |
-| `@subagent_routine` | `openai-codex/gpt-6-luna:medium` | `anthropic/claude-sonnet-5-5:medium` | not quite primitive |
-| `@subagent_medium` | `openai-codex/gpt-6-luna:xhigh` | `anthropic/claude-sonnet-5-5:high` | medium |
-| `@subagent_complex` | `openai-codex/gpt-6.1-sol:low` | `anthropic/claude-opus-5-5:low` | complex |
-
-Skills. Seven hidden ones (`hide: true`) are called through `/skill:<name>` and
+Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and
 `skill://<name>`; Main reads the visible `subagent-brief` before a brief for
 `codebase_explorer`, `code_writer` or `shell_runner`.
 
@@ -463,6 +467,7 @@ Skills. Seven hidden ones (`hide: true`) are called through `/skill:<name>` and
 | `gold-standard` | the complete result by the shortest direct path, heavy work only on a direct order | hidden |
 | `main-workflow` | root Main's plan mode, `todo` and goal | hidden |
 | `clear-communication` | short chat messages, progress messages and the final answer | hidden |
+| `subagents` | root Main's subagent types with their models, reuse of idle subagents and briefs | hidden |
 | `omp-tools` | omp tool mechanics: the speed of the result first, then the number of turns, output limits, safe writes, temporary files in the OS temporary folder | hidden |
 | `subagent-brief` | briefs for `codebase_explorer`, `code_writer` and `shell_runner` and acceptance of their finals | visible |
 | `blind-review-cycle` | blind Smarty passes until CLEAN; the shared contract of the three cycles: Main and the reviewer work as one team on the user's agreement, findings and rejections rest on verbatim quotes, Main must fix a finding with quotes, rejections are passed to the next passes | hidden |
@@ -491,17 +496,6 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
   - `tools.artifactSpillThreshold` is not below 100 (omp sets 50 by default),
     otherwise omp cuts out the middle of reads in chunks of ~90 KB;
     `read.defaultLimit` is assumed to equal 3000.
-  - `modelRoles` contains four keys:
-
-    ```json
-    {"subagent_simple": "openai-codex/gpt-6-luna:low", "subagent_routine": "openai-codex/gpt-6-luna:medium", "subagent_medium": "openai-codex/gpt-6-luna:xhigh", "subagent_complex": "openai-codex/gpt-6.1-sol:low"}
-    ```
-
-    An unset or unavailable role stops the launch before routing; the extension
-    then chooses the final model by the parent's family. Without an
-    `openai-codex` sign-in, set these four roles to the values from the Claude
-    parent column. `default` and the other roles belong to the owner and are not
-    changed.
   - On Windows, `shellPath` is the path to `bash.exe` from Git for Windows:
     services, terminals and `!` go through it. Regular bash tool calls already
     work in omp's built-in POSIX shell.
@@ -525,10 +519,7 @@ The commands are the same on macOS and Windows (bash).
    `omp config set task.maxConcurrency 0`.
    Run `omp config get tools.artifactSpillThreshold`. If the value is below 100,
    run `omp config set tools.artifactSpillThreshold 100`.
-4. Run `omp config get modelRoles --json`. Overwrite the four `subagent_*` keys
-   with the values from "Requirements" and keep the other roles:
-   `omp config set modelRoles '<merged JSON>'`.
-5. Windows only: run `omp config get shellPath`. If the value is empty, set the
+4. Windows only: run `omp config get shellPath`. If the value is empty, set the
    path to `bash.exe`: by default `C:/Program Files/Git/bin/bash.exe`, and for a
    single-user Git installation `%LOCALAPPDATA%/Programs/Git/bin/bash.exe` (the
    variable expands to an absolute path).
@@ -579,8 +570,8 @@ start new processes.
 
 1. Run `git -C "$CLONE" pull --ff-only`. If there are local changes or the
    branches have diverged, stop and report; overwrite nothing.
-2. Recheck the values from "Requirements": set the four `subagent_*` roles as
-   stated there, and keep higher limits and the other settings.
+2. Recheck the values from "Requirements": keep higher limits and the other
+   settings.
 3. If the system prompt is part of the order, update it by
    [its instruction](system-prompt.md).
 4. Run `BUN_BE_BUN=1 omp install --cwd "$CLONE" --frozen-lockfile`: the command

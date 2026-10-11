@@ -20,21 +20,20 @@ assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
-// NAMED rows as [name, gpt, claude]
-const named = [...policy.matchAll(/^\t(\w+): \{ gpt: "([^"]+)", claude: "([^"]+)" \},$/gm)]
-  .map(([, name, gpt, claude]) => [name, gpt, claude]);
-const tiers = [...policy.matchAll(/^\t(subagent_\w+): \{\n\t\tgpt: "([^"]+)",\n\t\tclaude: "([^"]+)",\n\t\},$/gm)];
+// NAMED rows as [name, model]
+const namedBlock = policy.match(/const NAMED: Record<string, string> = \{\n([\s\S]*?)\n\};/)?.[1] ?? '';
+const named = [...namedBlock.matchAll(/^\t(\w+): "([^"]+)",$/gm)]
+  .map(([, name, model]) => [name, model]);
 assert.equal(named.length, 6, 'NAMED routes');
-assert.equal(tiers.length, 4, 'ROUTES tiers');
 const route = agent => named.find(([name]) => name === agent);
 for (const agent of ['codebase_explorer', 'code_writer', 'shell_runner']) {
-  const [, gpt, claude] = route(agent);
-  assert.equal(gpt, 'anthropic/claude-haiku-5-5:high', `${agent}: gpt model`);
-  assert.equal(claude, 'anthropic/claude-haiku-5-5:high', `${agent}: claude model`);
+  const [, model] = route(agent);
+  assert.equal(model, 'anthropic/claude-haiku-5-5:high', `${agent}: model`);
 }
 
 const agents = readdirSync(path.join(root, 'agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3)).sort();
-assert.deepEqual(agents, named.map(([name]) => name).sort());
+assert.ok(agents.includes('custom'), 'agents/custom.md');
+assert.deepEqual(agents.filter(name => name !== 'custom'), named.map(([name]) => name).sort());
 for (const name of agents) {
   const meta = frontmatter(`agents/${name}.md`);
   assert.equal(meta.name, name);
@@ -45,7 +44,7 @@ for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_run
   assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep', shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
 }
 
-const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools'];
+const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools', 'subagents'];
 const visible = ['subagent-brief'];
 const skills = readdirSync(path.join(root, 'skills'), { withFileTypes: true })
   .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
@@ -75,16 +74,20 @@ for (const dir of ['skills', 'agents', 'extensions']) {
 
 const harnessDoc = read('install-instructions/harness.md');
 const system = read('SYSTEM.md');
-assert.ok(system.includes('# Subagent model routing'));
-for (const [name, gpt, claude] of named) {
-  assert.ok(harnessDoc.includes(`| \`${name}\` | \`${gpt}\` | \`${claude}\` |`), `harness.md: ${name}`);
-  assert.ok(system.includes(`\`${name}\``), `SYSTEM.md: ${name}`);
+assert.ok(!system.includes('# Subagent model routing'), 'SYSTEM.md: no routing section');
+const subagentsSkill = read('skills/subagents/SKILL.md');
+const readable = { 'anthropic/claude-haiku-5-5': 'Haiku 5.5', 'anthropic/claude-sonnet-5-5': 'Sonnet 5.5', 'anthropic/claude-opus-5-5': 'Opus 5.5' };
+for (const name of agents) {
+  assert.ok(subagentsSkill.includes(`- \`${name}\`:`), `skills/subagents/SKILL.md: ${name}`);
 }
-for (const [, name, gpt, claude] of tiers) {
-  assert.ok(harnessDoc.includes(`| \`@${name}\` | \`${gpt}\` | \`${claude}\` |`), `harness.md: @${name}`);
-  assert.ok(harnessDoc.includes(`"${name}": "${gpt}"`), `harness.md modelRoles: ${name}`);
-  assert.ok(system.includes(`\`@${name}\``), `SYSTEM.md: @${name}`);
+for (const [name, model] of named) {
+  const [base, level] = model.split(':');
+  const line = subagentsSkill.split('\n').find(text => text.startsWith(`- \`${name}\`:`)) ?? '';
+  assert.ok(line.includes(`Model: ${readable[base]} ${level}.`), `skills/subagents/SKILL.md: ${name} model`);
+  assert.ok(harnessDoc.includes(`| \`${name}\` | \`${model}\` |`), `harness.md: ${name}`);
 }
+assert.ok(read('install-instructions/omp.md').includes(`omp config set task.disabledAgents '["task","scout","reviewer","security-reviewer","sonic"]'`), 'omp.md: disabledAgents');
+assert.ok(read('extensions/autocompaction.ts').includes('return 258_400;'), 'autocompaction.ts: threshold');
 // MODELS from model-arrows.js, contextWindow ids from settings/models.yml
 const modelsBlock = read('extensions/model-arrows.js').match(/MODELS = \[([^\]]*)\]/)?.[1] ?? '';
 const models = [...modelsBlock.matchAll(/"([^"]+)"/g)].map(([, id]) => id);
@@ -97,8 +100,7 @@ for (const line of read('settings/models.yml').split('\n')) {
   else if (key) model = key[2];
   if (/^ {8}contextWindow:/.test(line)) windowed.add(`${provider}/${model}`);
 }
-const routed = [...named.map(([, gpt, claude]) => [gpt, claude]), ...tiers.map(([, , gpt, claude]) => [gpt, claude])]
-  .flat().map(id => id.replace(/:\w+$/, ''));
+const routed = named.map(([, model]) => model.replace(/:\w+$/, ''));
 for (const id of new Set(routed)) assert.ok(models.includes(id), `model-arrows.js: ${id}`);
 for (const id of models) assert.ok(windowed.has(id), `settings/models.yml: ${id}`);
 

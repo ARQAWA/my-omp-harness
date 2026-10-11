@@ -22,8 +22,8 @@ straight from it, so it must not be moved or deleted.
 | herdr (our build) | [`install-instructions/herdr.md`](install-instructions/herdr.md) |
 
 A full installation includes all components in the order of the table: the
-package needs omp, the system prompt needs the package because its routing
-section describes a package extension, and the herdr integration needs omp. On
+package needs omp, the system prompt needs the package because the package
+supplies the skills the prompt leaves out, and the herdr integration needs omp. On
 Windows, run commands through the omp bash tool or Git Bash, without PowerShell
 and cmd, except in two explicitly named places: the stock omp installer and the
 `powershell.exe` call in the herdr instruction. A full release on the

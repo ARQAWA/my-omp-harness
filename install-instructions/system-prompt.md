@@ -7,24 +7,15 @@ General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../INSTALL_F
 [`SYSTEM.md`](../SYSTEM.md) at the root of the clone holds the general rules of
 model behavior based on the final Codex system prompt, without the parts that do
 not exist in omp and without the rules that the harness package's skills supply.
-It ends with the "Subagent model routing" section: choosing a complexity tier,
-starting the named harness agents by name without `model`, and the work that
-root Main hands to them: searching unfamiliar files and external sources goes to
-`codebase_explorer`, code and configs only to `code_writer`, program runs only
-to `shell_runner`.
-
 The file is installed as a copy at `<agent-dir>/SYSTEM.md`. omp then replaces
 its built-in instruction template with this file and keeps skills, rules and the
-project context. The prompt applies to root Main in all sessions of the profile;
-subagents do not receive it, because the harness package removes it from their
-system prompt. The prompt's version is the commit.
+project context. The prompt applies to root Main and to every subagent in all
+sessions of the profile. The prompt's version is the commit.
 
-The todo and review rules belong to the harness package and are not moved into
-the prompt. The prompt is tied to the package by the routing section (the routes
-are set by the `subagent-model-policy.ts` extension, the briefs by the
-`subagent-brief` skill) and by the skills that the package supplies to root Main
-instead of repeating them in the prompt: the Gold Standard, `omp-tools`,
-`main-workflow` and `clear-communication`.
+The todo, review and subagent rules belong to the harness package and are not
+moved into the prompt. The package supplies them to root Main as skills instead
+of repeating them in the prompt: the Gold Standard, `omp-tools`,
+`main-workflow`, `subagents` and `clear-communication`.
 
 ## Requirements
 

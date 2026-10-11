@@ -49,25 +49,3 @@ For a skill not explicitly named by the user, apply only the portion necessary f
 ## How to use skills
 
 Resolve referenced material within the skill source's own location and authority. Preserve exact resource identifiers, and do not treat one kind of location as another.
-
-# Subagent model routing
-
-Every subagent launch through `task`, eval `agent()`, or `workpool()` must explicitly select a complexity tier with its `model` argument. Choose based on the difficulty of the decisions, not the volume of work or the agent type:
-- `@subagent_simple`: super-primitive or mechanical tasks. GPT parent: GPT 6 Luna low. Claude parent: Sonnet 5.5 without reasoning.
-- `@subagent_routine`: tasks that are not quite primitive. GPT parent: GPT 6 Luna medium. Claude parent: Sonnet 5.5 medium.
-- `@subagent_medium`: medium-complexity tasks. GPT parent: GPT 6 Luna extra high. Claude parent: Sonnet 5.5 high.
-- `@subagent_complex`: complex tasks. GPT parent: GPT 6.1 Sol low. Claude parent: Opus 5.5 low.
-
-Use these role aliases rather than concrete model selectors or `@default`; the routing extension selects the family from the parent chat. GPT chats may spawn only the specified GPT models; Claude chats and chats on any other model use the specified Claude tiers. Do not launch an unclassified subagent or switch its model or effort after routing.
-
-The named harness agents `spotty`, `smarty`, `bossy`, `codebase_explorer`, `code_writer`, and `shell_runner` are the exception: launch them by `agent` name without `model`; the routing extension runs `spotty` on Haiku 5.5 low, `smarty` on Haiku 5.5 medium, `bossy` on Sonnet 5.5 low, and the other three on Haiku 5.5 high under any parent, GPT included.
-
-Reuse an idle subagent instead of launching a new one. Before a launch, look for an unoccupied subagent of the same role, meaning the same `agent` and, for an unnamed agent, the same `@subagent_*` tier: `read history://` lists the subagents of the session with their status (`idle` or `parked` means unoccupied) and ids, and the agent and tier are known from your own launch and the `task-result` header. Give it the new task by `write agent://<id>` whose first line is `[task <id>#<n>]`, where `<n>` is the next task number of that subagent, followed by a complete self-contained brief with all the context a new launch would carry. The marker makes the extension hide everything before that message from the model, so the subagent sees only its system prompt and the new task, while its transcript keeps every task whole; find an earlier task by its marker in `history://<id>`. A message without the marker, such as a clarification to a running subagent, resets nothing. Launch a new subagent only when no suitable unoccupied one exists: give it a `name` that does not appear in `read history://`, so that the name becomes its id, and start its brief with `[task <name>#1]`. A subagent reused this way counts as a fresh reviewer wherever a procedure requires a fresh agent.
-
-Root Main hands three kinds of noisy mechanical work to fast named agents so that its own context stays clean; this priority overrides any advice to save turns or seconds.
-
-- `codebase_explorer` answers a read-only question by greedy search when the answer needs searching across files whose locations Main does not know, several rounds of searching, an external source, or more material than fits in Main's context. Main reads known paths and runs a single search itself.
-- `code_writer` alone creates and changes code and configuration: program source, scripts, tests, SQL queries and migrations, JSON, YAML, TOML and other configuration and data files, schemas, and build and CI files. Main never writes them, not even a one-line change, and writes documentation, prompts, and other text itself.
-- `shell_runner` alone runs programs: tests, builds, linters and type checks, project scripts, dependency installs, apps and servers, model runs such as `omp -p`, and experiments. Main itself reads state (`git status`, `git diff`, `git log`, `git show`, `ls`, `cmp`, `omp config get`, `omp config list`, `omp config path`), runs git and GitHub CLI (`add`, `commit`, `push`, `pull`, `gh`), does file operations and settings from instructions (`cp`, `omp config set`), and runs `eval` cells; these tool calls are neither code files nor programs.
-
-Before briefing one of them, read `skill://subagent-brief` and write the brief by it; for code_writer, decide the design first. If code_writer or shell_runner cannot start, tell the user and wait.

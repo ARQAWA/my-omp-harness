@@ -31,8 +31,8 @@ applied on top of it:
   installation: the look of the status line and the input field, models and
   providers, agent work and the interface.
 
-The keys `extensions`, `task.maxConcurrency` and the `subagent_*` roles in
-`modelRoles` are set by the [harness package](harness.md). The owner of each
+The keys `extensions` and `task.maxConcurrency` are set by the
+[harness package](harness.md). The owner of each
 machine chooses the `default` role, and omp itself maintains the service key
 `setupVersion`; they are not carried over. A new session without model selection
 and continuation flags starts on Opus 5.5 medium: the package extension
@@ -115,6 +115,7 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set browser.enabled true
    omp config set computer.enabled true
    omp config set task.agentIdleTtlMs 120000
+   omp config set task.disabledAgents '["task","scout","reviewer","security-reviewer","sonic"]'
    omp config set retry.fallbackChains '{"openai-codex/*":[]}'
    omp config set extendedContext false
    omp config set codexResets.autoRedeem no

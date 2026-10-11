@@ -97,10 +97,13 @@ briefs, and Main writes documentation and prompts itself. Root Main runs
 programs (tests, builds, applications, `omp -p`) only through `shell_runner`,
 and reads state, runs git and does file operations itself. Main hands searches
 over unfamiliar files, several rounds of searching, external sources and
-material larger than its context to `codebase_explorer`. By the owner's decision
-these rules and the routing are written as one block in the "Subagent model
-routing" section of `SYSTEM.md`, not in the Gold Standard; the briefing rules lie
-in the visible skill `subagent-brief`, which Main reads before a brief.
+material larger than its context to `codebase_explorer`. These rules, the
+subagent types with their models and the reuse rule live in the hidden skill
+`subagents`, which `harness.ts` gives only to root Main; the briefing rules lie
+in the visible skill `subagent-brief`, which Main reads before a brief. Main
+launches only the harness agents from `agents/*.md`; omp's built-in agents are
+turned off by `task.disabledAgents`. A subagent on a model of the user's choice
+is the role-less agent `custom`, launched only on the user's direct order.
 
 ### Languages
 
@@ -157,19 +160,21 @@ does not authorize publication.
 
 ### Model routing
 
-`extensions/subagent-model-policy.ts` chooses the model by the parent's family.
-Named agents come from the `NAMED` table; each has one model per parent family,
-the same under any parent: `spotty` is Haiku 5.5 low, `smarty` Haiku 5.5 medium,
-`bossy` Sonnet 5.5 low, and `codebase_explorer`, `code_writer` and `shell_runner`
-Haiku 5.5 high.
-Other launches require a tier from `ROUTES`. A GPT parent gets the GPT route, any
-other parent the Claude route. `agents/*.md` have no `model` field.
+`extensions/subagent-model-policy.ts` sets the subagents' models. Each named
+agent has one model in the `NAMED` table under any parent: `spotty` is Haiku 5.5
+low, `smarty` Haiku 5.5 medium, `bossy` Sonnet 5.5 low, and `codebase_explorer`,
+`code_writer` and `shell_runner` Haiku 5.5 high. The agent `custom` gets the
+model and effort of its `task` item through the extension's `task` wrapper.
+The extension blocks no launch. `agents/*.md` have no `model` field.
+
+A new agent is a file `agents/<name>.md`, a line in `NAMED`, a line in
+`skills/subagents/SKILL.md` and a row in the agent table of
+`install-instructions/harness.md`.
 
 The owner chooses the models. When a model changes, update together:
 
-- `NAMED` and `ROUTES`;
-- the tables and the `modelRoles` JSON in `install-instructions/harness.md`;
-- the routing list in `SYSTEM.md`;
+- `NAMED`, the line of the agent in `skills/subagents/SKILL.md` and the agent
+  table in `install-instructions/harness.md`;
 - the startup model in `extensions/default-model.ts`;
 - the shift+↑/↓ list in `extensions/model-arrows.js` and the context windows in
   `settings/models.yml`;
@@ -178,11 +183,12 @@ The owner chooses the models. When a model changes, update together:
 - `enabledModels` in step 4 of `install-instructions/omp.md` and the local
   setting.
 
-`node tests/run.mjs` checks the extension against the list above, including the
-model IDs in `model-arrows.js` and `settings/models.yml`, except the readable
-model names in `SYSTEM.md`, the autocompaction thresholds and `enabledModels`:
-they are updated by hand. After a change on the development machine, update
-`modelRoles` by `harness.md`, the `SYSTEM.md` copy, and start a new omp session.
+`node tests/run.mjs` checks the extension against the list above: every agent
+file is named in the `subagents` skill, the `NAMED` models match the readable
+names in the skill and the table in `harness.md`, and the model IDs match in
+`model-arrows.js` and `settings/models.yml`; `enabledModels` is updated by hand.
+The finalization gate covers the rest. After a change on the development
+machine, start a new omp session.
 
 ### Rules for working with the sources
 
@@ -289,11 +295,11 @@ Do not add setup skills. Do not refer to the working repository in package files
 The model's general instructions describe behavior and working principles
 without binding to specific functions, commands and environment variables.
 `SYSTEM.md` is the general rules based on the final Codex system prompt without
-the parts that do not exist in omp, plus this package's "Subagent model routing"
-section. Rules supplied by the package's skills are not repeated in it: the
-package supplies root Main with the Gold Standard, `omp-tools`, `main-workflow`
-and `clear-communication`, and a subagent gets its definition, its brief and
-`omp-tools` instead of `SYSTEM.md`. The todo and review rules belong to the
+the parts that do not exist in omp, and it reaches every agent, subagents
+included. Rules supplied by the package's skills are not repeated in it: the
+package supplies root Main with the Gold Standard, `omp-tools`, `main-workflow`,
+`subagents` and `clear-communication`, and a subagent gets `SYSTEM.md`, its
+definition, its brief and `omp-tools`. The todo and review rules belong to the
 package; changes of these rules are not moved into the base prompt. The
 mechanics of the tools come from the descriptions of the omp tools themselves;
 the `omp-tools` skill adds to them only the rules of speed, temporary files and
