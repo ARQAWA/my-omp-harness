@@ -5,7 +5,7 @@ const ASK_DESCRIPTION =
 	"- Batch related questions; 2–5 distinct options each; short labels, tradeoffs in `description`.\n" +
 	"- `recommended` (0-based index) auto-adds \" (Recommended)\"; `multi: true` permits multiple selections.\n" +
 	"- NEVER supply \"Other\": UI adds \"Other (type your own)\". Clarifying custom input? Answer first; re-ask unresolved questions.\n" +
-	"- Optional `title` names the whole form and shows as the first question's header chip.\n" +
+	"- Optional `title` names the whole form: it becomes the first question's header chip, or prefixes the first question's text when that question already has a header.\n" +
 	"- Optional option `id`: the result adds a line `Selected option ids:` with `<question id>=<option id>` for each chosen option that has an id.";
 
 type NativeResult = { content: { type: string; text?: string }[]; details?: unknown; isError?: boolean };

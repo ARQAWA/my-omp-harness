@@ -29,17 +29,10 @@ const fileLocks = Symbol.for("my-omp-harness.fileLocks");
 const lockStore = globalThis as unknown as Record<symbol, Set<string> | undefined>;
 const inFlight = (lockStore[fileLocks] ??= new Set<string>());
 
-let gpt = false;
-
 function lockKey(path: string, cwd: string): string {
 	if (path.includes("://")) return path;
 	const absolute = resolve(cwd, path);
 	return process.platform === "win32" ? absolute.toLowerCase() : absolute;
-}
-
-function syncModel(ctx: { models?: { current?: () => { id?: string } | undefined }; model?: { id?: string } }): void {
-	const model = ctx.models?.current?.() ?? ctx.model;
-	gpt = /gpt/i.test(model?.id ?? "");
 }
 
 function splitFileLines(text: string): string[] {
@@ -86,8 +79,21 @@ function nearestMatchText(relPath: string, oldString: string, cwd: string): stri
 	return out.join("\n");
 }
 
+function cleanParams(raw: unknown): Params {
+	const params = { ...(raw as Params) };
+	if (params.path === "") delete params.path;
+	if (params.old_string === "") delete params.old_string;
+	if (params.edits?.length === 0) delete params.edits;
+	return params;
+}
+
 export default function (pi: ExtensionAPI) {
 	const z = pi.zod;
+	let gpt = false;
+	function syncModel(ctx: { models?: { current?: () => { id?: string } | undefined }; model?: { id?: string } }): void {
+		const model = ctx.models?.current?.() ?? ctx.model;
+		gpt = /gpt/i.test(model?.id ?? "");
+	}
 
 	const claudeParameters = z.object({
 		path: z.string().optional(),
@@ -133,13 +139,13 @@ export default function (pi: ExtensionAPI) {
 		},
 		concurrency: (args: { input?: unknown } | undefined) => (typeof args?.input === "string" ? "exclusive" : "shared"),
 		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
+			const params = cleanParams(rawParams);
 			if (!ctx.invokeTool) {
 				return {
 					content: [{ type: "text" as const, text: "edit is not available to this agent." }],
 					isError: true,
 				};
 			}
-			const params = rawParams as Params;
 			if (typeof params.input === "string") {
 				return ctx.invokeTool!({ input: params.input }, { signal, onUpdate });
 			}

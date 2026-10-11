@@ -27,6 +27,25 @@ let current: number | undefined;
 let lastStart = 0;
 let gate: Promise<void> = Promise.resolve();
 
+// GPT sends every optional field with an empty default; "" names and cwd, and a ready block with neither log nor port, count as absent.
+function cleanBashParams(raw: BashParams): BashParams {
+	const params = { ...raw };
+	if (params.name === "") delete params.name;
+	if (params.cwd === "") delete params.cwd;
+	if (params.timeout === 0) delete params.timeout;
+	if (params.ready && !(params.ready.log || (params.ready.port ?? 0) > 0)) {
+		delete params.ready;
+	} else if (params.ready) {
+		const ready = { ...params.ready };
+		if (ready.log === "") delete ready.log;
+		if (ready.host === "") delete ready.host;
+		if (ready.port === 0) delete ready.port;
+		if (ready.timeout === 0) delete ready.timeout;
+		params.ready = ready;
+	}
+	return params;
+}
+
 export default function (pi: ExtensionAPI) {
 	const z = pi.zod;
 
@@ -74,13 +93,13 @@ export default function (pi: ExtensionAPI) {
 				.optional(),
 		}),
 		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
+			const params = cleanBashParams(rawParams as BashParams);
 			if (!ctx.invokeTool) {
 				return {
 					content: [{ type: "text" as const, text: "bash is not available to this agent." }],
 					isError: true,
 				};
 			}
-			const params = rawParams as BashParams;
 			const { block_until_ms: blockUntilMs, ...rest } = params;
 			const args: Record<string, unknown> = Object.fromEntries(
 				Object.entries(rest).filter(([, value]) => value !== undefined),

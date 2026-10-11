@@ -668,6 +668,19 @@ function isErrorResult(r: unknown): boolean {
 	return typeof r === "object" && r !== null && "isError" in r && r.isError === true;
 }
 
+const EMPTY_NUMERIC_KEYS = new Set(["-A", "-B", "-C", "head_limit", "offset", "limit"]);
+
+// GPT sends every optional field with an empty default; "" and, for the numeric fields, 0 count as absent.
+function cleanParams<T extends object>(raw: T): T {
+	const out: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(raw)) {
+		if (value === "") continue;
+		if (value === 0 && EMPTY_NUMERIC_KEYS.has(key)) continue;
+		out[key] = value;
+	}
+	return out as T;
+}
+
 function textSel(offset: number | undefined, limit: number | undefined): ReadSel {
 	const lim = limit !== undefined && limit > 0 ? limit : undefined;
 	const off = offset === 0 ? undefined : offset;
@@ -732,7 +745,7 @@ async function pageNative<T>(
 			break;
 		}
 		if (isErrorResult(r)) {
-			if (out.length === 0) return r;
+			if (out.length === 0) return native(url);
 			break;
 		}
 		const parts = text.split("\n");
@@ -839,7 +852,8 @@ export default function rg(pi: ExtensionAPI) {
 			offset: z.number().optional(),
 			multiline: z.boolean().optional(),
 		}),
-		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
+			const params = cleanParams(rawParams);
 			if (params.type !== undefined && !Object.prototype.hasOwnProperty.call(TYPE_EXTENSIONS, params.type)) {
 				return errorResult(`Unknown type "${params.type}". Accepted types: ${Object.keys(TYPE_EXTENSIONS).join(", ")}.`);
 			}
@@ -980,7 +994,8 @@ export default function rg(pi: ExtensionAPI) {
 			target_directory: z.string().optional(),
 			offset: z.number().optional(),
 		}),
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, rawParams, signal, _onUpdate, ctx) {
+			const params = cleanParams(rawParams);
 			const target = resolve(ctx.cwd, normalizeInputPath(params.target_directory ?? "."));
 			if (!isDirectory(target)) {
 				return errorResult(missingPathText(target));
@@ -1033,9 +1048,10 @@ export default function rg(pi: ExtensionAPI) {
 			offset: z.number().optional(),
 			limit: z.number().optional(),
 		}),
-		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
+			const params = cleanParams(rawParams);
 			const native = (path: string) => ctx.invokeTool!({ path }, { signal, onUpdate });
-			const pathArg = normalizeInputPath(params.path);
+			const pathArg = normalizeInputPath(params.path ?? "");
 			const shaped = (r: ReadResult) => ({
 				content: [{ type: "text" as const, text: r.text }],
 				details: r.details,
