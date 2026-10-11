@@ -2,13 +2,15 @@
 
 The user started `/define-goal`. Their message after `Define goal:` is the rough objective: a description of the task, not yet an order to act. If there is none, ask what they want to achieve. Agree on one goal with the user, set it with the `goal` tool, carry it out, and finish only after a blind reviewer returns CLEAN. A goal runs across many turns and outlives context compaction, and omp repeats its objective in every goal turn, so the objective alone must carry everything the work and its review need, including the user's own words.
 
+Write every message and question of this procedure by [Clear Communication](skill://clear-communication). The user never sees the objective and does not keep earlier messages in mind, so each message and question is clear on its own: name every item, quote, criterion, option and file by what it says, in plain words, never by a code such as `S2`, a bare number or a reference to an earlier message.
+
 ## 1. Explore first
 
 Before the first question, read the code, configuration and documents the rough objective touches, read-only and only as far as the questions need. Ask nothing the files answer, and ground every question and the draft in the project's actual stack, conventions and checks.
 
 ## 2. Interview
 
-Ask through `ask` and put all open questions of a round into one call. Each question is one or two sentences and offers two to four concrete options from the project, the recommended one first. Ask only what changes the result and what the files cannot settle: the end state, how to prove it, what must not change, the limits of the run, and the hard parts the user may not have weighed, such as edge cases and tradeoffs. Stop once the objective below can be written; one or two rounds usually suffice. If the user declines or abandons the interview, set no goal.
+Ask through `ask` and put all open questions of a round into one call. Ask only what changes the result and what the files cannot settle: the end state, how to prove it, what must not change, the limits of the run, and the hard parts the user may not have weighed, such as edge cases and tradeoffs. Before the call, write in the chat for every question the situation in plain words, the option you recommend with its reason, and the real alternatives with what each would change. Each question is one or two sentences and offers two to four concrete options from the project, the recommended one first, each with its consequence in its description. Stop once the objective below can be written; one or two rounds usually suffice. If the user declines or abandons the interview, set no goal.
 
 ## 3. Draft the objective
 
@@ -32,12 +34,12 @@ Review template; the class follows the work-class table of Main Workflow, small 
 
 The objective is for the agent and the reviewer; never show it to the user. First check it against the user's words: every agreed requirement, value, constraint and prohibition is in it, nothing is lost or distorted, and nothing the user did not say is added except items marked `Quotes: proposed`. You may run [Light Review Cycle](skill://light-review-cycle) with `review_stage=pre-action` for this check.
 
-Then write in the chat a short retelling in the user's language: numbered items of one line each with the exact values the user accepts, including every proposed item, then the sections «Границы», «Остановка» and «Проверка», a line or two each. Call `ask` with a one-sentence question such as «Принять цель выше?» and the options «Принять» (recommended) and «Поправить»; the `ask` panel shows only four lines of a question, so the retelling stays in the chat. A correction changes the objective and adds the user's new words to Quotes; check it again, show the new retelling and ask again. Acceptance of the retelling accepts the objective and replaces the requirement step of Main Workflow.
+Then write in the chat a short retelling in the user's language: one bold sentence with the main point of the goal, then short numbered items with the exact values the user accepts, including every proposed item, then the sections «Границы», «Остановка» and «Проверка», a line or two each. Give the user's own items as he said them, without reasons. Mark every proposed item as your proposal and give its reason; when it has real alternatives, name them with what each would change. Call `ask` once: every proposal with real alternatives is its own question of one or two sentences with two to four options and their consequences, the recommended one first, and the last question accepts the whole goal, such as «Принять цель выше?», with the options «Принять» (recommended) and «Поправить». The `ask` panel shows only four lines of a question, so the retelling stays in the chat. «Принять» accepts the whole goal with the chosen options: put them into the objective and Quotes without asking again. «Поправить» or the user's own text changes the objective and adds his new words to Quotes; check it again, show the new retelling and ask again only about what changed and the acceptance of the whole. Acceptance of the retelling accepts the objective and replaces the requirement step of Main Workflow.
 
 ## 5. Set and work
 
-Call `goal` with op `create`, the accepted objective verbatim, and `token_budget` only when the user gave one. Confirm in one sentence and start. Work by the objective and Main Workflow, and show evidence instead of claiming success: the command and what it returned, the file and what it now says. When a stop condition fires, report it and wait for the user as Main Workflow describes, with the goal left open.
+Call `goal` with op `create`, the accepted objective verbatim, and `token_budget` only when the user gave one. Confirm in one sentence and start. Work by the objective and Main Workflow, and claim success only from evidence, such as the command and what it returned or the file and what it now says. When a stop condition fires, report it and wait for the user as Main Workflow describes, with the goal left open.
 
 ## 6. Finish
 
-Follow the objective's Review section, then complete the goal and report the result with the evidence for each criterion. If the reviewer cannot start, leave the goal open, tell the user and wait.
+Follow the objective's Review section, then complete the goal and report the result briefly: what is now true and whether every check passed; give the evidence for each check when the user asks. If the reviewer cannot start, leave the goal open, tell the user and wait.

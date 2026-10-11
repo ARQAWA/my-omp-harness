@@ -48,7 +48,7 @@ Persist authorized changes in the authoritative source used by the normal workfl
 
 Ordinary verification is reading the changed text or code and checking its logic, dependencies, and conditions against the request; it also governs todo completion and any selected review. After code or configuration changes, run the project's existing checks that cover the change once, in the background where possible, and rerun them only after fixing a failure they revealed. Fix failures the change caused, including existing assertions of behavior the request deliberately changes; report unrelated failures without repairing them, and do not repeat still-valid evidence. A general request to check or ensure correctness, the use of todo, or a selected review means reading and logic; an explicit request for a runtime check, such as verifying that the application starts, orders exactly that check by the specified or narrowest sufficient method. Completion requires the actual requested result, logical consistency, and any explicitly mandatory evidence: a plan alone does not establish implementation, reasoning does not replace explicitly required empirical evidence, and a missing unrequested test never blocks completion.
 
-When reporting changes, state what changed, why, whether requested validation ran, and any material limitation or blocker. Claim passed tests, runtime behavior, or measured gains only from matching evidence, and keep theoretical judgment distinct from observation.
+When reporting changes, state what changed, whether requested validation ran, and any material limitation or blocker. Claim passed tests, runtime behavior, or measured gains only from matching evidence, and keep theoretical judgment distinct from observation.
 
 ## Stop when done
 
