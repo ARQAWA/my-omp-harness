@@ -11,8 +11,7 @@ and `dependencies` fields), `bun.lock`, `extensions/harness.ts` with the
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
 `extensions/subagent-reuse.ts`,
 `extensions/diagram.ts`, `extensions/cursor-feed.ts` with modules in
-`extensions/cursor-feed/`, `extensions/lcm/index.ts` with modules in
-`extensions/lcm/src/` and the native module in `extensions/lcm/native/`,
+`extensions/cursor-feed/`,
 `extensions/write.ts`, `extensions/edit.ts`, `extensions/bash.ts`,
 `extensions/todo.ts`, `extensions/results.ts`, `skills/` and
 `agents/`. omp loads a directory from the
@@ -302,9 +301,7 @@ status circle and a phrase such as "Reading client.py", "Searching files",
 "Running command" or "Waiting for subagent" without a sheen. The row has no
 timer and disappears when no action is active. omp's own "Working\u2026" row
 with the esc hint and intent text never appears. No reasoning-duration rows remain in the transcript. Collapsed
-calls have no raw argument fields, output body or Expand hint. Standalone
-LCM tools say `Searched memory "query" · N found`, "Viewed memory map" or
-"Opened memory summary". A finished Main turn
+calls have no raw argument fields, output body or Expand hint. A finished Main turn
 is folded: everything between the question and the final answer becomes the
 line "Worked for 7m 11s ›". Ctrl+O expands and folds everything at once: Explored one action per line,
 each call with the last six lines of its diff or output, Worked for the turn. So that lines that have scrolled up also
@@ -393,8 +390,8 @@ compaction bar, right next to the field, is a full-width white-grey bar with a g
 window minus the reserve) and shows 100% at or above it; the bar fills by the
 same share. At the trigger the bar
 turns natural gold, a gradient from dark gold `#8a6d1c` through `#c9a227` to
-light gold `#e3c45a`, and while compaction runs (`auto_compaction_start` or
-`session_before_compact` until `auto_compaction_end` or `session_compact`) a
+light gold `#e3c45a`, and while automatic compaction runs (`auto_compaction_start`
+until `auto_compaction_end` or `session_compact`) a
 warm glint moves along it. Status row 1 holds, left to right, the model with its reasoning level, the
 modes (plan, goal, loop, prewalk) and the count of working subagents (the
 one-cell Nerd Font users glyph U+F0C0); at its right edge the generation speed
@@ -402,8 +399,7 @@ one-cell Nerd Font users glyph U+F0C0); at its right edge the generation speed
 counter as the built-in `composer.tokenRate`, which is turned off, updates it
 every 80 ms during a turn, keeps the last value between turns, puts the theme's
 speed icon right in front of the number and colors it: below 30 tok/s red,
-below 60 yellow, below 90 pale green, otherwise bright green) with the memory
-counters `86  / 12 ` directly left of it. Status row 2 holds, left
+below 60 yellow, below 90 pale green, otherwise bright green). Status row 2 holds, left
 to right, the folder, the collab and stream indicators and the count of hidden
 background jobs; at its right edge the git branch with its change count and
 the PR. The extension takes the right segments from the line above the input
@@ -416,47 +412,18 @@ Main's autocompaction threshold: 450 000 tokens for all Claude and all GPT
 models at their 700 000 context window from [omp.md](omp.md), if the threshold
 is below the context window.
 
-`lcm/index.ts` is the only context compaction: a copy of pi-lcm 0.1.3 with our
-changes (MIT license in `extensions/lcm/LICENSE`). Storage, search, the summary
-graph and the assembly of the window text run in a Node-API native module from
-the Rust crate `crates/lcm-native`, loaded into the omp process:
-`extensions/lcm/native/lcm_native.darwin-arm64.node` on macOS Apple Silicon and
-`lcm_native.win32-x64.node` on Windows x64. Hooks and model requests stay in
-TypeScript. The module keeps the history in its own new SQLite schema with
-integer keys, a partial index of uncompacted messages, a flag of condensed
-summaries, separate links of summaries to messages and to summaries, and FTS5
-full-text search over messages and summaries. When the uncompacted messages
-exceed 30 000 tokens, LCM writes summaries of chunks in the background on
-`anthropic/claude-haiku-5-5` with reasoning low: up to 15 in parallel, without
-prompt caching, no more than 100 000 tokens of input and output per call. At the
-autocompaction threshold omp calls the `session_before_compact` hook: LCM
-finishes the summaries for up to 25 s and gives omp the text of the new window
-of up to 12 000 tokens from the summaries not yet condensed, newest first, even
-when there are few messages; the summaries left out stay reachable through
-`lcm_grep` and `lcm_expand`. With the last 8000 tokens of messages
-(`compaction.keepRecentTokens 8000` in step 4 of [omp.md](omp.md)), the system
-prompt and the tools, the window after compaction takes about 50 000 tokens.
-Only Haiku 5.5 writes summaries, without the session's fallback model; every
-request is retried up to two times. If a summary still fails after the retries,
-the hook hands compaction to omp, and the regular chain (`soft`) works. The
-prompts require carrying facts over as they are, inventing nothing and
-dropping nothing. The tools `lcm_grep`, `lcm_describe` and `lcm_expand` load on
-request through `xd://` and search and expand the original messages; the
-commands `/lcm` and `/lcm-settings` show the state and the settings. In the status line LCM shows the muted counters `86  / 12 ` left of
-the speed; its progress text while it writes summaries goes to omp's hook
-status, which `statusLine.showHookStatus false` hides. A failure is one short
-notice that says what will happen next. The databases `<cwd hash>.db`, the cost log
-`costs.jsonl` and the shared `/lcm-settings` settings (`settings.json`) lie in
-`~/.omp/lcm`; the `LCM_DB_DIR` variable replaces the folder for the databases
-and the log. Earlier databases lay in the `lcm` folder next to the omp
-executable (`process.execPath`): the first time a project opens, LCM finds the
-database of this cwd there and moves it into the new schema without losses,
-comparing the numbers of conversations, messages and summaries; the old
-database is not changed. The other kinds of compaction are turned off by the
-step 4 keys of [omp.md](omp.md): `compaction.methodOrder` `["soft"]` keeps only
-the regular summary, which the LCM hook replaces; `compaction.asyncEnabled
-false` turns off omp's background early summary;
-`compaction.experimentalContextManagement false` removes the
+Context compaction is omp's own, set by the step 4 keys of [omp.md](omp.md).
+`compaction.methodOrder` `["remote", "soft"]`: `remote` is the provider's
+server-side compaction, the Anthropic compaction beta for the Claude models
+and the streaming Responses compaction, the same mechanism as Codex CLI, for
+the `openai-codex` models; the provider of the active model compacts, and its
+native block stays in the history. When `remote` is unavailable or fails
+(omp allows five minutes per request and two retries), `soft` follows: omp's
+own text summary by the current model, with the last 20 000 tokens of messages
+kept (`compaction.keepRecentTokens` at its default). `compaction.asyncEnabled
+true` starts the summary in the background once the context enters the
+32 000-token band under the threshold and splices the ready result in when the
+threshold is crossed, so the turn does not wait. `compaction.experimentalContextManagement false` removes the
 notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
@@ -569,11 +536,7 @@ The commands are the same on macOS and Windows (bash).
    `BUN_BE_BUN=1 omp install --cwd "$CLONE" --frozen-lockfile`. The
    `BUN_BE_BUN=1` variable runs the Bun built into omp; a separate Bun is not
    needed.
-7. Download the LCM native module for your OS from the `lcm` release:
-   `P=darwin-arm64` on macOS Apple Silicon, `P=win32-x64` on Windows x64, then
-   `mkdir -p "$CLONE/extensions/lcm/native" && curl -fsSL -o "$CLONE/extensions/lcm/native/lcm_native.$P.node" "https://github.com/ARQAWA/my-omp-harness/releases/download/lcm/lcm_native.$P.node" && ls -l "$CLONE/extensions/lcm/native/lcm_native.$P.node"`.
-   The module supports no other platforms.
-8. Extensions load in a new omp process. Ask the owner to restart omp without
+7. Extensions load in a new omp process. Ask the owner to restart omp without
    interrupting the current task.
 
 ## Post-installation check
@@ -598,9 +561,6 @@ start new processes.
 4. Run `BUN_BE_BUN=1 omp install --cwd "$CLONE" --frozen-lockfile`: the command
    installs the package dependencies from `bun.lock` and changes nothing if they
    are already in place.
-5. If `pull` changed `crates/lcm-native/` or the LCM module file is missing,
-   download the module again with the command of step 7 of the first
-   installation.
-6. Ask the owner to restart omp: open sessions keep the previous context.
-7. Run the checks of the changed parts. Do not repeat the full
+5. Ask the owner to restart omp: open sessions keep the previous context.
+6. Run the checks of the changed parts. Do not repeat the full
    first-installation check without a request.

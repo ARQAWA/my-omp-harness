@@ -11,7 +11,7 @@ export interface Row {
 	removed?: number;
 	files: number;
 	searches: number;
-	/** Other tool calls: lsp, eval, memory, MCP, goal get and resume. */
+	/** Other tool calls: lsp, eval, MCP, goal get and resume. */
 	tools?: number;
 	/** Shell commands. */
 	commands?: number;
@@ -205,19 +205,6 @@ export function readRow(args: unknown): Row {
 	return { verb: "Read", detail: `${displayPath(file)}${range}`, files: 1, searches: 0 };
 }
 
-/** The N of a result text that starts with "Found N results", else undefined. */
-function resultCount(results: CallResult[]): number | undefined {
-	for (const result of results) {
-		const text = result.content
-			.filter(c => c.type === "text")
-			.map(c => c.text ?? "")
-			.join("\n");
-		const match = /^Found (\d+) results/.exec(text);
-		if (match) return Number(match[1]);
-	}
-	return undefined;
-}
-
 /** The files of a write call with the line count of each content: its files batch, else its one path. */
 export function writeFiles(args: unknown): Array<{ path: string; added: number }> {
 	const a = asRecord(args);
@@ -293,15 +280,6 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 			};
 		case "eval":
 			return tool("Ran eval", str(a.title) || str(a.language));
-		case "lcm_grep": {
-			const found = resultCount(results);
-			const count = found === undefined ? "" : ` · ${found} found`;
-			return tool("Searched memory", `"${str(a.query)}"${count}`);
-		}
-		case "lcm_describe":
-			return tool("Viewed memory map", "");
-		case "lcm_expand":
-			return tool("Opened memory summary", "");
 		case "goal":
 			return tool(goalLabel(str(a.op)), "");
 		default: {
@@ -334,9 +312,6 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 			return [...command, ...outputLines(results)];
 		}
 		case "eval":
-		case "lcm_grep":
-		case "lcm_describe":
-		case "lcm_expand":
 			return outputLines(results);
 		default:
 			return [];

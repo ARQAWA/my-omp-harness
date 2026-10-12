@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts', 'write.ts', 'edit.ts', 'bash.ts', 'todo.ts', 'results.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'write.ts', 'edit.ts', 'bash.ts', 'todo.ts', 'results.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -61,7 +61,6 @@ for (const dir of ['skills', 'agents', 'extensions']) {
   for (const file of readdirSync(path.join(root, dir), { recursive: true })) {
     const relative = path.join(dir, file);
     if (!statSync(path.join(root, relative)).isFile()) continue;
-    if (relative.split(path.sep).slice(0, 2).join('/') === 'extensions/lcm') continue;
     const text = read(relative);
     const feed = relative.split(path.sep).slice(0, 2).join('/') === 'extensions/cursor-feed';
     assert.doesNotMatch(text, feed ? feedLeftovers : codexLeftovers, relative);

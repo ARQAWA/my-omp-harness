@@ -122,11 +122,10 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set steeringMode one-at-a-time
    omp config set contextPromotion.enabled false
    omp config set branchSummary.enabled false
-   omp config set compaction.methodOrder '["soft"]'
+   omp config set compaction.methodOrder '["remote","soft"]'
    omp config set compaction.supersedeReads false
    omp config set compaction.dropUseless false
-   omp config set compaction.asyncEnabled false
-   omp config set compaction.keepRecentTokens 8000
+   omp config set compaction.asyncEnabled true
    omp config set checkpoint.enabled false
    omp config set astGrep.enabled true
    omp config set find.enabled off

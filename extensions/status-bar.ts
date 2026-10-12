@@ -23,8 +23,6 @@ let tui: any;
 let gitText = "";
 let prText = "";
 let rateCaptured = "";
-// The LCM counter text that the lcm extension publishes.
-const LCM_STATUS = Symbol.for("my-omp-harness.lcm-status");
 
 interface ActionState {
 	thinking: boolean;
@@ -207,8 +205,7 @@ function patchStatusLine() {
 		const placeAndJobs = jobs ? (place ? `${place} ${dot} ${jobs}` : jobs) : place;
 		// Drop omp's blank gap row so the context bar sits right under the input.
 		const textColor = theme.getFgAnsi("text");
-		const lcm = (globalThis as Record<symbol, unknown>)[LCM_STATUS];
-		const right1 = [typeof lcm === "string" ? lcm : "", rateCaptured].filter(Boolean).join("  ");
+		const right1 = rateCaptured;
 		const row1 = rowLeftRight(model, right1, width);
 		const row2 = rowLeftRight(placeAndJobs, [gitText, prText].filter(Boolean).join(" "), width);
 		const rows = [contextLine(width, theme, textColor), row1];
@@ -592,11 +589,6 @@ export default function statusBar(pi: ExtensionAPI) {
 	});
 
 	(pi as any).on("auto_compaction_start", (_event: any, ctx: any) => {
-		if (!ctx.hasUI) return;
-		startGlow();
-	});
-
-	(pi as any).on("session_before_compact", (_event: any, ctx: any) => {
 		if (!ctx.hasUI) return;
 		startGlow();
 	});

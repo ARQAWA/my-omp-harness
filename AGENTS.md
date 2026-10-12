@@ -1,7 +1,7 @@
 # Working base
 
 This repository is the working base of the harness for omp: the system prompt,
-skills, agents, extensions (including LCM), subagent model routing, the owner's
+skills, agents, extensions, subagent model routing, the owner's
 settings for omp and the delivery of our herdr. All of this is one harness.
 It was moved from the final version of [my-codex-harness](https://github.com/ARQAWA/my-codex-harness) (commit
 `13372c1`); that repository keeps the Codex version and the history of decisions
@@ -38,10 +38,9 @@ new omp session, and an edit in a task worktree takes effect after its branch is
 merged into `master`. `SYSTEM.md` is installed as a separate copy.
 
 The version is the commit. There are no version numbers or cachebusters. There
-are three tags and GitHub Releases. `herdr` holds the ready herdr files from the
-fork, `omp-vscode` the VSIX of the `omp-vscode/` extension, `lcm` the LCM native
-modules `lcm_native.darwin-arm64.node` and `lcm_native.win32-x64.node`. A
-release replaces their files.
+are two tags and GitHub Releases. `herdr` holds the ready herdr files from the
+fork, `omp-vscode` the VSIX of the `omp-vscode/` extension. A release replaces
+their files.
 
 ## Local check of the sources
 
@@ -305,14 +304,7 @@ the `omp-tools` skill adds to them only the rules of speed, temporary files and
 protection against frequent mistakes, and the search is set by `extensions/rg.ts`.
 
 All of the project's own tooling is implemented in Node.js or as omp extensions
-(TypeScript that omp runs) and must work on macOS, Linux and Windows. The
-exception is the LCM core: the Rust crate `crates/lcm-native` is built into a
-Node-API module that the `extensions/lcm` extension loads into the omp process.
-Only GitHub Actions `.github/workflows/lcm-native.yml` builds the ready modules
-for macOS Apple Silicon and Windows x64 on its own machines and puts them into
-the GitHub Release `lcm`; they are not kept in Git. The script
-`node crates/lcm-native/build.mjs` builds them locally only for development and
-checks. On Windows work through the omp bash tool or Git Bash. PowerShell and
+(TypeScript that omp runs) and must work on macOS, Linux and Windows. On Windows work through the omp bash tool or Git Bash. PowerShell and
 cmd are forbidden, except in the two places named in `INSTALL_FOR_AGENTS.md`:
 the stock omp installer and the `powershell.exe` call in the herdr instruction.
 

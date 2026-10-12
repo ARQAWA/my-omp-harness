@@ -103,11 +103,6 @@ function restoreRows(children: Component[], saved: SavedRow[]): void {
 
 /** Patches the dialogs of the interactive mode once; each wrapper returns what the original returns. */
 export function installDialogs(): void {
-	(globalThis as Record<symbol, unknown>)[Symbol.for("my-omp-harness.cursor-feed.dialog")] = (
-		title: string,
-		answer: string | undefined,
-	) => addRow(currentMode(), w => [dialogLine(title, answer, w)]);
-
 	const proto = InteractiveMode.prototype;
 	const record = proto as unknown as Record<symbol, unknown>;
 	const key = Symbol.for("my-omp-harness.cursor-feed.dialogs");

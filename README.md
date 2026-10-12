@@ -4,8 +4,8 @@ my-omp-harness turns [omp](https://github.com/can1357/oh-my-pi), the oh-my-pi
 terminal AI coding agent, into a fast and disciplined coding setup with a
 premium Cursor-style terminal interface. You get a compact feed with Nerd Font
 icons, a two-pane board for subagents, full tool results without rereads,
-parallel `write`, `edit` and `todo`, lossless context memory on a native Rust
-module,
+parallel `write`, `edit` and `todo`, server-side context compaction that runs
+in the background,
 fixed-model subagents plus any model you name, and blind reviews that check every result
 against your own words. It installs on top of stock omp as one package, without
 a fork, so `omp update` keeps working.
@@ -30,10 +30,12 @@ a fork, so `omp update` keeps working.
   tests, builds and applications. Each named agent runs on one fixed model;
   on your direct order Main runs the role-less agent `custom` on the model and
   reasoning level you name.
-- **Memory that does not lose context.** Only LCM compacts the context: a
-  native Rust module keeps background Haiku 5.5 summaries in SQLite, and search
-  reaches the original messages. Main's autocompaction threshold is 450 000
-  tokens at a 700 000 context window for all Claude and all GPT models.
+- **Compaction that does not stop the work.** The provider compacts the
+  context on its server, Anthropic for Claude and OpenAI for GPT, with omp's
+  text summary as the fallback; the summary starts in the background before
+  the threshold, so the turn never waits for it. Main's autocompaction
+  threshold is 450 000 tokens at a 700 000 context window for all Claude and
+  all GPT models.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
   and `write`, replacement edits and `todo` run in parallel with other calls.

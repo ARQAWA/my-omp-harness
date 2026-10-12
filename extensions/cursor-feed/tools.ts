@@ -1,7 +1,7 @@
 import { AssistantMessageComponent, ReadToolGroupComponent, ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Container, MetricRow, Spacer, Text, theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
+import { type Component, Container, MetricRow, Spacer, theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
 import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome";
-import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import {
 	allocations,
 	assistantMessages,
@@ -772,39 +772,8 @@ function patchToolExecution(): void {
 	};
 }
 
-/** The first line of the first text block of a tool result. */
-function firstTextLine(result: unknown): string {
-	const content =
-		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
-			? result.content
-			: [];
-	for (const block of content) {
-		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
-			return block.text.split("\n")[0] ?? "";
-		}
-	}
-	return "";
-}
-
-/** The memory tools delegate their own renderers to these entries, so the feed wraps them like a built-in tool; each entry gets a plain renderer when it has none. */
-function addMemoryRenderers(): void {
-	const labels: Record<string, string> = {
-		lcm_grep: "Searching memory",
-		lcm_describe: "Viewing memory map",
-		lcm_expand: "Opening memory summary",
-	};
-	for (const [name, label] of Object.entries(labels)) {
-		if (toolRenderers[name]) continue;
-		toolRenderers[name] = {
-			renderCall: () => new Text(label, 0, 0),
-			renderResult: (result: unknown) => new Text(firstTextLine(result), 0, 0),
-		} as unknown as ToolRenderer;
-	}
-}
-
 /** Installs the process-wide renderer and prototype patches once. */
 export function installCursorFeed(): void {
-	addMemoryRenderers();
 	installRenderers();
 	patchTranscript();
 	patchAssistant();

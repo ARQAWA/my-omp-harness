@@ -16,7 +16,7 @@ runs without the rest of the package. The stage commits that `AGENTS.md`
 requires during the work go to the task branch and are not a release.
 «Установить» or «обновить» without them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a merge or a
-push. herdr, omp-vscode and lcm are released only when their sources changed or
+push. herdr and omp-vscode are released only when their sources changed or
 the owner names them.
 Every release runs the whole package; a step counts as done only while its
 result still holds, such as a test run or a gate CLEAN after which no file
@@ -48,23 +48,6 @@ clone on `master`, which is the installed copy.
    of the changed parts and ask the owner to start a new omp session.
 5. In `<clone>`: `git worktree remove <worktree>` and `git branch -D <task>`
    (after a squash merge git does not count the branch as merged).
-
-## lcm
-
-The sources are `crates/lcm-native`; the ready files are the `lcm` release of
-this repository, built only by the GitHub Actions workflow
-`.github/workflows/lcm-native.yml`. A push to `master` that changes the crate
-or the workflow starts it; otherwise start it by hand. Wait for it and check
-that the release notes name the pushed commit:
-
-```bash
-RUN="$(gh run list -R ARQAWA/my-omp-harness -w lcm-native -L 1 --json databaseId -q '.[0].databaseId')"
-gh run watch "$RUN" -R ARQAWA/my-omp-harness --exit-status && gh release view lcm -R ARQAWA/my-omp-harness --json body -q .body
-```
-
-Without a push that started it, run `gh workflow run lcm-native.yml -R ARQAWA/my-omp-harness`
-first. Then update the module on the current host by step 7 of
-[harness.md](../../../install-instructions/harness.md).
 
 ## herdr
 
