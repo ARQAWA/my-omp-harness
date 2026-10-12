@@ -52,7 +52,8 @@ a fork, so `omp update` keeps working.
   phrase shows the current action without a timer. The session name is bold
   gold; the compaction bar uses the same natural gold at its trigger.
   The agent board shows the subagents on the left and a clear card
-  of the selected one on the right. All interface text is plain English.
+  of the selected one on the right. All interface text is plain English; the
+  todo items and progress statuses the agent writes are in your language.
 - **Small comforts.** `grep` runs on the `rg` engine,
   Mermaid diagrams appear as a PNG image across the full terminal width, the
   time of the last turn shows above the input field, shift+↑/↓ switch the model

@@ -194,7 +194,8 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   or one short action, and always for work with a review. It creates or extends
   the list before the first action; continued unfinished work uses `append`,
   and a new task after a closed list uses `init`. When it starts an item, it
-  writes the item's plan as steps and marks the steps as it goes. All
+  writes the item's plan as steps and marks the steps as it goes. Phases,
+  items and steps are written in Russian. All
   list changes of one moment go in one call. The list holds stages with draft
   decisions; findings lie in `local://<subject>.md` files named in the list
   items.

@@ -51,7 +51,7 @@ The font is IosevkaTerm Nerd Font Mono; its Mono build draws every icon in one c
 
 ## Text
 
-All interface text is plain English at A2 level, without Russian. Each element says what happens, on what, and with what result, in one compact line where possible: `Edited …/cursor-feed/rows.ts +12 −3 · 0.4s`, `Ran eval`, `Waiting for subagent`.
+All interface text is plain English at A2 level, without Russian; the todo phases, items and steps and the progress statuses that the agent writes are Russian. Each element says what happens, on what, and with what result, in one compact line where possible: `Edited …/cursor-feed/rows.ts +12 −3 · 0.4s`, `Ran eval`, `Waiting for subagent`.
 
 Consecutive reads, searches, edits, writes, other tools including MCP, and bash commands merge into `Explored N files, edited E files, M searches, K tools, ran C commands`; zero counts are omitted and a running group says `Exploring`. A lone edit or write keeps its own `Edited path +N −M` or `Wrote path +N` row. Text, todo, subagent cards, goal create/complete/drop and errors split the group, and an error keeps its own red row; goal get/resume count as tools. Expanded mode shows each call with the last six lines of its output or diff. Collapsed calls show no raw argument fields, output body or Expand hint.
 

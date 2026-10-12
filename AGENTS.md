@@ -105,12 +105,15 @@ is the role-less agent `custom`, launched only on the user's direct order.
 ### Languages
 
 The owner writes his requests in Russian, and agents answer him in the chat in
-Russian. Everything else that the owner and agents read or follow is in
+Russian, including progress statuses and the phases, items and steps of the
+`todo` list. Everything else that the owner and agents read or follow is in
 English: `skills/`, `agents/`, `SYSTEM.md`, `extensions/define-goal.md`,
 `.agents/skills/`, `AGENTS.md`, `README.md`, `INSTALL_FOR_AGENTS.md`,
 `install-instructions/` and `DESIGN-SYSTEM.md`. Texts for agents use precise English that leaves an
 agent no doubt about what to do. Every text that the extensions show in the
-terminal is plain English at A2 level, without Russian. The design files
+terminal is plain English at A2 level, without Russian; the todo phases,
+items and steps and the progress statuses that the agent itself writes are
+Russian. The design files
 `HARNESS-DESIGN.md` and `WORKING-ENVIRONMENTS.md` stay in Russian, because the
 owner reads them. Russian stays in an English file only where an agent must
 give it to the owner word for word, such as the go question «Начинаем: …?»
