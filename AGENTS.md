@@ -95,9 +95,7 @@ Root Main does not write code and configs itself: only `code_writer` writes
 sources, scripts, tests and configuration files from Main's self-contained
 briefs, and Main writes documentation and prompts itself. Root Main runs
 programs (tests, builds, applications, `omp -p`) only through `shell_runner`,
-and reads state, runs git and does file operations itself. Main hands searches
-over unfamiliar files, several rounds of searching, external sources and
-material larger than its context to `codebase_explorer`. These rules, the
+and reads state, runs git and does file operations itself. These rules, the
 subagent types with their models and the reuse rule live in the hidden skill
 `subagents`, which `harness.ts` gives only to root Main; the briefing rules lie
 in the visible skill `subagent-brief`, which Main reads before a brief. Main
@@ -162,8 +160,8 @@ does not authorize publication.
 
 `extensions/subagent-model-policy.ts` sets the subagents' models. Each named
 agent has one model in the `NAMED` table under any parent: `spotty` is Haiku 5.5
-low, `smarty` Haiku 5.5 medium, `bossy` Sonnet 5.5 low, and `codebase_explorer`,
-`code_writer` and `shell_runner` Haiku 5.5 high. The agent `custom` gets the
+low, `smarty` Haiku 5.5 medium, `bossy` Sonnet 5.5 low, and `code_writer` and
+`shell_runner` Haiku 5.5 high. The agent `custom` gets the
 model and effort of its `task` item through the extension's `task` wrapper.
 The extension blocks no launch. `agents/*.md` have no `model` field.
 
@@ -304,8 +302,7 @@ definition, its brief and `omp-tools`. The todo and review rules belong to the
 package; changes of these rules are not moved into the base prompt. The
 mechanics of the tools come from the descriptions of the omp tools themselves;
 the `omp-tools` skill adds to them only the rules of speed, temporary files and
-protection against frequent mistakes, and the search is set by `extensions/rg.ts`
-and the `codebase_explorer` definition.
+protection against frequent mistakes, and the search is set by `extensions/rg.ts`.
 
 All of the project's own tooling is implemented in Node.js or as omp extensions
 (TypeScript that omp runs) and must work on macOS, Linux and Windows. The

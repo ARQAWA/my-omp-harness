@@ -26,8 +26,7 @@ a fork, so `omp update` keeps working.
 - **Reviews you can trust.** Three blind review cycles with the reviewers
   `spotty`, `smarty` and `bossy` check the result against the agreement, and
   every finding rests on verbatim quotes.
-- **Fast subagents.** Main writes briefs, `codebase_explorer` searches the code
-  and external sources, `code_writer` writes the code and `shell_runner` runs
+- **Fast subagents.** Main writes briefs, `code_writer` writes the code and `shell_runner` runs
   tests, builds and applications. Each named agent runs on one fixed model;
   on your direct order Main runs the role-less agent `custom` on the model and
   reasoning level you name.

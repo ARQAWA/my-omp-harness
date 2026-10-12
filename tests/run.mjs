@@ -24,9 +24,9 @@ const policy = read('extensions/subagent-model-policy.ts');
 const namedBlock = policy.match(/const NAMED: Record<string, string> = \{\n([\s\S]*?)\n\};/)?.[1] ?? '';
 const named = [...namedBlock.matchAll(/^\t(\w+): "([^"]+)",$/gm)]
   .map(([, name, model]) => [name, model]);
-assert.equal(named.length, 6, 'NAMED routes');
+assert.equal(named.length, 5, 'NAMED routes');
 const route = agent => named.find(([name]) => name === agent);
-for (const agent of ['codebase_explorer', 'code_writer', 'shell_runner']) {
+for (const agent of ['code_writer', 'shell_runner']) {
   const [, model] = route(agent);
   assert.equal(model, 'anthropic/claude-haiku-5-5:high', `${agent}: model`);
 }
@@ -40,8 +40,8 @@ for (const name of agents) {
   assert.ok(meta.description, `${name}: description`);
   assert.equal(meta.model, undefined, `${name}: model comes from routing`);
 }
-for (const name of ['spotty', 'smarty', 'bossy', 'codebase_explorer', 'shell_runner']) {
-  assert.equal(frontmatter(`agents/${name}.md`).tools, { codebase_explorer: 'bash, read, glob, grep', shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
+for (const name of ['spotty', 'smarty', 'bossy', 'shell_runner']) {
+  assert.equal(frontmatter(`agents/${name}.md`).tools, { shell_runner: 'bash, read, grep' }[name] ?? 'read, glob, grep', name);
 }
 
 const hidden = ['blind-review-cycle', 'clear-communication', 'gold-standard', 'high-review-cycle', 'light-review-cycle', 'main-workflow', 'omp-tools', 'subagents'];

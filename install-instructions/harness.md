@@ -35,7 +35,7 @@ Main's tools: `harness.ts` keeps the omp goal tool `goal` enabled;
 `diagram.ts` adds `diagram`, a Mermaid diagram as a PNG image across the full
 terminal width with the link "Open full size", in herdr through Kitty
 graphics. Subagents do not get these tools. `rg.ts` gives all agents, including
-`codebase_explorer`, `spotty`, `smarty` and `bossy`, one set of search and read
+`spotty`, `smarty` and `bossy`, one set of search and read
 tools: `glob` (replaces the built-in one; `glob_pattern`, `target_directory`,
 `offset`, newest files first, hidden files included, .gitignore applied), `grep`
 (replaces the built-in one: content search on the `rg` engine, lines
@@ -63,12 +63,7 @@ similar names. Images, archives and omp selectors like `:raw`, `:50-80`,
 Shell wrapper (`Exit code`, `Command output`, `Command completed in N ms.`).
 Plan-mode child tasks do not get extensions and stay on the built-in `read`,
 `grep`, `glob`. `spotty`, `smarty` and `bossy` get `read, glob, grep`,
-`shell_runner` gets `bash, read, grep`, `codebase_explorer` gets
-`bash, read, glob, grep`; `bash` for `codebase_explorer` is only for queries to
-external sources. The `codebase_explorer` definition sets a greedy search: one
-`grep` alternation of 10–30 terms, whole files in parallel batches, and a stop
-once the answer is confirmed; the same order applies to wikis, trackers, PRs and
-chats.
+`shell_runner` gets `bash, read, grep`.
 
 From the session start `harness.ts` turns on `grep`, `lsp` and `ast_grep` for
 all agents; rare tools stay in `xd://` on request. To the `omp-tools` block in
@@ -190,11 +185,8 @@ The Gold Standard works as a working contract:
 `omp-tools` puts the speed of the result first and the number of turns second:
 independent calls go in one response or in a JS `eval` cell with `Promise.all`,
 output limits are counted for the whole batch, temporary files are created only
-in the OS temporary folder, which the system cleans. Root Main hands searches over
-unfamiliar files, several rounds of searching, external sources and material
-larger than its context to `codebase_explorer` by the hidden skill
-`subagents`, and writes briefs for `codebase_explorer`, `code_writer` and
-`shell_runner` by the visible skill `subagent-brief`.
+in the OS temporary folder, which the system cleans. Root Main writes briefs for
+`code_writer` and `shell_runner` by the visible skill `subagent-brief`.
 
 `main-workflow` applies only to root Main:
 
@@ -498,14 +490,13 @@ Named agents:
 | `spotty` | `anthropic/claude-haiku-5-5:low` | Light review |
 | `smarty` | `anthropic/claude-haiku-5-5:medium` | Blind review |
 | `bossy` | `anthropic/claude-sonnet-5-5:low` | High review |
-| `codebase_explorer` | `anthropic/claude-haiku-5-5:high` | greedy read-only search over the code and external sources |
 | `code_writer` | `anthropic/claude-haiku-5-5:high` | code and configs from Main's briefs |
 | `shell_runner` | `anthropic/claude-haiku-5-5:high` | program runs from Main's briefs |
 | `custom` | the model the user names | no role; only on the user's direct order |
 
 Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and
 `skill://<name>`; Main reads the visible `subagent-brief` before a brief for
-`codebase_explorer`, `code_writer` or `shell_runner`.
+`code_writer` or `shell_runner`.
 
 | Skill | Purpose | Visibility |
 |---|---|---|
@@ -514,7 +505,7 @@ Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and
 | `clear-communication` | short chat messages, progress messages and the final answer | hidden |
 | `subagents` | root Main's subagent types with their models, reuse of idle subagents and briefs | hidden |
 | `omp-tools` | omp tool mechanics: the speed of the result first, then the number of turns, output limits, safe writes, temporary files in the OS temporary folder | hidden |
-| `subagent-brief` | briefs for `codebase_explorer`, `code_writer` and `shell_runner` and acceptance of their finals | visible |
+| `subagent-brief` | briefs for `code_writer` and `shell_runner` and acceptance of their finals | visible |
 | `blind-review-cycle` | blind Smarty passes until CLEAN; the shared contract of the three cycles: Main and the reviewer work as one team on the user's agreement, findings and rejections rest on verbatim quotes, Main must fix a finding with quotes, rejections are passed to the next passes | hidden |
 | `light-review-cycle` | blind Spotty passes until CLEAN | hidden |
 | `high-review-cycle` | blind Bossy passes until CLEAN | hidden |
@@ -592,26 +583,7 @@ start new processes.
 2. Run `omp read skill://blind-review-cycle`. The first line must name
    `<CLONE>/skills/blind-review-cycle/SKILL.md`, and the content must contain
    `# Blind Review Cycle`.
-3. Run a model call and a read of the child's session file in one command:
-
-   ```bash
-   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Answer in three lines. Lines 1-2, yes or no: does your system prompt contain the exact text (1) 'Apply the full Gold Standard to all work', (2) 'Apply the following communication skill before every user-facing message'? Line 3: call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: InstallCheck, agent: codebase_explorer, solutionSpace: 'fixed reply', task: 'Reply with OK.'}; wait for it and print its output." && f="$(ls -t "$(omp config path)"/sessions/*/*/InstallCheck.jsonl | head -1)" && grep -m1 '"type":"model_change"' "$f" && grep -m1 '"type":"thinking_level_change"' "$f"
-   ```
-
-   Expected output: `yes` twice, the child's output, then from its
-   session file the `model_change` line with `"model":"anthropic/claude-haiku-5-5"`
-   and the `thinking_level_change` line with `"thinkingLevel":"high"`.
-4. Check subagent reuse with a context reset in one command:
-
-   ```bash
-   omp -p --model anthropic/claude-sonnet-5-5 --thinking low "Call the task tool once, with no model field anywhere, context 'Install check.', and one task {name: ReuseCheck, agent: codebase_explorer, solutionSpace: 'fixed reply', task: a text of two lines, whose very first characters are the marker [task ReuseCheck#1] (no label before it), and whose second line is: The code word is ALPHA. Reply with OK.}; wait for it. Then call write with path agent://ReuseCheck and content of two lines, whose very first characters are the marker [task ReuseCheck#2], and whose second line is: What code word were you given earlier? Reply with the word, or NONE if you do not know. Wait for the reply and print it." && f="$(ls -t "$(omp config path)"/sessions/*/*/ReuseCheck.jsonl | head -1)" && grep -q ALPHA "$f" && grep -q '"message":"\[task ReuseCheck#2\]' "$f" && test ! -e "$(dirname "$f")/ReuseCheck-2.jsonl" && echo REUSE_OK
-   ```
-
-   Expected output: the answer `NONE` and the line `REUSE_OK`: the second turn
-   does not see the first task, the session file `ReuseCheck.jsonl` keeps both
-   tasks, and there is no new subagent. On any other result, report the failure
-   to the owner and do not call reuse working.
-5. Other model requests and trial tasks are not part of the check.
+3. Other model requests and trial tasks are not part of the check.
 
 ## Update
 
@@ -628,6 +600,5 @@ start new processes.
    download the module again with the command of step 7 of the first
    installation.
 6. Ask the owner to restart omp: open sessions keep the previous context.
-7. Run the checks of the changed parts. If `extensions/` or `agents/` changed,
-   include check 3; run check 4 on every package update. Do not repeat the full
+7. Run the checks of the changed parts. Do not repeat the full
    first-installation check without a request.
