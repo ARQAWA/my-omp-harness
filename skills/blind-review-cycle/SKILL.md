@@ -22,4 +22,12 @@ Main and the reviewer work as one team for the user's agreement, not for each ot
    Write every rejection with its reason in one sentence, including the quote it rests on. A pass without admitted findings is CLEAN.
 4. Repair. Fix all admitted findings in one batch and launch a fresh reviewer with the same brief, plus the rejections, on the whole updated object, as for the first pass. With parts, launch fresh reviewers on every part the fixes touch: a part that had findings, whose files changed, or that states or relies on a fact a fix changed. An untouched part keeps its CLEAN. Stop when every part is CLEAN; add no passes for confidence.
 
+## Coverage and reuse
+
+When Main Workflow requires combined task and documentation coverage for the same result, that required class reviewer checks both criteria in one complete pass. Put both criteria, the complete diff and every dependent source in that brief. Its CLEAN covers only the criteria actually checked, not a different object such as local machine settings.
+
+Before reuse, establish from existing retrievable review evidence what agreement, criteria, contents and dependent facts the actual verdict covered, and compare them with the current object. No new file, storage method, metadata format or set of note fields is required. A new commit ID, staging or a content-equivalent squash is not itself an invalidation. Changed agreement, checked content, dependent facts or criteria invalidates the affected coverage. Missing evidence requires the corresponding check, not an invented CLEAN.
+
+Do not reset unrelated parts or checks when one finding is fixed. Determine what the fix changes before launching the next wave; a documentation repair invalidates a settings check only if it changes that check's source values or contract. Every repeated part still gets a fresh complete blind pass over its whole updated object, with earlier rejections and no admitted-finding history.
+
 If a reviewer hangs, launch a fresh one on the unchanged object. If the agent cannot start, the check has not passed: tell the user and wait, because no other reviewer or self-check replaces it.

@@ -86,11 +86,18 @@ user accepts it from a short retelling in the chat, and before completing the
 goal the agent itself runs the reviewer of the class until CLEAN.
 The other automatic reviews are two Light Review (Spotty) checks in omp plan
 mode (the plan before it is proposed for approval and the result of carrying out
-the approved plan), two release-time finalization checks and the weekly
-repository audit below; every check runs until CLEAN. Ordinary handover runs
+the approved plan), release-time settings and documentation coverage and the
+weekly repository audit below; every required check runs until CLEAN. Ordinary handover runs
 only its class check. Bossy runs on the user's explicit choice, including the
 standing order for the manual or weekly audit. Review findings and rejections
 rest on verbatim quotes of the agreement and the object.
+
+An explicitly specified replacement of effort, an existing model or a setting,
+with its required matching mentions, is micro when every correction is
+mechanical and needs no new decision. Adding a provider, introducing a new model
+contract or changing behavior is not automatically micro. Apply that definition before the unchanged
+small/large thresholds. Requirements state the owner's outcomes, without Main
+inventing binding commands, metadata formats, caps or untouched-file promises.
 
 Root Main does not write code and configs itself: only `code_writer` writes
 sources, scripts, tests and configuration files from Main's self-contained
@@ -141,21 +148,30 @@ commit. After the merge the task's worktree and branch are deleted.
 
 During a release, before the squash merge into `master` and push, Main applies
 [finalize-work](.agents/skills/finalize-work/SKILL.md). Ordinary handover and
-task-branch stage commits skip it. The gate runs two independent Spotty cycles
-in parallel: local mechanical omp settings against their sources, and the
-release diff against every document that states or relies on the changed facts.
+task-branch stage commits skip it. The gate has separate settings and release
+documentation coverage. One class reviewer checks task requirements and the
+same result's documentation together: Spotty for small, Smarty for large.
+Reuse that combined CLEAN at release while its checked inputs and grounds match.
+Micro, or documentation coverage missing from a valid class pass, uses a
+diff-only Spotty unless the due audit will cover that criterion.
 The settings check covers `config.yml`, `models.yml`, `keybindings.yml`, the
 theme and the `SYSTEM.md` copy; Main prepares comparisons, reconciles local
 owner changes with the sources and applies deliberate task changes locally.
-The diff check covers `git diff master...HEAD`, changed files and references
+At each release compare live values, expected source values, file contents and
+the settings contract with the evidence of the last actual Spotty CLEAN.
+Changed inputs or missing evidence needs a fresh Spotty; otherwise reuse it.
+Retain the actual verdict and its covered inputs and criterion in the existing
+task notes; missing or incomplete evidence requires the corresponding check.
+The release documentation criterion covers `git diff master...HEAD`, changed files and references
 found by targeted searches for changed names, values, paths and behavior.
 It does not read unrelated repository facts or fix historical drift.
 
-Merge and push require CLEAN for both cycles, or CLEAN for settings and a
-covering repository audit. Reuse a passed result while its object and grounds
-are unchanged; fixes invalidate only affected cycles. If the release also hands
-over the task, run its still-required class check in the same wave. Finalization
-does not authorize publication.
+Merge and push require valid CLEAN for settings, documentation and any required
+class coverage; a covering audit substitutes only for documentation. Reuse a passed
+result while its object and grounds are unchanged; fixes invalidate only
+affected checks and parts. Run independent settings and task reviews
+in parallel; batch repairs after their verdicts. Finalization does not
+authorize publication.
 
 ### Repository audit
 
@@ -166,9 +182,13 @@ whole current repository and every intervening commit and patch since the last
 audit, including intermediate changes absent from the net diff. Main splits
 the object and history by the review cycle's size rule, runs Bossy parts in
 parallel, fixes all admitted findings and repeats only affected parts until CLEAN.
+Start a due release audit after normal edits, the required class check and
+admitted ordinary findings are settled. Do not audit an intermediate result
+that Main is already changing. Audit repairs invalidate prior coverage only
+where checked files or dependent facts changed.
 The criterion is agreement between code, all documentation and
 `WORKFLOW-MANIFEST.md`, with no outdated standing information, junk or conflicts.
-The audit replaces only the release diff check, not settings or class checks.
+The audit covers only the release documentation criterion, not settings or class checks.
 
 The annotated Git tag `audit` points to the last audited state released in
 `master`; its tagger timestamp records the audit date and Git supplies the
@@ -236,6 +256,11 @@ changed behavior; report unrelated failures without repairing them. New tests,
 fixtures, measurements, experiments and checks beyond those covering the change
 run only on a direct request or under a concretely adopted procedure.
 
+Use the same valid check output at handover and release when its tested code,
+configuration and document contracts remain unchanged. A commit ID, staging or
+an unrelated prose edit is not a reason to run it again. A changed tested input
+requires updated evidence; it is not the same check state.
+
 For check runs use `omp -p` with Main `openai-codex/gpt-6.1-sol` or
 `anthropic/claude-sonnet-5-5` and `--thinking low`; do not raise the model and
 reasoning.
@@ -250,8 +275,9 @@ they are not deleted. The owner's words release, commit, push and sync equally
 mean a full release in one package: syncing the local settings with the sources,
 all checks and the finalize-work gate, the merge of the task branch into
 `master`, push and installation on the current host. Merge and push require
-CLEAN for the settings and release diff checks, or settings and the covering
-audit; a separate merge or push without the rest of the package is not done.
+valid CLEAN for settings, documentation and any required class review; a
+covering audit substitutes only for documentation. A separate merge or push
+without the rest of the package is not done.
 The release order is described
 in `.agents/skills/release/SKILL.md`.
 

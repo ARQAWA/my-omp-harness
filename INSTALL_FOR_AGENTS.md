@@ -9,6 +9,12 @@ procedure and is not a source of extra steps for it. Reuse compatible
 dependencies that are already in place. Do not install the other components
 automatically.
 
+For an update or release on an installed host, apply only the changed parts of
+the requested components. Reuse valid installation evidence for unchanged
+inputs; run the selected instructions' checks whose values, files, dependencies
+or loading behavior changed. Do not turn an update into a full first
+installation or add model calls and trial tasks not required by those instructions.
+
 If the session is not running inside a clone of this repository, first clone
 `https://github.com/ARQAWA/my-omp-harness.git` into a permanent folder (by default
 `~/my-omp-harness`). The clone is the installed copy: omp loads the package

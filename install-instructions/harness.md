@@ -172,7 +172,8 @@ The Gold Standard works as a working contract:
 - Heavy work (deep research, comparing options, experiments, measurements, new
   tests, checks beyond those covering the change, extra reviews and subagents)
   runs only on the user's direct order or under an adopted procedure.
-- Existing checks run once after a code change.
+- Existing checks run once for affected inputs, including the document contracts
+  they cover; valid evidence is reused while those inputs remain unchanged.
 - Reviews run automatically by the work class from `main-workflow`: micro
   (point corrections here and there with an obvious meaning) without a check,
   small (up to 5 requirements and up to 5 changed files) is checked by Spotty
@@ -181,7 +182,10 @@ The Gold Standard works as a working contract:
   explicit choice, including an explicitly adopted standing audit procedure.
   Every check runs until CLEAN. A gate required at the same stage by the
   repository's instructions runs in parallel with the class check; a
-  release-only gate does not run at ordinary handover.
+  settings reconciliation or audit does not start merely for ordinary handover.
+  When the repository requires documentation consistency for the same result,
+  the class pass includes that criterion in the same brief and uses the
+  class's reviewer; gates on different inputs retain separate evidence.
 
 `omp-tools` puts the speed of the result first and the number of turns second:
 independent calls go in one response or in a JS `eval` cell with `Promise.all`,
@@ -207,6 +211,12 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   and the open questions into the chat, ends the message with a one-line go
   question and waits; any confirming reply starts the work, and the agreement
   is the user's words and the accepted requirements.
+- Micro includes mechanical replacement of a specified effort, existing model
+  or setting and its required matching mentions when no new decision is needed.
+  Adding a provider, introducing a new model contract or changing behavior is not automatically
+  micro. For other work the small/large thresholds stay unchanged.
+- Requirements state the owner's outcomes, without Main inventing binding
+  commands, metadata formats, caps or untouched-file promises.
 - `/define-goal [rough objective]` in root Main starts the procedure
   `extensions/define-goal.md`: `harness.ts` registers the command, sends the
   message `Define goal: …` and supplies the procedure in a hidden message. The
@@ -564,5 +574,6 @@ start new processes.
    installs the package dependencies from `bun.lock` and changes nothing if they
    are already in place.
 5. Ask the owner to restart omp: open sessions keep the previous context.
-6. Run the checks of the changed parts. Do not repeat the full
-   first-installation check without a request.
+6. Run only the checks whose required settings, skill loading or dependencies
+   changed; reuse the unchanged check evidence. Do not repeat the full
+   first-installation check or add model requests and trial tasks without a request.

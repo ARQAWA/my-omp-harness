@@ -7,6 +7,8 @@ description: "Whole-repository consistency audit on the owner's request (audit o
 
 This is the owner's standing order for [High Review Cycle](../../../skills/high-review-cycle/SKILL.md) with `bossy`. Run on a direct audit request or when [release](../release/SKILL.md) finds the audit due. No background timer or separate service runs while there is no release. Ordinary handover and task-branch stage commits do not start an audit. An audit alone authorizes no merge, push or installation.
 
+For a release audit, finish the normal task edits, its required class check and admitted ordinary findings first. Reconcile known settings differences before freezing this prepared result. Then audit it, instead of auditing an intermediate result that Main is already changing. A direct standalone audit uses the current requested object without requiring an unrelated task review. Keep the object unchanged during every pass and batch repairs after the verdicts.
+
 ## Metadata and schedule
 
 The annotated Git tag `audit` records the last clean, released repository state. Its target identifies the checked `master` commit; its tagger timestamp records when the audit completed, not the age of the underlying commit. Read it with `git for-each-ref --format='%(objectname) %(taggerdate:unix)' refs/tags/audit`, and its target with `git rev-parse audit^{commit}`. Derive the changes counter with `git rev-list --count audit..HEAD`; do not maintain a duplicate counter file.
@@ -32,7 +34,7 @@ Use `review_stage=pre-action` when the audit gates a release, or `pre-completion
 
 Split the current repository and historical evidence by the size rule of the shared review cycle, keeping code with tests, skills with agents, and settings with installation instructions. Assign every file and every intervening commit patch to a part so none is omitted. Each brief includes its paths and patches, the full commit list and the full removed/renamed-fact list; a part searches for every fact it states or relies on in the other files. Split oversized historical evidence as well, rather than sending every reviewer an unbounded copy of all patches. Run one fresh Bossy per part in parallel. No automatic model change or extra review tier is added.
 
-Main verifies the quotes, fixes all admitted findings in one batch and repeats fresh passes only for parts whose files or dependent facts changed. Untouched parts retain CLEAN. Refresh historical and final-diff evidence after fixes. Stop only when every part is CLEAN; if a repair needs a decision outside the agreement, ask the owner in chat. A clean audit replaces the release diff check for the same result, but not the local settings check or the work-class completion check. The audit adds no tests or trial runs.
+Main verifies the quotes, fixes all admitted findings in one batch and repeats fresh passes only for parts whose files or dependent facts changed. Untouched parts retain CLEAN. Refresh historical and final-diff evidence after fixes. Stop only when every part is CLEAN; if a repair needs a decision outside the agreement, ask the owner in chat. A clean audit covers the release documentation criterion for the same prepared result, but never substitutes for settings or a required work-class review. Preserve those earlier CLEAN results if their checked inputs and grounds remain unchanged; an audit repair invalidates only the coverage it affects. The audit adds no tests or trial runs.
 
 ## Record the result
 

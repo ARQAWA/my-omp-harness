@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync order the full package (Spotty settings and diff checks, a Bossy repository audit when due, squash merge, push and installation); ordinary handover and task-branch stage commits do not trigger release.
+description: Release, commit, push, sync or install my-omp-harness; release uses valid settings evidence, one combined task/documentation review and a due Bossy audit after ordinary repairs, then squash merge, push and installation of the changed parts; ordinary handover and stage commits do not trigger release.
 ---
 
 # Release
@@ -10,17 +10,18 @@ The words release, commit, push and sync («релиз», «коммит», «п
 repository as one package: the settings sync, every check and the
 finalize-work gate, the merge of the task branch into `master`, push,
 installation on the current host and removal of the task's branch and
-worktree. Merge and push require CLEAN on the local settings and the release
-diff, or a clean repository audit covering that diff, and never run without
-the rest of the package. The stage commits that `AGENTS.md`
+worktree. Merge and push require valid CLEAN coverage for local settings,
+release documentation and any required work-class review; a clean repository
+audit can cover only the documentation criterion. They never run without the
+rest of the package. The stage commits that `AGENTS.md`
 requires during the work go to the task branch and are not a release.
 «Установить» or «обновить» without them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a merge or a
 push. herdr and omp-vscode are released only when their sources changed or
 the owner names them.
-Every release runs the whole package; a step counts as done only while its
-result still holds, such as a test run or a gate CLEAN after which no file
-changed. Main hands every program run below (tests,
+Every release accounts for the whole package, reusing completed steps whose
+checked inputs and grounds still match. A changed unrelated file or commit ID
+does not invalidate other checks. Main hands every program run below (tests,
 the VSIX build, checks of the changed parts) to `shell_runner` and keeps only git,
 `gh`, `cp`, `omp config` and `eval` in its own calls.
 
@@ -36,17 +37,24 @@ clone on `master`, which is the installed copy.
    the later explicit push lease; an unpublished local tag is not proof of a
    previous shared audit. Read its tagger timestamp and changes counter by
    [repo-audit](../repo-audit/SKILL.md). When the tag is absent, has no audit
-   timestamp, or is at least seven days old, schedule the Bossy audit for the
-   step 3 wave after the tests.
-3. If files changed after the last run of `node tests/run.mjs`, run it once in
-   `<worktree>`. Run [finalize-work](../finalize-work/SKILL.md): one Spotty
-   settings check and one Spotty release-diff check in parallel, or the audit
-   instead of the diff check when due. Include a still-required class check
-   in the same wave if this release also hands over the task. Main fixes
-   findings until the required checks are CLEAN, repeats only cycles whose
-   objects or grounds changed, and commits fixes to `<task>`. Run existing
-   tests again only after a revealed failure was fixed or newly changed code
-   or configuration needs coverage; do not rerun them for prose-only fixes.
+   timestamp, or is at least seven days old, schedule the Bossy audit after
+   ordinary work and its admitted findings are settled in step 3.
+3. Obtain the existing `node tests/run.mjs` result for the affected inputs:
+   run once if no valid result exists for the changed code, configuration or
+   document contracts it tests. Reuse it for unchanged tested inputs; do not
+   rerun for staging, squash or unrelated prose edits. Fix a revealed failure
+   and rerun its check; changed tested inputs require updated evidence.
+   Apply [finalize-work](../finalize-work/SKILL.md): compare current settings
+   with the recorded actual Spotty CLEAN and launch Spotty only if its inputs
+   or grounds changed or evidence is missing. For small/large work, cover
+   requirements and release documentation in one class-review pass; retain
+   unchanged coverage already obtained. For micro or missing documentation
+   coverage alone, run the diff-only Spotty unless the due audit will cover it.
+   Run independent checks in parallel on a frozen result. Main fixes all
+   admitted findings in one batch and repeats only affected checks or parts.
+   After ordinary repairs are settled, run the scheduled Bossy audit on that
+   prepared result, repair its findings until CLEAN and update only the prior
+   checks whose inputs those repairs changed. Commit fixes to `<task>`.
 4. In `<clone>`: squash merge only, never a plain merge: `git merge --squash
    <task>`, then `git commit` with a message that sums up the task, then
    `git push origin master`.
@@ -59,8 +67,11 @@ clone on `master`, which is the installed copy.
    [system-prompt.md](../../../install-instructions/system-prompt.md); if the
    requirements changed, such as `modelRoles`, apply them by
    [harness.md](../../../install-instructions/harness.md), and changed owner
-   settings by [omp.md](../../../install-instructions/omp.md). Run the checks
-   of the changed parts and ask the owner to start a new omp session.
+   settings by [omp.md](../../../install-instructions/omp.md). Reuse installed
+   dependencies and unchanged installation evidence; run only affected checks
+   from the selected instructions. Do not update unrelated components or
+   rerun the full first-installation check. Ask the owner to start a new omp
+   session.
 7. In `<clone>`: `git worktree remove <worktree>` and `git branch -D <task>`
    (after a squash merge git does not count the branch as merged).
 
