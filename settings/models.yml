@@ -5,8 +5,6 @@ providers:
         contextWindow: 700000
       gpt-6-luna:
         contextWindow: 700000
-      gpt-5.6-luna:
-        contextWindow: 700000
   anthropic:
     modelOverrides:
       claude-sonnet-5-5:

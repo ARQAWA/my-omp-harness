@@ -263,7 +263,7 @@ reuse and brief rules. `harness.ts` gives it only to root Main.
   `NAMED` table under any parent: `spotty` on `anthropic/claude-haiku-5-5:low`,
   `smarty` on `anthropic/claude-haiku-5-5:medium`, `bossy` on
   `anthropic/claude-sonnet-5-5:low`, the others on
-  `anthropic/claude-haiku-5-5:high`. Without an `anthropic` sign-in these agents
+  `anthropic/claude-haiku-5-5:xhigh`. Without an `anthropic` sign-in these agents
   do not start.
 - The agent `custom` has no role. Main launches it only when the user directly
   tells it to run a subagent on a named model: one `task` item with
@@ -440,8 +440,7 @@ notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
-Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
-GPT-5.6 Luna.
+Claude Sonnet 5.5, Claude Fable 5.1, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
 `harness.ts`: ctrl+shift+P pauses the active goal, and a second press resumes it
 (the extension puts `/goal pause` or `/goal resume` into the empty input field);
 the key arrives separately from ctrl+P only in a terminal with the kitty
@@ -471,8 +470,8 @@ Named agents:
 | `spotty` | `anthropic/claude-haiku-5-5:low` | Light review |
 | `smarty` | `anthropic/claude-haiku-5-5:medium` | Blind review |
 | `bossy` | `anthropic/claude-sonnet-5-5:low` | High review |
-| `code_writer` | `anthropic/claude-haiku-5-5:high` | code and configs from Main's briefs |
-| `shell_runner` | `anthropic/claude-haiku-5-5:high` | program runs from Main's briefs |
+| `code_writer` | `anthropic/claude-haiku-5-5:xhigh` | code and configs from Main's briefs |
+| `shell_runner` | `anthropic/claude-haiku-5-5:xhigh` | program runs from Main's briefs |
 | `custom` | the model the user names | no role; only on the user's direct order |
 
 Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and

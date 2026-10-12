@@ -28,7 +28,7 @@ assert.equal(named.length, 5, 'NAMED routes');
 const route = agent => named.find(([name]) => name === agent);
 for (const agent of ['code_writer', 'shell_runner']) {
   const [, model] = route(agent);
-  assert.equal(model, 'anthropic/claude-haiku-5-5:high', `${agent}: model`);
+  assert.equal(model, 'anthropic/claude-haiku-5-5:xhigh', `${agent}: model`);
 }
 
 const agents = readdirSync(path.join(root, 'agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3)).sort();

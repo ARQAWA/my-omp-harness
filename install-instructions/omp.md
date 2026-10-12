@@ -21,7 +21,7 @@ applied on top of it:
   they draw is in this font and takes one cell;
 - context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
   `<agent-dir>/models.yml`: 700 000 tokens for all GPT models (GPT-6.1 Sol,
-  GPT-6 Luna, GPT-5.6 Luna) and all Claude models (Sonnet 5.5, Haiku 5.5,
+  GPT-6 Luna) and all Claude models (Sonnet 5.5, Haiku 5.5,
   Fable 5.1);
 - keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
   `<agent-dir>/keybindings.yml`: it frees shift+↑ (the built-in
@@ -109,7 +109,7 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
-   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
+   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
    omp config set modelRoles '{"default":"anthropic/claude-sonnet-5-5:high"}'
    omp config set disabledProviders '["openrouter"]'
    omp config set browser.enabled true

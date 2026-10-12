@@ -10,8 +10,8 @@ const NAMED: Record<string, string> = {
 	spotty: "anthropic/claude-haiku-5-5:low",
 	smarty: "anthropic/claude-haiku-5-5:medium",
 	bossy: "anthropic/claude-sonnet-5-5:low",
-	code_writer: "anthropic/claude-haiku-5-5:high",
-	shell_runner: "anthropic/claude-haiku-5-5:high",
+	code_writer: "anthropic/claude-haiku-5-5:xhigh",
+	shell_runner: "anthropic/claude-haiku-5-5:xhigh",
 };
 
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;

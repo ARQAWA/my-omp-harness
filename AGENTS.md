@@ -203,7 +203,7 @@ are added. History stays in Git.
 `extensions/subagent-model-policy.ts` sets the subagents' models. Each named
 agent has one model in the `NAMED` table under any parent: `spotty` is Haiku 5.5
 low, `smarty` Haiku 5.5 medium, `bossy` Sonnet 5.5 low, and `code_writer` and
-`shell_runner` Haiku 5.5 high. The agent `custom` gets the
+`shell_runner` Haiku 5.5 xhigh. The agent `custom` gets the
 model and effort of its `task` item through the extension's `task` wrapper.
 The extension blocks no launch. `agents/*.md` have no `model` field.
 

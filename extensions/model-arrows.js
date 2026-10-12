@@ -1,11 +1,10 @@
 import { levelsFor } from "./reasoning-arrows.js";
 export const MODELS = [
   "anthropic/claude-sonnet-5-5",
-  "anthropic/claude-haiku-5-5",
   "anthropic/claude-fable-5-1",
+  "anthropic/claude-haiku-5-5",
   "openai-codex/gpt-6.1-sol",
   "openai-codex/gpt-6-luna",
-  "openai-codex/gpt-5.6-luna",
 ];
 
 export default function (pi) {
