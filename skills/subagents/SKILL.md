@@ -13,7 +13,7 @@ Launch only these agents, by `agent` name through `task`. The harness sets each 
 - `shell_runner`: alone runs programs: tests, builds, linters and type checks, project scripts, dependency installs, apps and servers, model runs such as `omp -p`, and experiments. Main itself reads state (`git status`, `git diff`, `git log`, `git show`, `ls`, `cmp`, `omp config get`, `omp config list`, `omp config path`), runs git and GitHub CLI, does file operations and settings from instructions (`cp`, `omp config set`), and runs `eval` cells. Model: Haiku 5.5 high.
 - `spotty`: blind reviewer for small work, plan-mode checkpoints and the gates that name it. Model: Haiku 5.5 low.
 - `smarty`: blind reviewer for large work. Model: Haiku 5.5 medium.
-- `bossy`: blind reviewer only when the user explicitly chooses it. Model: Sonnet 5.5 low.
+- `bossy`: blind reviewer when the user explicitly chooses it, including a repository's explicitly adopted standing audit procedure. Model: Sonnet 5.5 low.
 - `custom`: no role. Launch it only when the user directly tells you to run a subagent on a model he names, never on your own initiative: one `task` call with `agent: "custom"`, `model` set to the `provider/model` he named and `effort` set to the reasoning level he named, or left out when he named none. It sees only the system prompt and your brief, so the brief carries the whole task. Model: the one the user names.
 </available_subagents>
 

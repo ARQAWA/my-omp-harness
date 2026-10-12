@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync each order one full release as one package (settings sync, all checks and the finalize-work gate under spotty's control, the merge of the task branch into master, push, installation on the current host, removal of the task branch and worktree); ordinary edits and stage commits to a task branch do not trigger release.
+description: Release, commit, push, sync or install my-omp-harness; release, commit, push and sync order the full package (Spotty settings and diff checks, a Bossy repository audit when due, squash merge, push and installation); ordinary handover and task-branch stage commits do not trigger release.
 ---
 
 # Release
@@ -10,9 +10,9 @@ The words release, commit, push and sync («релиз», «коммит», «п
 repository as one package: the settings sync, every check and the
 finalize-work gate, the merge of the task branch into `master`, push,
 installation on the current host and removal of the task's branch and
-worktree. Spotty controls the package: without its CLEAN on the whole
-repository there is no merge into `master` or push, and a merge or push never
-runs without the rest of the package. The stage commits that `AGENTS.md`
+worktree. Merge and push require CLEAN on the local settings and the release
+diff, or a clean repository audit covering that diff, and never run without
+the rest of the package. The stage commits that `AGENTS.md`
 requires during the work go to the task branch and are not a release.
 «Установить» or «обновить» without them order installation only, by
 [INSTALL_FOR_AGENTS.md](../../../INSTALL_FOR_AGENTS.md), without a merge or a
@@ -32,21 +32,36 @@ clone on `master`, which is the installed copy.
    has moved since the branch started, merge `master` into `<task>` and resolve
    the conflicts there, so that the checks and the gate see the result that
    will land.
-2. If files changed after the last run of `node tests/run.mjs`, run it once in
-   `<worktree>`. Then run [finalize-work](../finalize-work/SKILL.md) with
-   `review_stage=pre-action` on the whole repository in `<worktree>` until
-   CLEAN, and commit its fixes to `<task>`.
-3. In `<clone>`: squash merge only, never a plain merge: `git merge --squash
+2. Fetch the published `audit` tag if present and retain its object ID for
+   the later explicit push lease; an unpublished local tag is not proof of a
+   previous shared audit. Read its tagger timestamp and changes counter by
+   [repo-audit](../repo-audit/SKILL.md). When the tag is absent, has no audit
+   timestamp, or is at least seven days old, schedule the Bossy audit for the
+   step 3 wave after the tests.
+3. If files changed after the last run of `node tests/run.mjs`, run it once in
+   `<worktree>`. Run [finalize-work](../finalize-work/SKILL.md): one Spotty
+   settings check and one Spotty release-diff check in parallel, or the audit
+   instead of the diff check when due. Include a still-required class check
+   in the same wave if this release also hands over the task. Main fixes
+   findings until the required checks are CLEAN, repeats only cycles whose
+   objects or grounds changed, and commits fixes to `<task>`. Run existing
+   tests again only after a revealed failure was fixed or newly changed code
+   or configuration needs coverage; do not rerun them for prose-only fixes.
+4. In `<clone>`: squash merge only, never a plain merge: `git merge --squash
    <task>`, then `git commit` with a message that sums up the task, then
    `git push origin master`.
-4. Install on the current host: `omp config get extensions --json` must list
+5. If this release ran a CLEAN audit, move and publish its annotated `audit`
+   tag on the new `master` commit by repo-audit's recording procedure.
+   Otherwise leave the marker unchanged. A rejected tag lease is a blocker:
+   read the published state rather than overwriting another audit.
+6. Install on the current host: `omp config get extensions --json` must list
    `<clone>`. If `SYSTEM.md` changed, copy it by
    [system-prompt.md](../../../install-instructions/system-prompt.md); if the
    requirements changed, such as `modelRoles`, apply them by
    [harness.md](../../../install-instructions/harness.md), and changed owner
    settings by [omp.md](../../../install-instructions/omp.md). Run the checks
    of the changed parts and ask the owner to start a new omp session.
-5. In `<clone>`: `git worktree remove <worktree>` and `git branch -D <task>`
+7. In `<clone>`: `git worktree remove <worktree>` and `git branch -D <task>`
    (after a squash merge git does not count the branch as merged).
 
 ## herdr

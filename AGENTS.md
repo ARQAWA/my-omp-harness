@@ -19,7 +19,7 @@ Sources of truth:
 - `HARNESS-DESIGN.md`;
 - `DESIGN-SYSTEM.md`: the visual rules of omp and herdr; every interface change
   follows it;
-- `WORKFLOW-CONCEPT.md`: the core of the harness, see "Policy";
+- `WORKFLOW-MANIFEST.md`: the core of the harness, see "Policy";
 - the private fork `ARQAWA/herdr` (upstream `herdrdev/herdr`): the herdr sources.
 
 `omp-vscode/` is an exceptional case: a special build for Windows only, a VS Code
@@ -37,10 +37,11 @@ installed copy: an edit there, even an uncommitted one, takes effect in the next
 new omp session, and an edit in a task worktree takes effect after its branch is
 merged into `master`. `SYSTEM.md` is installed as a separate copy.
 
-The version is the commit. There are no version numbers or cachebusters. There
-are two tags and GitHub Releases. `herdr` holds the ready herdr files from the
-fork, `omp-vscode` the VSIX of the `omp-vscode/` extension. A release replaces
-their files.
+The version is the commit. There are no version numbers or cachebusters. The
+`herdr` and `omp-vscode` tags have GitHub Releases: `herdr` holds the ready herdr
+files from the fork, `omp-vscode` the VSIX of the `omp-vscode/` extension. A
+release replaces their files. The annotated `audit` tag records the last
+released repository audit; it has no GitHub Release or build files.
 
 ## Local check of the sources
 
@@ -52,7 +53,7 @@ settings and does not replace the post-installation checks on the target OS from
 
 ## Policy
 
-[`WORKFLOW-CONCEPT.md`](WORKFLOW-CONCEPT.md) is the core of the harness: the
+[`WORKFLOW-MANIFEST.md`](WORKFLOW-MANIFEST.md) is the core of the harness: the
 manifest of the working concept, the problem it solves and its goals. Everything
 in the repository aligns with it: on a divergence the rest changes, not the
 manifest. Check every edit of prompts, skills, agents, extensions and
@@ -85,10 +86,11 @@ user accepts it from a short retelling in the chat, and before completing the
 goal the agent itself runs the reviewer of the class until CLEAN.
 The other automatic reviews are two Light Review (Spotty) checks in omp plan
 mode (the plan before it is proposed for approval and the result of carrying out
-the approved plan) and the mandatory finalization gate below, which runs in
-parallel with the class check; every check runs until CLEAN. Bossy runs only on
-the user's explicit choice. Review findings and rejections rest on verbatim
-quotes of the agreement and the object.
+the approved plan), two release-time finalization checks and the weekly
+repository audit below; every check runs until CLEAN. Ordinary handover runs
+only its class check. Bossy runs on the user's explicit choice, including the
+standing order for the manual or weekly audit. Review findings and rejections
+rest on verbatim quotes of the agreement and the object.
 
 Root Main does not write code and configs itself: only `code_writer` writes
 sources, scripts, tests and configuration files from Main's self-contained
@@ -137,26 +139,44 @@ commit. After the merge the task's worktree and branch are deleted.
 
 ### Mandatory finalization gate
 
-Before handing over a task with changes in this repository, before the merge
-into `master`, push and completing a release, Main ensures that
-[finalize-work](.agents/skills/finalize-work/SKILL.md) is applied: Main reads and
-carries it out. It is the user's standing direct order for a blind Spotty review
-of the consistency of the code and all documentation of the delivered result,
-and of the absence of outdated standing information, junk and conflicts. The gate
-also compares the machine's local omp settings (`config.yml`, `models.yml`,
-`keybindings.yml`, the theme, the `SYSTEM.md` copy) with their sources in the
-repository and moves local changes into the sources together with the other
-edits. The gate applies to documentation edits too; stage commits to a task
-branch do not need it. Before the merge into `master`, push and release the
-object of the gate is the whole repository, not only the task's changes: the gate finds divergences left from earlier edits and removes what was
-abolished (a model, an agent, a skill, a setting, a file, a rule) everywhere it
-still stands: in code, commented-out code, tests, settings and documents; the
-history stays in Git.
-Without CLEAN from a fresh Spotty, completion, the merge into `master` and push
-are forbidden.
-Significant findings are fixed until CLEAN by the skill's procedure. Do not
-repeat a gate already passed for an unchanged result and grounds. The gate itself
+During a release, before the squash merge into `master` and push, Main applies
+[finalize-work](.agents/skills/finalize-work/SKILL.md). Ordinary handover and
+task-branch stage commits skip it. The gate runs two independent Spotty cycles
+in parallel: local mechanical omp settings against their sources, and the
+release diff against every document that states or relies on the changed facts.
+The settings check covers `config.yml`, `models.yml`, `keybindings.yml`, the
+theme and the `SYSTEM.md` copy; Main prepares comparisons, reconciles local
+owner changes with the sources and applies deliberate task changes locally.
+The diff check covers `git diff master...HEAD`, changed files and references
+found by targeted searches for changed names, values, paths and behavior.
+It does not read unrelated repository facts or fix historical drift.
+
+Merge and push require CLEAN for both cycles, or CLEAN for settings and a
+covering repository audit. Reuse a passed result while its object and grounds
+are unchanged; fixes invalidate only affected cycles. If the release also hands
+over the task, run its still-required class check in the same wave. Finalization
 does not authorize publication.
+
+### Repository audit
+
+[repo-audit](.agents/skills/repo-audit/SKILL.md) runs on the owner's audit request
+or automatically in the first release after seven days without a clean audit.
+This is the owner's standing choice of Bossy for that check. It covers the
+whole current repository and every intervening commit and patch since the last
+audit, including intermediate changes absent from the net diff. Main splits
+the object and history by the review cycle's size rule, runs Bossy parts in
+parallel, fixes all admitted findings and repeats only affected parts until CLEAN.
+The criterion is agreement between code, all documentation and
+`WORKFLOW-MANIFEST.md`, with no outdated standing information, junk or conflicts.
+The audit replaces only the release diff check, not settings or class checks.
+
+The annotated Git tag `audit` points to the last audited state released in
+`master`; its tagger timestamp records the audit date and Git supplies the
+commit counter since that state. A missing tag or timestamp makes the first
+release due. Move and publish the tag only after CLEAN and the normal release,
+using the explicit lease in the skill; an audit alone authorizes no push.
+No background scheduler, duplicate counter file, archive copies or removal notes
+are added. History stays in Git.
 
 ### Model routing
 
@@ -229,10 +249,10 @@ files are created only in the OS temporary folder, which the system cleans, so
 they are not deleted. The owner's words release, commit, push and sync equally
 mean a full release in one package: syncing the local settings with the sources,
 all checks and the finalize-work gate, the merge of the task branch into
-`master`, push and installation on the current host. Spotty controls the
-package: without its CLEAN on the whole repository, the merge into `master` and
-push are forbidden, and a separate merge or push without the rest of the package
-is not done. The release order is described
+`master`, push and installation on the current host. Merge and push require
+CLEAN for the settings and release diff checks, or settings and the covering
+audit; a separate merge or push without the rest of the package is not done.
+The release order is described
 in `.agents/skills/release/SKILL.md`.
 
 `INSTALL_FOR_AGENTS.md` is the single entry point for installation and updates.

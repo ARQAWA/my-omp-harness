@@ -118,7 +118,7 @@ for (const doc of installDocs) {
 assert.ok(read('AGENTS.md').includes('node tests/run.mjs'));
 
 const docs = ['README.md', 'AGENTS.md', 'INSTALL_FOR_AGENTS.md', 'HARNESS-DESIGN.md',
-  ...installDocs, '.agents/skills/release/SKILL.md', '.agents/skills/finalize-work/SKILL.md'];
+  ...installDocs, '.agents/skills/release/SKILL.md', '.agents/skills/finalize-work/SKILL.md', '.agents/skills/repo-audit/SKILL.md'];
 for (const doc of docs) {
   for (const [, target] of read(doc).matchAll(/\]\(([^)\s]+)\)/g)) {
     if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('#')) continue;

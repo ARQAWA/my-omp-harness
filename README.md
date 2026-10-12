@@ -98,7 +98,7 @@ In the clone folder, ask omp: "Update everything per INSTALL_FOR_AGENTS.md".
 - [install-instructions/system-prompt.md](install-instructions/system-prompt.md) — the system prompt.
 - [install-instructions/herdr.md](install-instructions/herdr.md) — our herdr.
 - [AGENTS.md](AGENTS.md) — development and release.
-- [WORKFLOW-CONCEPT.md](WORKFLOW-CONCEPT.md) — the core of the harness.
+- [WORKFLOW-MANIFEST.md](WORKFLOW-MANIFEST.md) — the core of the harness.
 - [HARNESS-DESIGN.md](HARNESS-DESIGN.md) — the concept and decision history of the harness.
 - [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) — the design system of the omp and herdr interface.
 - [WORKING-ENVIRONMENTS.md](WORKING-ENVIRONMENTS.md) — the conditions of the working environments.

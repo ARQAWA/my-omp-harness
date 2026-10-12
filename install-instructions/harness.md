@@ -177,10 +177,11 @@ The Gold Standard works as a working contract:
   (point corrections here and there with an obvious meaning) without a check,
   small (up to 5 requirements and up to 5 changed files) is checked by Spotty
   before handover, large by Smarty; in `/define-goal` the class is written in the
-  goal. Two more automatic Spotty checks run in plan mode. Bossy runs only on
-  explicit choice. Every check runs until CLEAN. A mandatory gate from the
-  repository's instructions, for example the finalization gate, runs in
-  parallel with the class check.
+  goal. Two more automatic Spotty checks run in plan mode. Bossy runs on
+  explicit choice, including an explicitly adopted standing audit procedure.
+  Every check runs until CLEAN. A gate required at the same stage by the
+  repository's instructions runs in parallel with the class check; a
+  release-only gate does not run at ordinary handover.
 
 `omp-tools` puts the speed of the result first and the number of turns second:
 independent calls go in one response or in a JS `eval` cell with `Promise.all`,
@@ -486,7 +487,7 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
 |---|---|---|
 | `blind-review-cycle` | `smarty` | on explicit invocation and in the check of large work (including a `/define-goal` goal) |
 | `light-review-cycle` | `spotty` | on explicit invocation, in the check of small work (including a `/define-goal` goal), in omp plan mode (the plan before it is proposed and the result of carrying out the approved plan) and in the repository's finalization gate |
-| `high-review-cycle` | `bossy` | on explicit invocation |
+| `high-review-cycle` | `bossy` | on explicit invocation or an explicitly adopted standing audit procedure |
 
 ## Requirements
 
