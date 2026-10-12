@@ -15,6 +15,8 @@ export interface Row {
 	tools?: number;
 	/** Shell commands. */
 	commands?: number;
+	/** Edited files: one per edit result or written file. */
+	edits?: number;
 }
 
 export interface Line {
@@ -24,16 +26,12 @@ export interface Line {
 
 export type Status = "running" | "error" | "done";
 
-/** Tools that keep their own row: edits and writes, and the cards of todo, ask, task and wait. */
+/** Tools that keep their own row: the cards of todo, ask, task and wait. */
 const OWN_ROW_TOOLS: Record<string, true | undefined> = {
 	todo: true,
 	ask: true,
 	task: true,
 	wait: true,
-	write: true,
-	edit: true,
-	ast_edit: true,
-	apply_patch: true,
 };
 
 /** Whether a tool call joins an Explored run: every tool that keeps no row of its own, and goal get and resume. */
@@ -161,6 +159,7 @@ export function editResultRow(result: CallResult): Row {
 		removed: totals.removed,
 		files: 0,
 		searches: 0,
+		edits: 1,
 	};
 }
 
@@ -268,6 +267,7 @@ export function rowOf(toolName: string, args: unknown, results: CallResult[]): R
 					.join(", "),
 				files: 0,
 				searches: 0,
+				edits: 1,
 			};
 			if (results.length > 0) {
 				const totals = diffTotals(results);
@@ -344,10 +344,11 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 	}
 }
 
-/** "2 files, 1 search, 3 tools, ran 2 commands" without the verb: the nonzero parts in that order. */
-export function countsText(files: number, searches: number, tools: number, commands: number): string {
+/** "2 files, edited 1 file, 1 search, 3 tools, ran 2 commands" without the verb: the nonzero parts in that order. */
+export function countsText(files: number, searches: number, tools: number, commands: number, edits: number): string {
 	const parts: string[] = [];
 	if (files > 0) parts.push(`${files} ${files === 1 ? "file" : "files"}`);
+	if (edits > 0) parts.push(`edited ${edits} ${edits === 1 ? "file" : "files"}`);
 	if (searches > 0) parts.push(`${searches} ${searches === 1 ? "search" : "searches"}`);
 	if (tools > 0) parts.push(`${tools} ${tools === 1 ? "tool" : "tools"}`);
 	if (commands > 0) parts.push(`ran ${commands} ${commands === 1 ? "command" : "commands"}`);

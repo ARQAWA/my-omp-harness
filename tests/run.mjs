@@ -87,7 +87,7 @@ for (const [name, model] of named) {
   assert.ok(harnessDoc.includes(`| \`${name}\` | \`${model}\` |`), `harness.md: ${name}`);
 }
 assert.ok(read('install-instructions/omp.md').includes(`omp config set task.disabledAgents '["task","scout","reviewer","security-reviewer","sonic"]'`), 'omp.md: disabledAgents');
-assert.ok(read('extensions/autocompaction.ts').includes('return 258_400;'), 'autocompaction.ts: threshold');
+assert.ok(read('extensions/autocompaction.ts').includes('return 450_000;'), 'autocompaction.ts: threshold');
 // MODELS from model-arrows.js, contextWindow ids from settings/models.yml
 const modelsBlock = read('extensions/model-arrows.js').match(/MODELS = \[([^\]]*)\]/)?.[1] ?? '';
 const models = [...modelsBlock.matchAll(/"([^"]+)"/g)].map(([, id]) => id);

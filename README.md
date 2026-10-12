@@ -32,8 +32,8 @@ a fork, so `omp update` keeps working.
   reasoning level you name.
 - **Memory that does not lose context.** Only LCM compacts the context: a
   native Rust module keeps background Haiku 5.5 summaries in SQLite, and search
-  reaches the original messages. The autocompaction threshold is set by model
-  family: all Claude models at 270 000 tokens, all GPT models at 258 400.
+  reaches the original messages. Main's autocompaction threshold is 450 000
+  tokens at a 700 000 context window for all Claude and all GPT models.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
   and `write`, replacement edits and `todo` run in parallel with other calls.

@@ -1,13 +1,14 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { Container, shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
+import { shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
 import { todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
 import { viewMode } from "./cursor-feed";
 import { getAgentTask } from "./cursor-feed/agent-tasks";
 import { actionPhrase } from "./cursor-feed/rows";
+import { GLYPH } from "./cursor-feed/glyphs";
 import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 
 const TITLE = "my-omp-harness.title";
@@ -19,6 +20,11 @@ let piApi: ExtensionAPI | undefined;
 let compacting = false;
 let glow: ReturnType<typeof setInterval> | undefined;
 let tui: any;
+let gitText = "";
+let prText = "";
+let rateCaptured = "";
+// The LCM counter text that the lcm extension publishes.
+const LCM_STATUS = Symbol.for("my-omp-harness.lcm-status");
 
 interface ActionState {
 	thinking: boolean;
@@ -51,13 +57,26 @@ function patchTokenRate() {
 	if (!tokenRate || tokenRate[RATE_PATCHED]) return;
 	tokenRate[RATE_PATCHED] = true;
 	tokenRate.render = (ctx: any) => {
-		const t = rateText(ctx);
-		return t ? { content: t, visible: true } : { content: "", visible: false };
+		rateCaptured = rateText(ctx) ?? "";
+		return { content: "", visible: false };
 	};
 	tokenRate.describe = (ctx: any) => {
 		const t = rateText(ctx);
 		return t ? { spans: [{ t }] } : null;
 	};
+}
+
+/** Keeps a right-side segment's text in slot and draws nothing in its place; the status rows draw that text instead. */
+function captureSegment(id: "git" | "pr", slot: (text: string) => void): void {
+	const segment = (SEGMENTS as any)?.[id];
+	if (!segment || !claimOnce(segment, Symbol.for(`my-omp-harness.captured-segment.${id}`))) return;
+	const original = segment.render;
+	segment.render = (ctx: any) => {
+		const result = original.call(segment, ctx);
+		slot(result?.visible ? result.content : "");
+		return { content: "", visible: false };
+	};
+	segment.describe = () => null;
 }
 
 function patchMode() {
@@ -181,15 +200,19 @@ function patchStatusLine() {
 			if (full) model = model.replace(full, short);
 		}
 		let place: string = rightPart.call(this, width)?.content ?? "";
-		for (const [badge, omp] of [[agents, ompAgents], [jobs, jobs]] as const) {
-			if (!badge) continue;
-			if (!focused) model += `${theme.fg("statusLineSep", "·")} ${badge}`;
-			place = place.replace(omp + sep, "");
-		}
+		const dot = theme.fg("statusLineSep", "·");
+		if (agents && !focused) model += `${dot} ${agents}`;
+		if (ompAgents) place = place.replace(ompAgents + sep, "");
+		if (jobs) place = place.replace(jobs + sep, "");
+		const placeAndJobs = jobs ? (place ? `${place} ${dot} ${jobs}` : jobs) : place;
 		// Drop omp's blank gap row so the context bar sits right under the input.
 		const textColor = theme.getFgAnsi("text");
-		const rows = [contextLine(width, theme, textColor), fitLine(model, width)];
-		if (place) rows.push(fitLine(place, width));
+		const lcm = (globalThis as Record<symbol, unknown>)[LCM_STATUS];
+		const right1 = [typeof lcm === "string" ? lcm : "", rateCaptured].filter(Boolean).join("  ");
+		const row1 = rowLeftRight(model, right1, width);
+		const row2 = rowLeftRight(placeAndJobs, [gitText, prText].filter(Boolean).join(" "), width);
+		const rows = [contextLine(width, theme, textColor), row1];
+		if (row2) rows.push(row2);
 		const lines = [...rows, ...base.slice(k + 1)];
 		return focused ? lines.map(dimRgb) : lines;
 	};
@@ -207,22 +230,23 @@ function stateOf(agentId: string): ActionState {
 // The working loader's shimmer cadence.
 const THINKING_FRAME_MS = 1000 / 30;
 
-/** The phrase of the current action: the last still-running tool, else Planning next moves while thinking; undefined when idle. */
-function phraseOf(state: ActionState | undefined): string | undefined {
+/** The phrase of the current action: the last still-running tool, else Planning next moves while thinking; undefined when idle. tool tells the two apart. */
+function phraseOf(state: ActionState | undefined): { text: string; tool: boolean } | undefined {
 	if (state === undefined) return undefined;
 	let last: { toolName: string; args: unknown } | undefined;
 	for (const call of state.tools.values()) last = call;
-	if (last !== undefined) return actionPhrase(last.toolName, last.args);
-	return state.thinking ? "Planning next moves" : undefined;
+	if (last !== undefined) return { text: actionPhrase(last.toolName, last.args), tool: true };
+	return state.thinking ? { text: "Planning next moves", tool: false } : undefined;
 }
 
-function hasAction(state: ActionState): boolean {
-	return state.thinking || state.tools.size > 0;
+/** A state shimmers its Planning row only while it plans with no tool running. */
+function animates(state: ActionState): boolean {
+	return state.thinking && state.tools.size === 0;
 }
 
-// The render ticker runs only while some action row is shown and the shimmer is on: ~30fps. Otherwise each state change requests one render.
+// The render ticker runs only while some Planning row is shown and the shimmer is on: ~30fps. Otherwise each state change requests one render.
 function refreshAction(): void {
-	const animate = shimmerEnabled() && [...actions.states.values()].some(hasAction);
+	const animate = shimmerEnabled() && [...actions.states.values()].some(animates);
 	if (animate && actions.timer === undefined) {
 		actions.timer = setInterval(() => tui?.requestRender?.(), THINKING_FRAME_MS);
 		actions.timer.unref?.();
@@ -240,34 +264,30 @@ function stopThinking(agentId: string): void {
 	refreshAction();
 }
 
-/** The current-action row of an agent: a shimmering phrase while it plans or runs a tool; empty otherwise. */
+/** The current-action row of an agent: a circle and the phrase while it runs a tool, a shimmering Planning phrase while it plans; empty otherwise. */
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
 	const phrase = phraseOf(actions.states.get(agentId));
 	if (phrase === undefined) return [];
-	return [fitLine(shimmerText(phrase, theme), width)];
+	const line = phrase.tool ? `${theme.fg("warning", GLYPH.circle)} ${phrase.text}` : shimmerText(phrase.text, theme);
+	return [fitLine(line, width)];
 }
 
-// The working loader repeats the current-action row, so the normal loader draws no rows while cursor-feed is on; the loader object, its timer and its interrupt stay.
-function patchLoadingAnimation() {
-	const LOADER_PATCHED = Symbol.for("my-omp-harness.single-working-row");
-	const LOADER_RENDER = Symbol.for("my-omp-harness.single-working-row.render");
+// The status container draws the working row and the idle tok/s row; while cursor-feed is on it draws nothing, and the status bar shows the action line instead.
+function patchStatusContainer() {
+	const STATUS_CONTAINER_PATCHED = Symbol.for("my-omp-harness.status-container");
+	const STATUS_CONTAINER_RENDER = Symbol.for("my-omp-harness.status-container.render");
 	const proto = InteractiveMode.prototype;
 	const record = proto as unknown as Record<symbol, unknown>;
-	if (record[LOADER_PATCHED]) return;
-	record[LOADER_PATCHED] = true;
-	const ensureLoadingAnimation = proto.ensureLoadingAnimation;
-	proto.ensureLoadingAnimation = function (this: InteractiveMode): void {
-		ensureLoadingAnimation.call(this);
-		const loader = this.loadingAnimation;
-		if (loader === undefined) return;
-		const own = loader as unknown as Record<symbol, unknown>;
-		if (own[LOADER_RENDER]) return;
-		own[LOADER_RENDER] = true;
-		const render = loader.render;
-		loader.render = (width: number): readonly string[] => (enabled() ? [] : render.call(loader, width));
-		const empty = new Container();
-		const savedDescribe = loader.describe;
-		loader.describe = (cx) => (enabled() ? empty.describe(cx) : savedDescribe.call(loader, cx));
+	if (record[STATUS_CONTAINER_PATCHED]) return;
+	record[STATUS_CONTAINER_PATCHED] = true;
+	const init = proto.init;
+	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): Promise<void> {
+		const container = this.statusContainer as unknown as Drawable;
+		if (claimOnce(container, STATUS_CONTAINER_RENDER)) {
+			const render = container.render;
+			container.render = (width: number): readonly string[] => (enabled() ? [] : render.call(container, width));
+		}
+		return init.apply(this, args);
 	};
 }
 
@@ -498,8 +518,10 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchTokenRate();
 	patchMode();
 	patchStatusJoin();
+	captureSegment("git", text => (gitText = text));
+	captureSegment("pr", text => (prText = text));
 	patchStatusLine();
-	patchLoadingAnimation();
+	patchStatusContainer();
 	patchComposerRows();
 
 	pi.on("session_start", (_event, ctx) => {

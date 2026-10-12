@@ -87,7 +87,7 @@ Then update herdr on the current host by
 
 The VSIX packs `omp-vscode/` with the latest `omp-windows-x64.exe` of
 `can1357/oh-my-pi` as `bin/omp.exe` and replaces the file of the `omp-vscode`
-release:
+release; `shell_runner` runs the `npx` build step of this chain:
 
 ```bash
 D="$(mktemp -d)" && TAG="$(gh release view -R can1357/oh-my-pi --json tagName -q .tagName)" && cp omp-vscode/package.json omp-vscode/extension.js "$D" && gh release download "$TAG" -R can1357/oh-my-pi -p omp-windows-x64.exe -D "$D/bin" && mv "$D/bin/omp-windows-x64.exe" "$D/bin/omp.exe" && (cd "$D" && yes | npx --yes @vscode/vsce package --no-dependencies --target win32-x64 -o omp-vscode.vsix) && (gh release view omp-vscode -R ARQAWA/my-omp-harness >/dev/null 2>&1 || gh release create omp-vscode -R ARQAWA/my-omp-harness --title omp-vscode --notes "omp $TAG") && gh release upload omp-vscode -R ARQAWA/my-omp-harness --clobber "$D/omp-vscode.vsix" && gh release edit omp-vscode -R ARQAWA/my-omp-harness --notes "omp $TAG"

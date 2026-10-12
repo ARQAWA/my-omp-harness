@@ -273,7 +273,7 @@ function writeActions(call: Call, owner: object): Action[] {
 		const status: Status =
 			entry === undefined ? statusOf(call.results, call.isPartial) : entry.status === "written" ? "done" : "error";
 		return {
-			row: { verb: "Wrote", detail: displayPath(file.path), added: file.added, files: 0, searches: 0 },
+			row: { verb: "Wrote", detail: displayPath(file.path), added: file.added, files: 0, searches: 0, edits: 1 },
 			status,
 			durationMs: index === 0 ? durationMs : undefined,
 			tool: call.toolName,
@@ -491,14 +491,16 @@ function standaloneLines(owner: object, call: Call, width: number): string[] {
 }
 
 /** The totals of one count over the actions. */
-function totalOf(actions: Action[], field: "files" | "searches" | "tools" | "commands"): number {
+function totalOf(actions: Action[], field: "files" | "searches" | "tools" | "commands" | "edits"): number {
 	return actions.reduce((sum, action) => sum + (action.row[field] ?? 0), 0);
 }
 
-/** The body of an expanded call: its original view when it has no marker, else its body rows. */
+/** The last six lines of an expanded call: its original view when it has no marker, else its body rows. */
 function bodyOfCall(call: Call): string[] {
-	if (call.view) return call.view();
-	return bodyOf(call.toolName, call.args, call.results).map(line => paint(TONE[line.tone], line.text));
+	const lines = call.view
+		? call.view()
+		: bodyOf(call.toolName, call.args, call.results).map(line => paint(TONE[line.tone], line.text));
+	return lines.slice(-6);
 }
 
 /** The segments of a read group's actions: each run of successful reads, and each error alone. */
@@ -550,6 +552,7 @@ function groupLines(owner: object, run: Segment[], width: number): string[] {
 		totalOf(actions, "searches"),
 		totalOf(actions, "tools"),
 		totalOf(actions, "commands"),
+		totalOf(actions, "edits"),
 	);
 	const status: Status = running ? "running" : "done";
 	const out = [`${paint(DOT[status], GLYPH.circle)} ${running ? "Exploring" : "Explored"} ${paint("dim", counts)}${elapsed}`];

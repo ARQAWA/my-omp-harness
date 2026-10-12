@@ -17,15 +17,15 @@ type Progress = { cur: number; total: number; steps: string[] };
 
 interface ProgressSlot {
 	state?: { item: string; steps: string[]; current: number };
+	phases?: Phase[];
 	setTodos?: (phases: Phase[]) => void;
+	/** The interactive mode of this session, captured when its init starts; its todo panel is drawn. */
+	mode?: ModeLike;
 }
 
 const GUARD = Symbol.for("my-omp-harness.cursor-feed.panel");
 const PROGRESS = Symbol.for("my-omp-harness.progress");
 const slot = ((globalThis as Record<symbol, unknown>)[PROGRESS] ??= {}) as ProgressSlot;
-
-/** The interactive mode of this session, captured when its init starts; its todo panel is drawn. */
-let current: ModeLike | undefined;
 
 function paint(color: ThemeColor, text: string): string {
 	try {
@@ -85,22 +85,17 @@ function stepLines(progress: Progress): string[] {
 	});
 }
 
-function headerLine(total: number, left: number): string {
-	return `${paint("text", "To-dos:")} ${paint("dim", `${total} total · ${left} left`)}`;
-}
-
-/** The panel rows: the header, then up to three items around the current one, or every phase when expanded. */
-function panelLines(mode: ModeLike, width: number): string[] {
-	const phases = mode.todoPhases.filter(phase => phase.tasks.length > 0);
-	const all = phases.flatMap(phase => phase.tasks);
-	const total = all.length;
+/** The panel rows: up to four tasks around the current one, or every phase when expanded. */
+function panelLines(mode: ModeLike | undefined, phases: Phase[], width: number): string[] {
+	const nonEmpty = phases.filter(phase => phase.tasks.length > 0);
+	const all = nonEmpty.flatMap(phase => phase.tasks);
 	const left = all.filter(task => !isDone(task)).length;
 	if (left === 0) return [];
-	const expanded = mode.toolOutputExpanded === true || mode.todoExpanded === true;
-	const lines: string[] = [headerLine(total, left)];
+	const expanded = mode?.toolOutputExpanded === true || mode?.todoExpanded === true;
+	const lines: string[] = [];
 
 	if (expanded) {
-		for (const phase of phases) {
+		for (const phase of nonEmpty) {
 			const phaseDone = phase.tasks.filter(isDone).length;
 			lines.push(`  ${paint("muted", phase.name)} ${paint("dim", `${phaseDone}/${phase.tasks.length}`)}`);
 			for (const task of phase.tasks) {
@@ -114,8 +109,8 @@ function panelLines(mode: ModeLike, width: number): string[] {
 		const inProgress = all.findIndex(task => task.status === "in_progress");
 		const open = all.findIndex(task => !isDone(task));
 		const anchor = inProgress >= 0 ? inProgress : open >= 0 ? open : n - 1;
-		const start = Math.max(0, Math.min(anchor - 1, n - 3));
-		for (const task of all.slice(start, start + 3)) {
+		const start = Math.max(0, Math.min(anchor - 1, n - 4));
+		for (const task of all.slice(start, start + 4)) {
 			lines.push(taskLine("  ", task));
 			const progress = progressOf(task);
 			if (progress) lines.push(barLine(progress));
@@ -134,12 +129,12 @@ function installContainer(container: Container): void {
 	container.render = (width: number): readonly string[] => (enabled() ? [] : original.call(container, width));
 }
 
-/** The todo panel rows for the status bar title widget; empty when the panel is off or the todo container is hidden. */
+/** The todo panel rows for the status bar title widget; empty when the panel is off or no phases were published. */
 export function todoPanelLines(width: number): string[] {
-	const mode = current;
-	if (!enabled() || mode === undefined || mode.todoContainer.children.length === 0) return [];
+	const phases = slot.phases;
+	if (!enabled() || phases === undefined) return [];
 	try {
-		return panelLines(mode, width);
+		return panelLines(slot.mode, phases, width);
 	} catch {
 		return [];
 	}
@@ -152,14 +147,16 @@ export function installPanel(): void {
 	if (record[GUARD]) return;
 	record[GUARD] = true;
 	slot.setTodos = phases => {
-		const mode = current;
-		if (mode === undefined) return;
-		mode.session.setTodoPhases(phases);
-		if (mode.viewSession === mode.session) mode.setTodos(phases);
+		slot.phases = phases;
+		const mode = slot.mode;
+		if (mode !== undefined) {
+			mode.session.setTodoPhases(phases);
+			if (mode.viewSession === mode.session) mode.setTodos(phases);
+		}
 	};
 	const init = proto.init;
 	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): Promise<void> {
-		current = this;
+		slot.mode = this;
 		if (this.todoContainer) installContainer(this.todoContainer);
 		return init.apply(this, args);
 	};
@@ -167,5 +164,5 @@ export function installPanel(): void {
 
 /** The interactive mode whose todo panel is drawn, if one has been seen. */
 export function currentMode(): ModeLike | undefined {
-	return current;
+	return slot.mode;
 }

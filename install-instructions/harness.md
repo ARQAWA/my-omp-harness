@@ -290,22 +290,24 @@ searches, other tools including MCP, and bash commands merge into
 "Explored N files, M searches, K tools, ran C commands"; zero counts are
 omitted and the live group says "Exploring". Goal get/resume count as tools;
 text, todo, ask, goal create/complete/drop, subagent cards and errors split
-the group. Edits and writes keep one row per file: "Edited path +N −M" or
-"Wrote path +N". Expanded groups retain every call and its available output.
+the group. Consecutive edits and writes fold into the same row, counted as
+"edited E files"; a lone edit or write keeps its own row "Edited path +N \u2212M" or
+"Wrote path +N", and an error keeps its own red row. Expanded groups show every
+call with the last six lines of its diff or output.
 Reasoning text stays hidden in both modes, during streaming and replay.
-The current-action row says "Planning next moves" while the model thinks,
-then a tool phrase such as "Reading client.py", "Searching files", "Running
-command" or "Waiting for subagent" while a tool runs. A light sheen crosses
-the whole phrase, without an icon or timer; the row disappears when no action
-is active. No reasoning-duration rows remain in the transcript. Collapsed
+The current-action row says "Planning next moves" with a light sheen only
+while the model thinks; while a tool runs or the agent waits it shows a yellow
+status circle and a phrase such as "Reading client.py", "Searching files",
+"Running command" or "Waiting for subagent" without a sheen. The row has no
+timer and disappears when no action is active. omp's own "Working\u2026" row
+with the esc hint and intent text never appears. No reasoning-duration rows remain in the transcript. Collapsed
 calls have no raw argument fields, output body or Expand hint. Standalone
 LCM tools say `Searched memory "query" · N found`, "Viewed memory map" or
 "Opened memory summary". A finished Main turn
 is folded: everything between the question and the final answer becomes the
 line "Worked for 7m 11s ›"; text that the agent wrote right before an `ask` stays
-outside the fold. Ctrl+O expands and folds everything at once: edits show the
-diff, Explored one action per line, commands and memory tools their full
-output, Worked for the turn. So that lines that have scrolled up also
+outside the fold. Ctrl+O expands and folds everything at once: Explored one action per line,
+each call with the last six lines of its diff or output, Worked for the turn. So that lines that have scrolled up also
 change, at the end of a turn and after Ctrl+O omp redraws the screen once and
 erases the terminal history, including the text that was in the window before
 omp started. A `task` call is a card: the header "Running 2 agents · 1 done" or
@@ -313,10 +315,10 @@ omp started. A `task` call is a card: the header "Running 2 agents · 1 done" or
 circle, name and agent type, followed by its indented live action with a
 light sheen. That second row has no circle and ends as "Completed", "Stopped"
 or "Failed". Main's live-subagent rows in the feed carry the grey hint
-"alt+a agents" beside each agent ID. Their panel shows "N agents working", up to
+"press ← twice: agents" beside each agent ID. Their panel shows "N agents working", up to
 four agents and the current action of each, without clicks.
 
-Every way of opening omp's Agent Hub (a double ← in an empty field, alt+a,
+Every way of opening omp's Agent Hub (a double ← in an empty field, the omp hub key,
 ctrl+s, `/hub`, the agents pill) opens the harness agent board instead, a
 fullscreen view split into two equal halves. The top line shows "Agents", the
 counts of working, idle, done and failed agents and "esc close". Hub lifecycle
@@ -348,10 +350,11 @@ comes from the owner's settings from [omp.md](omp.md):
 One widget directly above the input draws, top to bottom, the current action
 if present, one blank row after it, the todo panel and the session title/ID
 row; omp's divider and input follow. The action and blank row disappear
-together when no action is active. The collapsed panel shows
-"To-dos: 12 total · 3 left" and up to three tasks across all stages: the previous,
-current and next task. Near the end it shifts back to keep three tasks visible;
-fewer tasks use fewer rows. Done keeps a green circle and dim text, the current
+together when no action is active. The collapsed panel has no header and
+shows up to four tasks across all stages: the previous, the current and the
+next two. Near the end it shifts back to keep four tasks visible; fewer tasks
+use fewer rows. The panel draws from the harness's own committed list, not from
+omp's todo HUD. Done keeps a green circle and dim text, the current
 task a yellow circle, and waiting a grey circle. The current task's plan bar
 sits directly beneath it, indented two more columns: eight Nerd Font progress
 cells followed by "2/4 step text". This nested row is additional to the header
@@ -387,8 +390,8 @@ rows and a row above the line over the field: on the left the bold session
 name with the same natural gold gradient as the full compaction bar
 and "Worked …" for the last turn, on the right the full session ID without
 an icon, followed by two spaces before the edge. A long title is cut before
-the ID. The first row under the field, right
-next to it, is the compaction bar: a full-width white-grey bar with a grey label
+the ID. Under the field come the compaction bar and two status rows. The
+compaction bar, right next to the field, is a full-width white-grey bar with a grey label
 `N% <tokens>/<trigger>` that measures the context up to the compaction trigger
 (`compaction.thresholdTokens`, else `compaction.thresholdPercent`, else the
 window minus the reserve) and shows 100% at or above it; the bar fills by the
@@ -396,24 +399,26 @@ same share. At the trigger the bar
 turns natural gold, a gradient from dark gold `#8a6d1c` through `#c9a227` to
 light gold `#e3c45a`, and while compaction runs (`auto_compaction_start` or
 `session_before_compact` until `auto_compaction_end` or `session_compact`) a
-warm glint moves along it. The second is omp's native row: the model, the generation
-speed `token_rate` (the extension takes the live speed of the omp session, the
-same counter as the built-in `composer.tokenRate`, which is turned off, updates
-it every 80 ms during a turn, keeps the last value between turns, puts the
-theme's speed icon right in front of the number and colors it: below 30 tok/s
-red, below 60 yellow, below 90 pale green, otherwise bright green), the modes
-(plan and goal together), the memory counters `86  / 12 ` on a faint panel
-background and the counters of working
-subagents (the one-cell Nerd Font users glyph U+F0C0) and background jobs.
-The model row has no turn timer; the completed turn keeps "Worked …" above
-the input. In a subagent view the rows use its model, speed and context.
-The third is omp's right segments: folder, git branch and PR; the
-extension moves them here from the line above the input field, and that line
-stays a plain grey line whose brightness follows the reasoning level.
+warm glint moves along it. Status row 1 holds, left to right, the model with its reasoning level, the
+modes (plan, goal, loop, prewalk) and the count of working subagents (the
+one-cell Nerd Font users glyph U+F0C0); at its right edge the generation speed
+`token_rate` (the extension takes the live speed of the omp session, the same
+counter as the built-in `composer.tokenRate`, which is turned off, updates it
+every 80 ms during a turn, keeps the last value between turns, puts the theme's
+speed icon right in front of the number and colors it: below 30 tok/s red,
+below 60 yellow, below 90 pale green, otherwise bright green) with the memory
+counters `86  / 12 ` directly left of it. Status row 2 holds, left
+to right, the folder, the collab and stream indicators and the count of hidden
+background jobs; at its right edge the git branch with its change count and
+the PR. The extension takes the right segments from the line above the input
+field, and that line stays a plain grey line whose brightness follows the
+reasoning level. The rows have no turn timer; the completed turn keeps
+"Worked …" above the input. In a subagent view the rows use its model, speed
+and context.
 The layout and segments are set by [omp.md](omp.md). `autocompaction.ts` sets
-Main's autocompaction threshold: 270 000 tokens for all Claude models and
-258 400 (95% of 272 000) for all GPT models, if the threshold is below the
-context window.
+Main's autocompaction threshold: 450 000 tokens for all Claude and all GPT
+models at their 700 000 context window from [omp.md](omp.md), if the threshold
+is below the context window.
 
 `lcm/index.ts` is the only context compaction: a copy of pi-lcm 0.1.3 with our
 changes (MIT license in `extensions/lcm/LICENSE`). Storage, search, the summary
@@ -441,9 +446,10 @@ the hook hands compaction to omp, and the regular chain (`soft`) works. The
 prompts require carrying facts over as they are, inventing nothing and
 dropping nothing. The tools `lcm_grep`, `lcm_describe` and `lcm_expand` load on
 request through `xd://` and search and expand the original messages; the
-commands `/lcm` and `/lcm-settings` show the state and the settings. In the status line LCM shows the muted counters `86  / 12 ` on a faint panel background, and while it writes summaries the same place shows
-"saving memory · N parts…" or "merging memory…"; a failure is one short notice
-that says what will happen next. The databases `<cwd hash>.db`, the cost log
+commands `/lcm` and `/lcm-settings` show the state and the settings. In the status line LCM shows the muted counters `86  / 12 ` left of
+the speed; its progress text while it writes summaries goes to omp's hook
+status, which `statusLine.showHookStatus false` hides. A failure is one short
+notice that says what will happen next. The databases `<cwd hash>.db`, the cost log
 `costs.jsonl` and the shared `/lcm-settings` settings (`settings.json`) lie in
 `~/.omp/lcm`; the `LCM_DB_DIR` variable replaces the folder for the databases
 and the log. Earlier databases lay in the `lcm` folder next to the omp

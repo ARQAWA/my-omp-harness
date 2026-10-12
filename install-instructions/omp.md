@@ -20,7 +20,7 @@ applied on top of it:
   `symbolPreset nerd`, so omp and the harness draw Nerd Font glyphs; every glyph
   they draw is in this font and takes one cell;
 - context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
-  `<agent-dir>/models.yml`: 400 000 tokens for all GPT models (GPT-6.1 Sol,
+  `<agent-dir>/models.yml`: 700 000 tokens for all GPT models (GPT-6.1 Sol,
   GPT-6 Luna, GPT-5.6 Luna) and all Claude models (Sonnet 5.5, Haiku 5.5,
   Fable 5.1);
 - keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
@@ -79,7 +79,7 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    replace the file only with the owner's consent. Do the same with
    `$CLONE/settings/keybindings.yml` and `$AGENT_DIR/keybindings.yml`.
 4. Set the owner's settings. The theme removes only the icon in front of the
-   context; the three status rows under the input field and the row above it
+   context; the compaction bar and two status rows under the input field and the row above it
    are built by the harness package extension `status-bar.ts`.
    `startup.quiet true` removes the omp startup block: the logo with a hint and
    the "Model scope" line. For a compact screen, `tui.tight true` drops one
@@ -97,8 +97,8 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set statusLine.transparent true
    omp config set statusLine.compactThinkingLevel false
    omp config set statusLine.showHookStatus false
-   omp config set statusLine.leftSegments '["model","token_rate","mode","collab","stream","status"]'
-   omp config set statusLine.rightSegments '["path","git","pr"]'
+   omp config set statusLine.leftSegments '["model","token_rate","mode","status"]'
+   omp config set statusLine.rightSegments '["path","collab","stream","git","pr"]'
    omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true}}'
    omp config set composer.shape rule
    omp config set composer.tokenRate false

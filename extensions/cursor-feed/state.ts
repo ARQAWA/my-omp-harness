@@ -102,22 +102,24 @@ export interface TuiRef {
 	hasOverlay?(): boolean;
 }
 
-let tuiRef: TuiRef | undefined;
+const SHARED = Symbol.for("my-omp-harness.cursor-feed.shared");
+/** Process-wide state of cursor-feed: each extension file loads its own module copy, so module variables are not shared. */
+export const shared = ((globalThis as Record<symbol, unknown>)[SHARED] ??= {}) as { tui?: TuiRef; mainMode?: unknown };
 let lastGlobal: boolean | undefined;
 let resetPending = false;
 
 export function setTuiRef(ref: TuiRef | undefined): void {
-	tuiRef = ref;
+	shared.tui = ref;
 }
 
 /** Patches act only in the main TUI session and under ANSI rendering. */
 export function enabled(): boolean {
-	return tuiRef !== undefined && !isNativeRendering();
+	return shared.tui !== undefined && !isNativeRendering();
 }
 
 /** Transcript containers that are direct children of the TUI (the main chat transcript). */
 export function topTranscripts(): TranscriptContainer[] {
-	return (tuiRef?.children ?? []).filter((child): child is TranscriptContainer => child instanceof TranscriptContainer);
+	return (shared.tui?.children ?? []).filter((child): child is TranscriptContainer => child instanceof TranscriptContainer);
 }
 
 /**
@@ -136,7 +138,7 @@ export function scheduleReset(): void {
 				// Fail safe: the repaint still runs.
 			}
 		}
-		tuiRef?.resetDisplay();
+		shared.tui?.resetDisplay();
 	}, 0);
 }
 

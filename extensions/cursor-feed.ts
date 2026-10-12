@@ -3,7 +3,7 @@ import { InteractiveMode } from "@oh-my-pi/pi-coding-agent";
 import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
 import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 import { isKeyRelease, matchesKey, theme } from "@oh-my-pi/pi-tui";
-import { enabled, goalObjectives, scheduleReset, setTuiRef, type TuiRef } from "./cursor-feed/state";
+import { enabled, goalObjectives, scheduleReset, setTuiRef, shared, type TuiRef } from "./cursor-feed/state";
 import { installCursorFeed } from "./cursor-feed/tools";
 import { installSubagents } from "./cursor-feed/subagents";
 import { installAgentBoard, isAgentBoardOpen } from "./cursor-feed/hub";
@@ -18,8 +18,6 @@ const VIEW_HINT = "Subagent view · esc main · ←← agents";
 const CHORD_MAX_MS = 500;
 /** The shortest gap between two left arrows of a double tap, in milliseconds. */
 const LEFT_TAP_MIN_MS = 40;
-/** The main interactive mode, captured when its init starts. */
-let mainMode: InteractiveMode | undefined;
 /** The main editor draft kept while a subagent view is open, by mode. */
 const savedDrafts = new WeakMap<InteractiveMode, string>();
 /** The last key press of a double-tap chord: its key, the focused agent and the time. */
@@ -35,7 +33,7 @@ let goalToolCalls = 0;
 
 /** The main interactive mode, for readers of its subagent view (focusedAgentId is authoritative). */
 export function viewMode(): InteractiveMode | undefined {
-	return mainMode;
+	return shared.mainMode as InteractiveMode | undefined;
 }
 
 const VIEW_GUARD = Symbol.for("my-omp-harness.cursor-feed.view");
@@ -167,7 +165,7 @@ function installFocus(): void {
 	record[key] = true;
 	const init = proto.init;
 	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): ReturnType<InteractiveMode["init"]> {
-		mainMode = this;
+		shared.mainMode = this;
 		installView(this);
 		return init.apply(this, args);
 	};

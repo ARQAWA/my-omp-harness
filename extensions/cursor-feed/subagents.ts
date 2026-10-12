@@ -209,7 +209,7 @@ function agentLines(entry: Entry, width: number): string[] {
 	const color = STATUS_GLYPH[entry.status];
 	const agent = oneLine(entry.agent);
 	const working = (entry.status === "pending" || entry.status === "running") && viewMode()?.focusedAgentId === undefined;
-	const shortcut = working ? paint("dim", " · alt+a agents") : "";
+	const shortcut = working ? paint("dim", " · press ← twice: agents") : "";
 	const head = `  ${paint(color, GLYPH.circle)} ${oneLine(entry.id)}${agent ? `  ${paint("dim", agent)}` : ""}${shortcut}`;
 	return [fitLine(head, width), fitLine(`    ${stateTextOf(entry)}`, width)];
 }
@@ -357,7 +357,7 @@ function actionOf(record: AgentRecord): string {
 
 function panelLine(record: AgentRecord): string {
 	const action = actionOf(record);
-	return `  ${paint(record.status === "pending" ? "dim" : "warning", GLYPH.circle)} ${oneLine(record.id)}${viewMode()?.focusedAgentId === undefined ? paint("dim", " · alt+a agents") : ""}${action ? ` · ${paint("dim", action)}` : ""}`;
+	return `  ${paint(record.status === "pending" ? "dim" : "warning", GLYPH.circle)} ${oneLine(record.id)}${viewMode()?.focusedAgentId === undefined ? paint("dim", " · press ← twice: agents") : ""}${action ? ` · ${paint("dim", action)}` : ""}`;
 }
 
 function patchHud(): void {
