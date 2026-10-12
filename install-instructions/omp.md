@@ -51,7 +51,7 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
   and started only in a herdr window from the VS Code extension. The special
   build `omp-vscode/` starts the `omp.exe` built into it without herdr and is not
   part of this installation.
-- Access to omp.sh and github.com. Tested on omp 18.6.3.
+- Access to omp.sh and github.com.
 - A clone of the repository: the settings are taken from its `settings/`
   directory.
 

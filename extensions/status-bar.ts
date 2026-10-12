@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
+import { Container, shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
 import { todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
@@ -247,9 +247,10 @@ export function currentActionLines(agentId: string, width: number, theme: any): 
 	return [fitLine(shimmerText(phrase, theme), width)];
 }
 
-// The working loader repeats the current-action row, so the normal loader leaves the status container while cursor-feed is on; the loader object and its timer stay.
+// The working loader repeats the current-action row, so the normal loader draws no rows while cursor-feed is on; the loader object, its timer and its interrupt stay.
 function patchLoadingAnimation() {
 	const LOADER_PATCHED = Symbol.for("my-omp-harness.single-working-row");
+	const LOADER_RENDER = Symbol.for("my-omp-harness.single-working-row.render");
 	const proto = InteractiveMode.prototype;
 	const record = proto as unknown as Record<symbol, unknown>;
 	if (record[LOADER_PATCHED]) return;
@@ -258,8 +259,70 @@ function patchLoadingAnimation() {
 	proto.ensureLoadingAnimation = function (this: InteractiveMode): void {
 		ensureLoadingAnimation.call(this);
 		const loader = this.loadingAnimation;
-		if (!enabled() || loader === undefined || !this.statusContainer.children.includes(loader)) return;
-		this.statusContainer.removeChild(loader);
+		if (loader === undefined) return;
+		const own = loader as unknown as Record<symbol, unknown>;
+		if (own[LOADER_RENDER]) return;
+		own[LOADER_RENDER] = true;
+		const render = loader.render;
+		loader.render = (width: number): readonly string[] => (enabled() ? [] : render.call(loader, width));
+		const empty = new Container();
+		const savedDescribe = loader.describe;
+		loader.describe = (cx) => (enabled() ? empty.describe(cx) : savedDescribe.call(loader, cx));
+	};
+}
+
+const COMPOSER_PATCHED = Symbol.for("my-omp-harness.composer-rows");
+const CHIPS_EDITOR = Symbol.for("my-omp-harness.composer-rows.editor");
+const CHIPS_CONTAINER = Symbol.for("my-omp-harness.composer-rows.container");
+
+interface Drawable {
+	render(width: number): readonly string[];
+}
+
+/** Sets a guard symbol on the target once; false when it was already set. */
+function claimOnce(target: object, key: symbol): boolean {
+	const record = target as Record<symbol, unknown>;
+	if (record[key]) return false;
+	record[key] = true;
+	return true;
+}
+
+/** The editor draws the attachment chips right under its top rule while the harness is on. */
+function installEditorChips(editor: InteractiveMode["editor"]): void {
+	if (!claimOnce(editor, CHIPS_EDITOR)) return;
+	const target = editor as unknown as Drawable & { attachmentChips?: Drawable };
+	const render = target.render;
+	target.render = (width: number): readonly string[] => {
+		const rows = render.call(target, width);
+		if (!enabled()) return rows;
+		const chips = target.attachmentChips?.render(width) ?? [];
+		if (chips.length === 0) return rows;
+		return [...rows.slice(0, 1), ...chips, ...rows.slice(1)];
+	};
+}
+
+/** The chips container draws nothing while the harness is on; the editor draws the chips instead. */
+function installChipsContainer(mode: InteractiveMode): void {
+	const container = mode.attachmentChipsContainer as unknown as Drawable;
+	if (!claimOnce(container, CHIPS_CONTAINER)) return;
+	const render = container.render;
+	container.render = (width: number): readonly string[] => {
+		installEditorChips(mode.editor);
+		return enabled() ? [] : render.call(container, width);
+	};
+}
+
+/** Wraps the interactive mode's init once so that its editor and chips container get the guarded row renders. */
+function patchComposerRows(): void {
+	const proto = InteractiveMode.prototype;
+	const record = proto as unknown as Record<symbol, unknown>;
+	if (record[COMPOSER_PATCHED]) return;
+	record[COMPOSER_PATCHED] = true;
+	const init = proto.init;
+	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): Promise<void> {
+		installEditorChips(this.editor);
+		installChipsContainer(this);
+		return init.apply(this, args);
 	};
 }
 
@@ -437,6 +500,7 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchStatusJoin();
 	patchStatusLine();
 	patchLoadingAnimation();
+	patchComposerRows();
 
 	pi.on("session_start", (_event, ctx) => {
 		if (!ctx.hasUI) return;

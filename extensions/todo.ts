@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { type Component, Text } from "@oh-my-pi/pi-tui";
 import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
+import { currentMode } from "./cursor-feed/panel";
 
 const DESCRIPTION = `Manage your todo list in one call: ops is a list of operations applied in order, each seeing the result of the previous ones; on the first failing op the earlier ones are kept and the result names the failing op, its fix, the ops not applied and the current list. Ops: init (list: phases with items; replaces the list), append (items, optional phase; default the current phase), start, done, drop, block (reason), unblock, rm, plan (steps of an item, default the current one), step (step number of the current plan step; omitted = next step), closed (optional phase; lists closed items, changes nothing). An item is a title string or {title, plan: [steps]}. Address items by number like 2.3 (phase.item) or by text; dashes, quotes, spaces and letter case may differ. Batch every change you need now into one call, e.g. [{op:"done",item:"1.2"},{op:"start",item:"1.3"},{op:"plan",steps:["…","…"]}]. While items are open, the list is shown to you every turn: open items with their numbers and the plan of the current item; closed items are folded into counts, list them with closed (optional phase).`;
 
@@ -495,6 +496,33 @@ function firstTextLine(result: unknown): string {
 	return "";
 }
 
+// Session name refresh: the newest background request of the current session applies; a session restore or switch starts a new sequence.
+let titleSequence = 0;
+
+/** The text of a user message: its string content, or the text blocks of its content parts. */
+function userText(content: unknown): string {
+	if (typeof content === "string") return content.trim();
+	if (!Array.isArray(content)) return "";
+	const texts = content.flatMap(part => {
+		const block = part as { type?: unknown; text?: unknown } | null;
+		return block?.type === "text" && typeof block.text === "string" ? [block.text] : [];
+	});
+	return texts.join("\n").trim();
+}
+
+// Asks the native title model for a session name from input and applies it in the background; does nothing until the session has a name.
+function refreshTitle(pi: ExtensionAPI, ctx: ExtensionContext, input: string): void {
+	const session = currentMode()?.session;
+	if (!session || input === "" || !pi.getSessionName()) return;
+	const sessionId = ctx.sessionManager.getSessionId();
+	const sequence = ++titleSequence;
+	void (async () => {
+		const title = await session.generateTitle(input);
+		if (!title || sequence !== titleSequence || ctx.sessionManager.getSessionId() !== sessionId) return;
+		await pi.setSessionName(title);
+	})().catch(() => undefined);
+}
+
 export default function todo(pi: ExtensionAPI) {
 	const z = pi.zod;
 
@@ -512,13 +540,24 @@ export default function todo(pi: ExtensionAPI) {
 
 	const restoreOnSession = (_event: unknown, ctx: ExtensionContext) => {
 		state = undefined;
+		titleSequence += 1;
 		if (ctx.agent.kind !== "main" || !ctx.hasUI) return;
-		showProgress(currentState(ctx.sessionManager));
+		const restored = currentState(ctx.sessionManager);
+		slot.setTodos?.(restored.phases);
+		showProgress(restored);
 	};
 	pi.on("session_start", restoreOnSession);
 	pi.on("session_switch", restoreOnSession);
 	pi.on("session_branch", restoreOnSession);
 	pi.on("session_tree", restoreOnSession);
+
+	pi.on("message_start", (event, ctx) => {
+		if (ctx.agent.kind !== "main" || !ctx.hasUI) return;
+		const message = event.message as unknown as { role?: unknown; attribution?: unknown; content?: unknown };
+		if (message.role !== "user" || message.attribution === "agent") return;
+		const text = userText(message.content);
+		if (text !== "") refreshTitle(pi, ctx, text);
+	});
 
 	pi.on("context", (event, ctx) => {
 		if (ctx.agent.kind !== "main") return undefined;
@@ -595,7 +634,10 @@ export default function todo(pi: ExtensionAPI) {
 			if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
 			state = committed;
 			showProgress(committed);
-			if (stop !== undefined && ctx.agent.kind === "main" && ctx.hasUI) slot.setTodos?.(committed.phases);
+			if (ctx.agent.kind === "main" && ctx.hasUI) slot.setTodos?.(committed.phases);
+			if (ctx.agent.kind === "main" && ctx.hasUI && ops.slice(0, applied.length).some(op => op.op !== "closed")) {
+				refreshTitle(pi, ctx, snapshot(committed));
+			}
 			const completedTasks = allItems(committed)
 				.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))
 				.map(entry => ({ content: entry.item.content }));

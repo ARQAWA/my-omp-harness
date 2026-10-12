@@ -74,6 +74,16 @@ function contentOf(message: unknown): readonly unknown[] {
 	return Array.isArray(message.content) ? message.content : EMPTY;
 }
 
+const REASONING_BLOCKS: ReadonlySet<string> = new Set(["thinking", "redactedThinking"]);
+
+/** The message as the transcript draws it: reasoning blocks removed, everything else kept. The session's own message is not changed. */
+function viewOf<T extends object>(message: T): T {
+	const content = contentOf(message);
+	const isReasoning = (block: unknown): boolean => REASONING_BLOCKS.has(blockType(block) ?? "");
+	if (!content.some(isReasoning)) return message;
+	return { ...message, content: content.filter(block => !isReasoning(block)) } as T;
+}
+
 /** A final assistant message: it has a stop reason, is not a tool-use stop, and carries no tool call. */
 function isFinalMessage(record: { content?: unknown; stopReason?: unknown } | undefined): boolean {
 	if (!record || record.stopReason === undefined || record.stopReason === "toolUse") return false;
@@ -329,11 +339,20 @@ function patchAssistant(): void {
 	/** Components whose underlying view hides reasoning. */
 	const hidden = new WeakSet<object>();
 
-	/** Forces the underlying view to hide reasoning. The first hide drops the stable rows that may still hold reasoning. */
-	const hideReasoning = (component: AssistantMessageComponent): void => {
+	/** Rebuilds a component from its stored message with the reasoning blocks removed; a message without reasoning stays. */
+	const rebuildView = (component: AssistantMessageComponent): void => {
+		const stored = assistantMessages.get(component);
+		if (!stored) return;
+		const view = viewOf(stored);
+		if (view !== stored) updateContent.call(component, view as Parameters<AssistantMessageComponent["updateContent"]>[0]);
+	};
+
+	/** Forces the underlying view to hide reasoning. The first hide drops the stable rows that may still hold reasoning; a component built before the harness was on is rebuilt first when rebuild is set. */
+	const hideReasoning = (component: AssistantMessageComponent, rebuild: boolean): void => {
 		const first = !hidden.has(component);
 		setHideThinkingBlock.call(component, true);
 		hidden.add(component);
+		if (first && rebuild) rebuildView(component);
 		if (first) component.resetTranscriptStableRows();
 	};
 
@@ -341,7 +360,7 @@ function patchAssistant(): void {
 	const ensureHidden = (component: AssistantMessageComponent): void => {
 		if (!enabled() || hidden.has(component)) return;
 		try {
-			hideReasoning(component);
+			hideReasoning(component, true);
 		} catch {
 			// Fail safe: the original view stands.
 		}
@@ -354,7 +373,7 @@ function patchAssistant(): void {
 			return;
 		}
 		try {
-			hideReasoning(this);
+			hideReasoning(this, true);
 		} catch {
 			// Fail safe: the original view stands.
 		}
@@ -365,10 +384,11 @@ function patchAssistant(): void {
 		...args: Parameters<AssistantMessageComponent["updateContent"]>
 	) {
 		try {
-			if (enabled()) hideReasoning(this);
+			if (enabled()) hideReasoning(this, false);
 		} catch {
 			// Fail safe: the host's hide value stands.
 		}
+		if (enabled()) args[0] = viewOf(args[0]);
 		const out = updateContent.apply(this, args);
 		epoch++;
 		return out;
@@ -388,7 +408,7 @@ function patchAssistant(): void {
 		recordExpanded(this, args[0]);
 		const out = setExpanded.apply(this, args);
 		try {
-			if (enabled()) hideReasoning(this);
+			if (enabled()) hideReasoning(this, true);
 		} catch {
 			// Fail safe: the original view stands.
 		}

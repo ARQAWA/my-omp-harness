@@ -7,7 +7,7 @@ import { GLYPH } from "./glyphs";
 /** The parts of the interactive mode that the todo panel reads. */
 export type ModeLike = Pick<
 	InteractiveMode,
-	"todoContainer" | "todoPhases" | "todoExpanded" | "toolOutputExpanded" | "isCompactTodoMode" | "setTodos"
+	"todoContainer" | "todoPhases" | "todoExpanded" | "toolOutputExpanded" | "session" | "viewSession" | "setTodos"
 >;
 
 type Phase = ModeLike["todoPhases"][number];
@@ -24,7 +24,7 @@ const GUARD = Symbol.for("my-omp-harness.cursor-feed.panel");
 const PROGRESS = Symbol.for("my-omp-harness.progress");
 const slot = ((globalThis as Record<symbol, unknown>)[PROGRESS] ??= {}) as ProgressSlot;
 
-/** The interactive mode that last reported its compact mode, i.e. the one drawn in this session. */
+/** The interactive mode of this session, captured when its init starts; its todo panel is drawn. */
 let current: ModeLike | undefined;
 
 function paint(color: ThemeColor, text: string): string {
@@ -145,18 +145,23 @@ export function todoPanelLines(width: number): string[] {
 	}
 }
 
-/** Captures the interactive mode and empties its native todo container while the panel is on. */
+/** Captures the interactive mode when its init starts and empties its native todo container while the panel is on. */
 export function installPanel(): void {
 	const proto = InteractiveMode.prototype;
 	const record = proto as unknown as Record<symbol, unknown>;
 	if (record[GUARD]) return;
 	record[GUARD] = true;
-	slot.setTodos = phases => current?.setTodos(phases);
-	const isCompactTodoMode = proto.isCompactTodoMode;
-	proto.isCompactTodoMode = function (this: InteractiveMode): boolean {
+	slot.setTodos = phases => {
+		const mode = current;
+		if (mode === undefined) return;
+		mode.session.setTodoPhases(phases);
+		if (mode.viewSession === mode.session) mode.setTodos(phases);
+	};
+	const init = proto.init;
+	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): Promise<void> {
 		current = this;
 		if (this.todoContainer) installContainer(this.todoContainer);
-		return isCompactTodoMode.call(this);
+		return init.apply(this, args);
 	};
 }
 
