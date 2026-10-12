@@ -73,8 +73,8 @@ an omp goal (`goal`) itself. The list holds stages with draft decisions; finding
 lie in `local://` files named in the items. A direct request requires a todo,
 "without todo" excludes it. Before work with changes, except point corrections
 with an obvious meaning (micro), Main splits the request into checkable
-requirements and confirms them with the user in one `ask` together with the
-work class: small is up to 5 requirements and up to 5 changed files, large is
+requirements and confirms them with the user in the chat together with the
+work class, ending the message with a one-line go question: small is up to 5 requirements and up to 5 changed files, large is
 more. Root Main gets these rules and the plan-mode checks in the hidden skill
 `main-workflow`. Review runs automatically by the work class: micro without a
 check, small is checked by Spotty before handover, large by Smarty. In
@@ -114,8 +114,8 @@ agent no doubt about what to do. Every text that the extensions show in the
 terminal is plain English at A2 level, without Russian. The design files
 `HARNESS-DESIGN.md` and `WORKING-ENVIRONMENTS.md` stay in Russian, because the
 owner reads them. Russian stays in an English file only where an agent must
-give it to the owner word for word, such as the options «Начинаем» and
-«Поправить» or the list of Russian filler phrases in `SYSTEM.md`, and where it
+give it to the owner word for word, such as the go question «Начинаем: …?»
+or the list of Russian filler phrases in `SYSTEM.md`, and where it
 is a trigger word of the owner, such as «релиз».
 
 ### Branches, worktrees and commits

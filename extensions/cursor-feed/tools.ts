@@ -35,7 +35,7 @@ import {
 	statusOf,
 	writeFiles,
 } from "./rows";
-import { askCardLines, goalToolLines, type TodoPhase, todoRowLine } from "./cards";
+import { goalToolLines, type TodoPhase, todoRowLine } from "./cards";
 import { wrapChild } from "./turn";
 import { fitLine } from "./fit";
 import { GLYPH } from "./glyphs";
@@ -481,7 +481,6 @@ function resolveToolName(component: object): string | undefined {
 function standaloneLines(owner: object, call: Call, width: number): string[] {
 	const status = statusOf(call.results, call.isPartial);
 	if (call.toolName === "todo") return [todoRowLine(call.args, call.results, previousTodoPhases(owner), status, width)];
-	if (call.toolName === "ask") return askCardLines(call.args, call.results, status, isExpanded(owner), width);
 	if (call.toolName === "goal") return goalToolLines(call.args, call.results, status, isExpanded(owner), width);
 	const out = actionsOf(call, owner).map(action => rowLine(action, true, width));
 	if (isExpanded(owner)) {

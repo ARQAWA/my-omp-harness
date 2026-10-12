@@ -26,10 +26,9 @@ export interface Line {
 
 export type Status = "running" | "error" | "done";
 
-/** Tools that keep their own row: the cards of todo, ask, task and wait. */
+/** Tools that keep their own row: the cards of todo, task and wait. */
 const OWN_ROW_TOOLS: Record<string, true | undefined> = {
 	todo: true,
-	ask: true,
 	task: true,
 	wait: true,
 };
@@ -397,8 +396,6 @@ export function actionPhrase(toolName: string, args: unknown): string {
 		case "task":
 		case "wait":
 			return "Waiting for subagent";
-		case "ask":
-			return "Waiting for your answer";
 		default:
 			return `Running ${toolName}`;
 	}

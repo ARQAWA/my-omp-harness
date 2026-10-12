@@ -64,11 +64,6 @@ function blockType(block: unknown): string | undefined {
 	return typeof block.type === "string" ? block.type : undefined;
 }
 
-function textOf(block: unknown): string | undefined {
-	if (typeof block !== "object" || block === null || !("text" in block)) return undefined;
-	return typeof block.text === "string" ? block.text : undefined;
-}
-
 function contentOf(message: unknown): readonly unknown[] {
 	if (typeof message !== "object" || message === null || !("content" in message)) return EMPTY;
 	return Array.isArray(message.content) ? message.content : EMPTY;
@@ -95,34 +90,11 @@ function isToolRow(child: object): boolean {
 }
 
 /** Tool names whose rows stay visible outside the fold. */
-const PINNED_TOOLS: Record<string, true> = { ask: true, goal: true };
+const PINNED_TOOLS: Record<string, true> = { goal: true };
 
-/** The next tool row after a child, skipping other kinds of children. */
-function nextToolRow(children: readonly object[], index: number): object | undefined {
-	for (let i = index + 1; i < children.length; i++) {
-		if (isToolRow(children[i]!)) return children[i];
-	}
-	return undefined;
-}
-
-/** Visible text whose next tool row is an ask block: it stays visible above the ask row. */
-function isTextBeforeAsk(child: object, children: readonly object[], index: number): boolean {
-	if (!(child instanceof AssistantMessageComponent)) return false;
-	const hasText = contentOf(assistantMessages.get(child)).some(
-		block => blockType(block) === "text" && (textOf(block)?.trim() ?? "") !== "",
-	);
-	if (!hasText) return false;
-	const next = nextToolRow(children, index);
-	return next instanceof ToolExecutionComponent && toolNameOf(next) === "ask";
-}
-
-/** A row that stays visible: cursor-feed's own rows, the ask and goal tool blocks, and the text right before an ask. */
-function isPinned(child: object, children: readonly object[], index: number): boolean {
-	return (
-		pinnedRows.has(child) ||
-		(child instanceof ToolExecutionComponent && PINNED_TOOLS[toolNameOf(child) ?? ""] === true) ||
-		isTextBeforeAsk(child, children, index)
-	);
+/** A row that stays visible: cursor-feed's own rows and the goal tool blocks. */
+function isPinned(child: object): boolean {
+	return pinnedRows.has(child) || (child instanceof ToolExecutionComponent && PINNED_TOOLS[toolNameOf(child) ?? ""] === true);
 }
 
 function formatSpan(ms: number): string {
@@ -150,7 +122,7 @@ function segmentsOf(children: readonly object[], start: number, final: number): 
 	let open = false;
 	for (let index = start + 1; index < final; index++) {
 		const child = children[index]!;
-		if (isPinned(child, children, index)) {
+		if (isPinned(child)) {
 			open = false;
 			continue;
 		}

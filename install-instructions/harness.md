@@ -14,7 +14,7 @@ and `dependencies` fields), `bun.lock`, `extensions/harness.ts` with the
 `extensions/cursor-feed/`, `extensions/lcm/index.ts` with modules in
 `extensions/lcm/src/` and the native module in `extensions/lcm/native/`,
 `extensions/write.ts`, `extensions/edit.ts`, `extensions/bash.ts`,
-`extensions/ask.ts`, `extensions/todo.ts`, `extensions/results.ts`, `skills/` and
+`extensions/todo.ts`, `extensions/results.ts`, `skills/` and
 `agents/`. omp loads a directory from the
 `extensions` list in `config.yml` as a whole: it takes the extensions from its
 `package.json` and finds `skills/` and `agents/` next to it. The dependency of
@@ -108,11 +108,12 @@ wait is 60 000 ms. The wait goes through the shared setting
 `bash.autoBackground.thresholdMs`: the wrapper sets the call's value before it
 starts and separates changes of the value between calls with a 50 ms pause.
 
-`ask.ts` replaces the built-in `ask` with a wrapper: `title` names the form and
-shows as the label of the first question or, when it already has a label, as
-the start of its text; options have an optional `id`, and the answer adds the
-line `Selected option ids:` with the ids of the chosen options. Subagents do not
-get `ask`.
+No agent has a question tool: `harness.ts` keeps omp's built-in one out of
+the active tools. Questions to the owner go into the chat in the question format of
+`skills/clear-communication`: a bold header «Вопросы · N», each question with
+a bold number and title, one context line and lettered options with the
+recommended one marked, and a closing line that says how to answer; the owner
+answers with an ordinary message.
 
 The `grep`, `glob`, `read`, `bash` and `edit` wrappers treat as absent the empty
 fields that GPT models send: an empty string, `0` in numeric fields and `ready`
@@ -202,24 +203,24 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   and completes it only after the result and the mandatory actions.
 - Before work with changes, except micro, root Main splits the request into
   checkable requirements of one sentence each, writes them with the work class
-  into the chat and confirms them with one `ask` with a one-sentence question,
-  because the `ask` panel shows only four lines of a question; the agreement is
-  the user's words and the accepted requirements.
+  and the open questions into the chat, ends the message with a one-line go
+  question and waits; any confirming reply starts the work, and the agreement
+  is the user's words and the accepted requirements.
 - `/define-goal [rough objective]` in root Main starts the procedure
   `extensions/define-goal.md`: `harness.ts` registers the command, sends the
   message `Define goal: …` and supplies the procedure in a hidden message. The
-  agent reads the affected files, asks through `ask` only what they do not
+  agent reads the affected files, asks in the chat only what they do not
   settle, and writes for itself a goal with the sections Objective, Quotes
   (verbatim user quotes), Success criteria (a check for every criterion),
-  Boundaries, Stop conditions and Review (the work class). Before each interview
-  question, the agent gives its option, its reason and the alternatives in the
-  chat. It checks the goal against the user's words and puts a short retelling
+  Boundaries, Stop conditions and Review (the work class). Each interview
+  question gives its context and lettered options with the recommended one
+  marked. It checks the goal against the user's words and puts a short retelling
   into the chat: a bold sentence with the main point, numbered items with exact
   values, then «Границы», «Остановка» and «Проверка». It gives its own proposals
-  in the retelling with a reason and alternatives. In one `ask`, each choice is a
-  separate question with options, and the last question accepts the whole goal;
-  the goal itself does not go into the chat, and the accepted retelling replaces
-  the requirement step. Questions and messages are clear without earlier
+  in the retelling with a reason; each choice is a question with options under
+  the retelling, and the message ends with the go question that accepts the
+  whole goal; the goal itself does not go into the chat, and the accepted
+  retelling replaces the requirement step. Questions and messages are clear without earlier
   messages: the agent does not refer to codes and item numbers without
   restating them. Before completing the goal, the agent itself runs the criteria
   checks and the reviewer of the class (small — Spotty, large — Smarty) until
@@ -289,7 +290,7 @@ file name and the `+N −M` counts always stay visible. Consecutive reads,
 searches, other tools including MCP, and bash commands merge into
 "Explored N files, M searches, K tools, ran C commands"; zero counts are
 omitted and the live group says "Exploring". Goal get/resume count as tools;
-text, todo, ask, goal create/complete/drop, subagent cards and errors split
+text, todo, goal create/complete/drop, subagent cards and errors split
 the group. Consecutive edits and writes fold into the same row, counted as
 "edited E files"; a lone edit or write keeps its own row "Edited path +N \u2212M" or
 "Wrote path +N", and an error keeps its own red row. Expanded groups show every
@@ -305,8 +306,7 @@ calls have no raw argument fields, output body or Expand hint. Standalone
 LCM tools say `Searched memory "query" · N found`, "Viewed memory map" or
 "Opened memory summary". A finished Main turn
 is folded: everything between the question and the final answer becomes the
-line "Worked for 7m 11s ›"; text that the agent wrote right before an `ask` stays
-outside the fold. Ctrl+O expands and folds everything at once: Explored one action per line,
+line "Worked for 7m 11s ›". Ctrl+O expands and folds everything at once: Explored one action per line,
 each call with the last six lines of its diff or output, Worked for the turn. So that lines that have scrolled up also
 change, at the end of a turn and after Ctrl+O omp redraws the screen once and
 erases the terminal history, including the text that was in the window before
@@ -363,11 +363,7 @@ task, with done and current step marks. The panel hides when every task is compl
 tasks keep it visible. There is no separate native todo panel or progress widget. A `todo` call in the feed is the line
 "● To-do 4/7 ● closed ● started", where the closed task's circle is
 green and the started task's circle is yellow. Interactive actions stay in
-the feed and split the "Worked for" fold into parts. While an `ask` waits, its
-row is one line "Waiting for your answer · N questions", because the questions
-themselves stand in the `ask` panel below; after the answer the card shows each
-question in full with the answer under it (the chosen option as is, the
-owner's own text in «», otherwise "— no answer"), and Ctrl+O adds all options.
+the feed and split the "Worked for" fold into parts.
 `goal` is "Goal set" with the complete wrapped Objective section in both modes,
 "Goal complete", "Goal checked", "Goal resumed" or
 "Goal dropped" after the status circle; `/goal <objective>` and `/define-goal`

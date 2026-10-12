@@ -14,18 +14,6 @@ export interface TodoPhase {
 	tasks: TodoTask[];
 }
 
-interface Question {
-	question: string;
-	options: string[];
-}
-
-interface Answer {
-	selectedOptions: string[];
-	customInput: string;
-	note: string;
-	timedOut: boolean;
-}
-
 const DOT: Record<Status, ThemeColor> = { running: "warning", error: "error", done: "success" };
 
 function paint(color: ThemeColor, text: string): string {
@@ -95,113 +83,6 @@ export function todoRowLine(
 	for (const content of closed) line += `  ${paint("success", GLYPH.circle)} ${paint("dim", content)}`;
 	if (started) line += `  ${paint("warning", GLYPH.circle)} ${started}`;
 	return fitLine(line, width);
-}
-
-/** The questions of an ask call, from its args. */
-function questionsOf(args: unknown): Question[] {
-	const a = asRecord(args);
-	if (Array.isArray(a.questions)) {
-		return a.questions.map(item => {
-			const q = asRecord(item);
-			return { question: str(q.question), options: optionsOf(q.options) };
-		});
-	}
-	const question = str(a.question);
-	return question ? [{ question, options: optionsOf(a.options) }] : [];
-}
-
-function optionsOf(value: unknown): string[] {
-	return Array.isArray(value)
-		? value.map(option => (typeof option === "string" ? option : str(asRecord(option).label)))
-		: [];
-}
-
-/** Raw answers of the first usable result: one per question, or one for a single question. */
-function answersOf(results: CallResult[], count: number): unknown[] {
-	const hit = results.find(
-		result => result.isError !== true && typeof result.details === "object" && result.details !== null,
-	);
-	if (!hit) return [];
-	const details = asRecord(hit.details);
-	const list = details.results;
-	if (Array.isArray(list)) return Array.from({ length: count }, (_, index) => list[index]);
-	if (Array.isArray(details.selectedOptions)) return [details];
-	return [];
-}
-
-/** The answer when it counts as answered; undefined when unanswered. */
-function answeredOf(value: unknown): Answer | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const a = asRecord(value);
-	const answer: Answer = {
-		selectedOptions: Array.isArray(a.selectedOptions) ? a.selectedOptions.map(item => str(item)) : [],
-		customInput: str(a.customInput),
-		note: str(a.note),
-		timedOut: a.timedOut === true,
-	};
-	if (answer.timedOut || (answer.selectedOptions.length === 0 && !answer.customInput && !answer.note)) return undefined;
-	return answer;
-}
-
-/** The ask card: questions, and their answers when the call is settled. */
-export function askCardLines(
-	args: unknown,
-	results: CallResult[],
-	status: Status,
-	expanded: boolean,
-	width: number,
-): string[] {
-	const questions = questionsOf(args);
-	if (questions.length === 0) return fit([`${paint(DOT[status], GLYPH.circle)} ${paint("dim", "ask")}`], width);
-	const answers = answersOf(results, questions.length);
-	const waiting = status === "running";
-	if (waiting && !expanded) {
-		const count = questions.length > 1 ? ` ${paint("dim", `· ${questions.length} questions`)}` : "";
-		return fit([`${paint("warning", GLYPH.circle)} ${paint("text", "Waiting for your answer")}${count}`], width);
-	}
-	const out: string[] = [];
-	questions.forEach((question, index) => {
-		const questionLines = wrap(question.question, width - 2);
-		questionLines.forEach((line, lineIndex) => {
-			out.push(
-				lineIndex === 0 ? `${paint(DOT[status], GLYPH.circle)} ${paint("text", line)}` : `  ${paint("text", line)}`,
-			);
-		});
-		const answer = answeredOf(answers[index]);
-		if (!expanded) {
-			if (!answer) {
-				out.push(`  ${paint("dim", "— no answer")}`);
-				return;
-			}
-			const text = [
-				...answer.selectedOptions,
-				answer.customInput ? `«${answer.customInput}»` : "",
-				answer.note ? `«${answer.note}»` : "",
-			]
-				.filter(Boolean)
-				.join(", ");
-			wrap(text, width - 4).forEach((line, lineIndex) => {
-				out.push(lineIndex === 0 ? `  ${paint("dim", "→")} ${line}` : `    ${line}`);
-			});
-			return;
-		}
-		for (const option of question.options) {
-			const chosen = answer?.selectedOptions.includes(option) === true;
-			wrap(option, width - 4).forEach((line, lineIndex) => {
-				if (chosen) {
-					out.push(lineIndex === 0 ? `  ${paint("success", GLYPH.circle)} ${line}` : `    ${line}`);
-				} else {
-					out.push(
-						lineIndex === 0 ? `  ${paint("dim", GLYPH.circle)} ${paint("muted", line)}` : `    ${paint("muted", line)}`,
-					);
-				}
-			});
-		}
-		if (answer?.customInput) out.push(`  ${paint("dim", "→")} «${answer.customInput}»`);
-		if (answer?.note) out.push(`  ${paint("dim", "→")} «${answer.note}»`);
-		if (!answer && !waiting) out.push(`  ${paint("dim", "— no answer")}`);
-	});
-	return fit(out, width);
 }
 
 /** The objective of a goal call: the "## Objective" section, else the whole objective. */

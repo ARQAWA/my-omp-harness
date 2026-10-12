@@ -77,11 +77,11 @@ export default function harness(pi: ExtensionAPI) {
 				: active.includes("goal")
 					? active
 					: [...active, "goal"];
-		// Every agent gets these tools active from session start; a name is added only when omp lists it among all tools.
+		// Every agent gets these tools active from session start; questions go into the chat, so omp's `ask` stays inactive; a name is added only when omp lists it among all tools.
 		const all = typeof pi.getAllTools === "function" ? ((await pi.getAllTools()) as (string | { name: string })[]) : undefined;
 		const known = all?.map(tool => (typeof tool === "string" ? tool : tool.name));
 		const final = [
-			...next,
+			...next.filter(name => name !== "ask"),
 			...["grep", "lsp", "ast_grep"].filter(name => !next.includes(name) && (known === undefined || known.includes(name))),
 		];
 		if (final.length !== active.length || final.some((name, index) => name !== active[index])) await pi.setActiveTools(final);
