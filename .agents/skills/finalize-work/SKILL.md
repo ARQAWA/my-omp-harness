@@ -25,7 +25,7 @@ Every run also compares the owner's omp settings on this machine with their sour
 | `<agent-dir>/themes/titanium-arq.json` | `settings/titanium-arq.json` |
 | `<agent-dir>/SYSTEM.md` | `SYSTEM.md` |
 
-Write a local value that differs from its source, or an owner setting present only locally, into the matching source (`code_writer` writes configuration files, Main the documents) and the documents that describe it, so it is reviewed and committed with the other changes. When the task changed a source, bring the local copy to it by the installation instructions. Ask the owner when the direction is unclear. Never transfer `modelRoles.default`, `setupVersion`, secrets, credentials, account data or other machine-specific values.
+Write a local value that differs from its source, or an owner setting present only locally, into the matching source (`code_writer` writes configuration files, Main the documents) and the documents that describe it, so it is reviewed and committed with the other changes. When the task changed a source, bring the local copy to it by the installation instructions. Ask the owner when the direction is unclear. Never transfer `setupVersion`, secrets, credentials, account data or other machine-specific values.
 
 ## Review
 

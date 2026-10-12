@@ -1,6 +1,5 @@
 import { levelsFor } from "./reasoning-arrows.js";
 export const MODELS = [
-  "anthropic/claude-opus-5-5",
   "anthropic/claude-sonnet-5-5",
   "anthropic/claude-haiku-5-5",
   "anthropic/claude-fable-5-1",

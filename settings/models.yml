@@ -9,8 +9,6 @@ providers:
         contextWindow: 400000
   anthropic:
     modelOverrides:
-      claude-opus-5-5:
-        contextWindow: 400000
       claude-sonnet-5-5:
         contextWindow: 400000
       claude-haiku-5-5:

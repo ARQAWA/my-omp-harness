@@ -21,8 +21,8 @@ applied on top of it:
   they draw is in this font and takes one cell;
 - context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
   `<agent-dir>/models.yml`: 400 000 tokens for all GPT models (GPT-6.1 Sol,
-  GPT-6 Luna, GPT-5.6 Luna) and all Claude models (Opus 5.5, Sonnet 5.5,
-  Haiku 5.5, Fable 5.1);
+  GPT-6 Luna, GPT-5.6 Luna) and all Claude models (Sonnet 5.5, Haiku 5.5,
+  Fable 5.1);
 - keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
   `<agent-dir>/keybindings.yml`: it frees shift+↑ (the built-in
   `app.message.dequeue` stays on alt+↑) so that it switches the model, and
@@ -32,11 +32,10 @@ applied on top of it:
   providers, agent work and the interface.
 
 The keys `extensions` and `task.maxConcurrency` are set by the
-[harness package](harness.md). The owner of each
-machine chooses the `default` role, and omp itself maintains the service key
-`setupVersion`; they are not carried over. A new session without model selection
-and continuation flags starts on Opus 5.5 medium: the package extension
-`default-model.ts` does this, and `default` applies in the other cases.
+[harness package](harness.md). omp itself maintains the service key
+`setupVersion`; it is not carried over. The `default` role in `modelRoles` is
+the start model: omp starts every new session without model selection and
+continuation flags on Sonnet 5.5 with reasoning high.
 
 `<agent-dir>` is the directory that `omp config path` prints. Switching the model
 and reasoning with the shift arrows is part of the [harness package](harness.md).
@@ -110,7 +109,8 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
-   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
+   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5","anthropic/claude-fable-5-1"]'
+   omp config set modelRoles '{"default":"anthropic/claude-sonnet-5-5:high"}'
    omp config set disabledProviders '["openrouter"]'
    omp config set browser.enabled true
    omp config set computer.enabled true

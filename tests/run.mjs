@@ -16,7 +16,7 @@ const packageText = read('package.json');
 assert.doesNotMatch(packageText, /\\u[0-9a-fA-F]{4}/, 'package.json: readable UTF-8');
 const manifest = JSON.parse(packageText);
 assert.equal(manifest.name, 'my-omp-harness');
-assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'default-model.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts', 'write.ts', 'edit.ts', 'bash.ts', 'ask.ts', 'todo.ts', 'results.ts'].map(name => `./extensions/${name}`));
+assert.deepEqual(manifest.omp.extensions, ['harness.ts', 'subagent-model-policy.ts', 'status-bar.ts', 'autocompaction.ts', 'model-arrows.js', 'reasoning-arrows.js', 'diagram.ts', 'rg.ts', 'subagent-reuse.ts', 'cursor-feed.ts', 'lcm/index.ts', 'write.ts', 'edit.ts', 'bash.ts', 'ask.ts', 'todo.ts', 'results.ts'].map(name => `./extensions/${name}`));
 for (const entry of manifest.omp.extensions) assert.ok(existsSync(path.join(root, entry)), entry);
 
 const policy = read('extensions/subagent-model-policy.ts');
@@ -76,7 +76,7 @@ const harnessDoc = read('install-instructions/harness.md');
 const system = read('SYSTEM.md');
 assert.ok(!system.includes('# Subagent model routing'), 'SYSTEM.md: no routing section');
 const subagentsSkill = read('skills/subagents/SKILL.md');
-const readable = { 'anthropic/claude-haiku-5-5': 'Haiku 5.5', 'anthropic/claude-sonnet-5-5': 'Sonnet 5.5', 'anthropic/claude-opus-5-5': 'Opus 5.5' };
+const readable = { 'anthropic/claude-haiku-5-5': 'Haiku 5.5', 'anthropic/claude-sonnet-5-5': 'Sonnet 5.5' };
 for (const name of agents) {
   assert.ok(subagentsSkill.includes(`- \`${name}\`:`), `skills/subagents/SKILL.md: ${name}`);
 }

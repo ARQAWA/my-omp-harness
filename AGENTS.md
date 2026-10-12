@@ -175,7 +175,8 @@ The owner chooses the models. When a model changes, update together:
 
 - `NAMED`, the line of the agent in `skills/subagents/SKILL.md` and the agent
   table in `install-instructions/harness.md`;
-- the startup model in `extensions/default-model.ts`;
+- the startup model, `modelRoles.default` in step 4 of
+  `install-instructions/omp.md`, and the local setting;
 - the shift+↑/↓ list in `extensions/model-arrows.js` and the context windows in
   `settings/models.yml`;
 - the autocompaction thresholds in `extensions/autocompaction.ts` and their

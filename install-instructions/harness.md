@@ -9,7 +9,7 @@ and `dependencies` fields), `bun.lock`, `extensions/harness.ts` with the
 `/define-goal` procedure in `extensions/define-goal.md`, `extensions/rg.ts`,
 `extensions/subagent-model-policy.ts`, `extensions/status-bar.ts`, `extensions/autocompaction.ts`,
 `extensions/model-arrows.js`, `extensions/reasoning-arrows.js`,
-`extensions/default-model.ts`, `extensions/subagent-reuse.ts`,
+`extensions/subagent-reuse.ts`,
 `extensions/diagram.ts`, `extensions/cursor-feed.ts` with modules in
 `extensions/cursor-feed/`, `extensions/lcm/index.ts` with modules in
 `extensions/lcm/src/` and the native module in `extensions/lcm/native/`,
@@ -276,8 +276,6 @@ A new agent is a file `agents/<name>.md`, a line in `NAMED`, a line in the
 `subagents` skill and a row in the table below; a model change touches `NAMED`,
 the skill and the table. `node tests/run.mjs` catches a mismatch between them.
 
-On omp start, `default-model.ts` sets the root session's model to `anthropic/claude-opus-5-5` and reasoning medium if the session is new and the command line has no model selection flags (`--model`, `--models`, `--thinking`, `--provider`) and no session continuation flags (`-c`, `--continue`, `-r`, `--resume`, `--session`). It fires once at omp start (the `session_start` event does not repeat on `/new` and `/resume`), does not touch subagents and sessions with history, and does not change `config.yml`; `modelRoles.default` stays a machine setting.
-
 `subagent-reuse.ts` lets Main reuse an unoccupied subagent with a context reset: when an IRC message from Main (`write agent://<id>`) starts with the marker `[task <id>#<n>]`, the extension, in the subagent's session, cuts everything before the last such message before each model request, so the model sees only the system prompt and the new task. The session file keeps all tasks whole; an earlier task is found by its marker in `history://<id>`. The public `context`, `message_end` and `agent_end` events keep the current numbered task's statistics for the hub; a new marker resets its displayed tokens, tools, requests and time. Main's reuse rule is in the `subagents` skill.
 
 `cursor-feed.ts` redraws the omp feed in a compact Cursor style with plain
@@ -469,8 +467,8 @@ notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
-Claude Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1
-Sol, GPT-6 Luna, GPT-5.6 Luna.
+Claude Sonnet 5.5, Claude Haiku 5.5, Claude Fable 5.1, GPT-6.1 Sol, GPT-6 Luna,
+GPT-5.6 Luna.
 `harness.ts`: ctrl+shift+P pauses the active goal, and a second press resumes it
 (the extension puts `/goal pause` or `/goal resume` into the empty input field);
 the key arrives separately from ctrl+P only in a terminal with the kitty
@@ -538,6 +536,8 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
   - `anthropic` for Claude and for all named agents under any parent.
 - Global `config.yml` values; the other keys are kept:
   - `extensions` contains the clone path.
+  - `modelRoles.default` equals `anthropic/claude-sonnet-5-5:high`: every new
+    session starts on it (step 4 of [omp.md](omp.md)).
   - `task.maxConcurrency` equals `0` (no limit). Above a non-zero limit omp
     queues launches, and `proc://` shows them as `running`.
   - `tools.artifactSpillThreshold` is not below 100 (omp sets 50 by default),
