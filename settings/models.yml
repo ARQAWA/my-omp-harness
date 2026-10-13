@@ -11,5 +11,3 @@ providers:
         contextWindow: 700000
       claude-haiku-5-5:
         contextWindow: 700000
-      claude-fable-5-1:
-        contextWindow: 700000
