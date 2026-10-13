@@ -440,7 +440,7 @@ notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
-Claude Sonnet 5.5, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
+Claude Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
 `harness.ts`: ctrl+shift+P pauses the active goal, and a second press resumes it
 (the extension puts `/goal pause` or `/goal resume` into the empty input field);
 the key arrives separately from ctrl+P only in a terminal with the kitty
