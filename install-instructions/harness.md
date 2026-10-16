@@ -232,9 +232,12 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   marked. It checks the goal against the user's words and puts a short retelling
   into the chat: a bold sentence with the main point, numbered items with exact
   values, then «Границы», «Остановка» and «Проверка». It gives its own proposals
-  in the retelling with a reason; each choice is a question with options under
-  the retelling, and the message ends with the go question that accepts the
-  whole goal; the goal itself does not go into the chat, and the accepted
+  in the retelling with a reason; each proposal, divergence or own decision is
+  a question with options under the retelling, and then the message ends with
+  the go question that accepts the whole goal. A retelling without questions
+  needs no go: the agent sets the goal and starts at once. Spotty checks each
+  success criterion when it is drafted and again when it is done, without
+  stopping the work. The goal itself does not go into the chat, and the
   retelling replaces the requirement step. Questions and messages are clear without earlier
   messages: the agent does not refer to codes and item numbers without
   restating them. Before completing the goal, the agent itself runs the criteria

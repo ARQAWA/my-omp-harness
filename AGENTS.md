@@ -83,9 +83,12 @@ check, small is checked by Spotty before handover, large by Smarty. In
 `/define-goal` the accepted goal replaces the requirement step: `harness.ts`
 registers the command and supplies the procedure `extensions/define-goal.md`;
 in plan mode and with an active or paused goal the command only shows a notice.
-The goal carries verbatim user quotes and a Review section with the class, the
-user accepts it from a short retelling in the chat, and before completing the
-goal the agent itself runs the reviewer of the class until CLEAN.
+The goal carries verbatim user quotes and a Review section with the class. The
+agent shows a short retelling in the chat; it waits for the user's go only when
+the retelling has questions, otherwise the goal starts at once. Spotty checks
+each success criterion when it is drafted and again when it is done without
+stopping the work, and before completing the goal the agent itself runs the
+reviewer of the class until CLEAN.
 The other automatic reviews are release-time settings and documentation
 coverage and the weekly repository audit below; every required check runs until CLEAN. Ordinary handover runs
 only its class check. Bossy runs on the user's explicit choice, including the
