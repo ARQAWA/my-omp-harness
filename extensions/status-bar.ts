@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
+import { shimmerEnabled, shimmerText, visibleWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
 import { todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
@@ -38,6 +38,10 @@ interface ActionSlot {
 // Process-global: the action state of every agent, keyed by agent id.
 const ACTION = Symbol.for("my-omp-harness.current-action");
 const actions = ((globalThis as Record<symbol, unknown>)[ACTION] ??= { states: new Map<string, ActionState>() }) as ActionSlot;
+
+// Process-global: set by the decisions plugin while it processes the owner's message before sending it.
+const DECISIONS = Symbol.for("my-omp-harness.decisions-processing");
+const decisions = ((globalThis as Record<symbol, unknown>)[DECISIONS] ??= { active: false }) as { active: boolean; pending?: string; refresh?: () => void };
 
 const lastRateInvalidate = new WeakMap<object, number>();
 
@@ -243,7 +247,7 @@ function animates(state: ActionState): boolean {
 
 // The render ticker runs only while some Planning row is shown and the shimmer is on: ~30fps. Otherwise each state change requests one render.
 function refreshAction(): void {
-	const animate = shimmerEnabled() && [...actions.states.values()].some(animates);
+	const animate = shimmerEnabled() && (decisions.active || [...actions.states.values()].some(animates));
 	if (animate && actions.timer === undefined) {
 		actions.timer = setInterval(() => tui?.requestRender?.(), THINKING_FRAME_MS);
 		actions.timer.unref?.();
@@ -264,6 +268,7 @@ function stopThinking(agentId: string): void {
 /** The current-action row of an agent: a circle and the phrase while it runs a tool, a shimmering Planning phrase while it plans; empty otherwise. */
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
 	const phrase = phraseOf(actions.states.get(agentId));
+	if (phrase?.tool !== true && decisions.active && agentId === latest?.agent?.id) return [fitLine(shimmerText("Processing session decisions", theme), width)];
 	if (phrase === undefined) return [];
 	const line = phrase.tool ? `${theme.fg("warning", GLYPH.circle)} ${phrase.text}` : shimmerText(phrase.text, theme);
 	return [fitLine(line, width)];
@@ -469,6 +474,14 @@ function contextLine(width: number, theme: any, textColor: string): string {
 	return fitLine(line, width);
 }
 
+/** The owner's message the decisions plugin holds before sending: grey rows word-wrapped to the width. */
+function pendingPlate(text: string, width: number): string[] {
+	return text
+		.split("\n")
+		.flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(line, Math.max(1, width - 2))))
+		.map(line => fitLine(`\x1b[48;2;58;56;54m\x1b[38;2;182;182;181m ${line}${" ".repeat(Math.max(0, width - 1 - visibleWidth(line)))}\x1b[39m\x1b[49m`, width));
+}
+
 function showTitle(ctx: any) {
 	ctx.ui.setWidget(
 		TITLE,
@@ -495,7 +508,9 @@ function showTitle(ctx: any) {
 				const left = parts.join(" · ");
 				const right = id ? `\x1b[22m${theme.fg("muted", id)}` : "";
 				const action = currentActionLines(focus ?? ctx.agent.id, width, theme);
-				const rows = [...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
+				const pending = focus === undefined ? decisions.pending : undefined;
+				const plate = typeof pending === "string" && pending !== "" ? [...pendingPlate(pending, width), ""] : [];
+				const rows = [...plate, ...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
 				if (focus !== undefined) {
 					rows.push(fitLine(theme.fg("error", "alt+x alt+x stops this agent"), width));
 				}
@@ -512,6 +527,7 @@ function showTitle(ctx: any) {
 
 export default function statusBar(pi: ExtensionAPI) {
 	piApi = pi;
+	decisions.refresh = refreshAction;
 	patchTokenRate();
 	patchMode();
 	patchStatusJoin();
@@ -546,13 +562,11 @@ export default function statusBar(pi: ExtensionAPI) {
 	// Runs for every agent, subagents included, so the focused view can show their current action.
 	pi.on("message_update", (event, ctx) => {
 		const update = event.assistantMessageEvent;
-		if (update.type === "thinking_start" || update.type === "thinking_delta") {
+		if (update.type === "thinking_start" || update.type === "thinking_delta" || update.type === "text_start" || update.type === "text_delta" || update.type === "toolcall_start") {
 			const state = stateOf(ctx.agent.id);
 			if (state.thinking) return;
 			state.thinking = true;
 			refreshAction();
-		} else if (update.type === "thinking_end" || update.type === "text_start" || update.type === "toolcall_start") {
-			stopThinking(ctx.agent.id);
 		}
 	});
 

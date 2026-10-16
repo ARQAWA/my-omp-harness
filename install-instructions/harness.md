@@ -178,7 +178,7 @@ The Gold Standard works as a working contract:
   (point corrections here and there with an obvious meaning) without a check,
   small (up to 5 requirements and up to 5 changed files) is checked by Spotty
   before handover, large by Smarty; in `/define-goal` the class is written in the
-  goal. Two more automatic Spotty checks run in plan mode. Bossy runs on
+  goal. Bossy runs on
   explicit choice, including an explicitly adopted standing audit procedure.
   Every check runs until CLEAN. A gate required at the same stage by the
   repository's instructions runs in parallel with the class check; a
@@ -238,8 +238,6 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   CLEAN, and gives the result briefly: what is done and whether the checks
   passed. In plan mode and with an active or paused goal, the command only shows
   a notice.
-- In omp plan mode, Light Review (Spotty) checks the plan before it is proposed
-  for approval and the result of carrying out the approved plan.
 
 Clear Communication: Main starts a chat message with a bold sentence carrying
 the main point and puts the question at the end. Usually it is one paragraph of
@@ -405,7 +403,7 @@ turns natural gold, a gradient from dark gold `#8a6d1c` through `#c9a227` to
 light gold `#e3c45a`, and while automatic compaction runs (`auto_compaction_start`
 until `auto_compaction_end` or `session_compact`) a
 warm glint moves along it. Status row 1 holds, left to right, the model with its reasoning level, the
-modes (plan, goal, loop, prewalk) and the count of working subagents (the
+modes (goal, loop, prewalk) and the count of working subagents (the
 one-cell Nerd Font users glyph U+F0C0); at its right edge the generation speed
 `token_rate` (the extension takes the live speed of the omp session, the same
 counter as the built-in `composer.tokenRate`, which is turned off, updates it
@@ -481,7 +479,7 @@ Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and
 | Skill | Purpose | Visibility |
 |---|---|---|
 | `gold-standard` | the complete result by the shortest direct path, heavy work only on a direct order | hidden |
-| `main-workflow` | root Main's plan mode, `todo` and goal | hidden |
+| `main-workflow` | root Main's work classes, `todo` and goal | hidden |
 | `clear-communication` | short chat messages, progress messages and the final answer | hidden |
 | `subagents` | root Main's subagent types with their models, reuse of idle subagents and briefs | hidden |
 | `omp-tools` | omp tool mechanics: the speed of the result first, then the number of turns, output limits, safe writes, temporary files in the OS temporary folder | hidden |
@@ -495,7 +493,7 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
 | Skill | Agent | When it runs |
 |---|---|---|
 | `blind-review-cycle` | `smarty` | on explicit invocation and in the check of large work (including a `/define-goal` goal) |
-| `light-review-cycle` | `spotty` | on explicit invocation, in the check of small work (including a `/define-goal` goal), in omp plan mode (the plan before it is proposed and the result of carrying out the approved plan) and in the repository's finalization gate |
+| `light-review-cycle` | `spotty` | on explicit invocation, in the check of small work (including a `/define-goal` goal) and in the repository's finalization gate |
 | `high-review-cycle` | `bossy` | on explicit invocation or an explicitly adopted standing audit procedure |
 
 ## Requirements

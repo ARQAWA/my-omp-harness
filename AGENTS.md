@@ -75,7 +75,7 @@ lie in `local://` files named in the items. A direct request requires a todo,
 with an obvious meaning (micro), Main splits the request into checkable
 requirements and confirms them with the user in the chat together with the
 work class, ending the message with a one-line go question: small is up to 5 requirements and up to 5 changed files, large is
-more. Root Main gets these rules and the plan-mode checks in the hidden skill
+more. Root Main gets these rules in the hidden skill
 `main-workflow`. Review runs automatically by the work class: micro without a
 check, small is checked by Spotty before handover, large by Smarty. In
 `/define-goal` the accepted goal replaces the requirement step: `harness.ts`
@@ -84,10 +84,8 @@ in plan mode and with an active or paused goal the command only shows a notice.
 The goal carries verbatim user quotes and a Review section with the class, the
 user accepts it from a short retelling in the chat, and before completing the
 goal the agent itself runs the reviewer of the class until CLEAN.
-The other automatic reviews are two Light Review (Spotty) checks in omp plan
-mode (the plan before it is proposed for approval and the result of carrying out
-the approved plan), release-time settings and documentation coverage and the
-weekly repository audit below; every required check runs until CLEAN. Ordinary handover runs
+The other automatic reviews are release-time settings and documentation
+coverage and the weekly repository audit below; every required check runs until CLEAN. Ordinary handover runs
 only its class check. Bossy runs on the user's explicit choice, including the
 standing order for the manual or weekly audit. Review findings and rejections
 rest on verbatim quotes of the agreement and the object.

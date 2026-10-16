@@ -1,6 +1,6 @@
 ---
 name: main-workflow
-description: "Root Main only: the requirement step and work classes with their completion checks, the plan-mode review checkpoints, the todo list and the omp goal."
+description: "Root Main only: the requirement step and work classes with their completion checks, the todo list and the omp goal."
 hide: true
 ---
 
@@ -10,7 +10,7 @@ These rules bind root Main. The Gold Standard governs them.
 
 ## Requirements and work class
 
-This is the owner's standing adopted procedure for every task that changes files, code, configuration, settings or other state. A question, analysis, plan or one short action does not start it; `/define-goal` replaces it with its accepted objective, and omp plan mode with its plan and checkpoints below.
+This is the owner's standing adopted procedure for every task that changes files, code, configuration, settings or other state. A question, analysis, plan or one short action does not start it; `/define-goal` replaces it with its accepted objective.
 
 Classify the work by its requirements and the files it changes:
 
@@ -28,10 +28,6 @@ State required outcomes, not your own implementation choices. Do not turn an unr
 
 Completion check. Before reporting small or large work complete, run the cycle of its class with `review_stage=pre-completion` and the criterion: the result carries out every accepted requirement and adds nothing beyond them. If the repository requires documentation consistency for that same result, the class pass must include it: give the required class reviewer both criteria, the full diff and dependent documents in one brief. A resulting CLEAN covers both criteria; reuse it at release only while the checked result, agreement, dependent facts and criteria remain unchanged. At ordinary handover run only that class reviewer, with the applicable documentation criterion in the same pass; do not start release-only settings reconciliation or an audit merely for handover. A gate on different inputs keeps its own evidence and result. Repeat only affected checks and parts by the shared review contract. `bossy` runs on explicit invocation or an explicitly adopted standing audit procedure.
 
-## Plan mode
-
-In omp plan mode, root Main runs two automatic checkpoints of [Light Review Cycle](skill://light-review-cycle); this is the owner's standing adopted procedure. Before proposing a plan for approval, review the complete plan with `review_stage=pre-action` against the user's request, amendments and binding decisions, and propose only a plan that reached CLEAN. When executing a plan the user approved, review the complete actual result with `review_stage=pre-completion` against that plan and the user's requirements before reporting completion: every step done as specified, nothing missing or broken, and every deviation justified by the plan's own contingencies or the user's later instructions. At each checkpoint, fix all admitted findings and repeat with a fresh Spotty until CLEAN.
-
 ## Todo
 
 Keep a `todo` list automatically for every task except one answer or one short action, and always for work that has a review; the list is yours whether or not a goal is set, and the todo panel is where the user follows progress. Create or extend it before the first action, plan the work before doing it and mark progress as it happens, never after the fact. A direct request forces it; an instruction to work without it excludes it. Using todo adds no tests, reviews, delegation, permissions or other workflows.
@@ -46,6 +42,6 @@ Extend a matching unfinished list with `append` before continuing the work; a re
 
 ## The goal
 
-Set a goal automatically for every task with several dependent work stages, such as research, a plan, and step-by-step implementation: call the `goal` tool with op `get` in the batch with the first reads and op `create` in the batch with the first work calls. A direct request forces it; an instruction to work without a goal excludes it. Shape the objective like a todo item, in one or two sentences, and add `token_budget` only when the user gave one. Resume a matching paused goal, reuse a matching active one, and work without a new goal when an unfinished one conflicts; never drop a goal on your own. A message the user types while the goal is paused resumes the goal before the message reaches you. omp continues an active goal after each turn until it is complete. When the work waits for the user or another external event, block the waiting todo item with the reason and end the turn; answer a continuation that arrives during the wait without tool calls, which stops it. Call op `complete` only when the requested result and all mandatory actions are done; a pause, wait, blocker, or cancellation does not complete it, and the audit before it follows the evidence rules of the Gold Standard. omp refuses goals in plan mode; skip the goal there.
+Set a goal automatically for every task with several dependent work stages, such as research, a plan, and step-by-step implementation: call the `goal` tool with op `get` in the batch with the first reads and op `create` in the batch with the first work calls. A direct request forces it; an instruction to work without a goal excludes it. Shape the objective like a todo item, in one or two sentences, and add `token_budget` only when the user gave one. Resume a matching paused goal, reuse a matching active one, and work without a new goal when an unfinished one conflicts; never drop a goal on your own. A message the user types while the goal is paused resumes the goal before the message reaches you. omp continues an active goal after each turn until it is complete. When the work waits for the user or another external event, block the waiting todo item with the reason and end the turn; answer a continuation that arrives during the wait without tool calls, which stops it. Call op `complete` only when the requested result and all mandatory actions are done; a pause, wait, blocker, or cancellation does not complete it, and the audit before it follows the evidence rules of the Gold Standard.
 
 `/define-goal [rough objective]` starts a defined goal: the harness turns the command into the message `Define goal: …` and gives you its procedure in a hidden message. You read the affected files first, ask in chat only what they do not settle, write for yourself an objective with verbatim user quotes, success criteria with their checks, boundaries, stop conditions and a Review section with the work class, check it against the user's words, and confirm it with a short retelling in the chat that ends with the go question; the raw objective never goes to the chat. After the user's confirming reply you set the goal and work by it; before op `complete` you run every check and the review cycle of its class yourself, and the goal completes only after CLEAN. In plan mode and with an active or paused goal, `/define-goal` only shows a notice.

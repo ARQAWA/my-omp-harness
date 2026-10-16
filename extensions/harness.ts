@@ -201,7 +201,7 @@ export default function harness(pi: ExtensionAPI) {
 				...event.systemPrompt,
 				`Apply the full Gold Standard to all work. Apply silently. Source: ${GOLD}\n\n${readFileSync(GOLD, "utf8")}`,
 				tools,
-				`Apply the following root Main workflow for plan mode, todo and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
+				`Apply the following root Main workflow for work classes, todo and the goal. Source: ${MAIN}\n\n${readFileSync(MAIN, "utf8")}`,
 				`Apply the following subagent rules to every subagent launch. Source: ${SUBAGENTS}\n\n${readFileSync(SUBAGENTS, "utf8")}`,
 				`Apply the following communication skill before every user-facing message. Source: ${COMM}\n\n${readFileSync(COMM, "utf8")}`,
 			],

@@ -138,7 +138,7 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set tui.codexResetFireworks false
    omp config set tui.titleSpinner braille
    omp config set tui.titleState true
-   omp config set tui.autoGraph smart
+   omp config set tui.autoGraph off
    omp config set tui.reactions false
    omp config set tui.mouse false
    omp config set startup.quiet true
@@ -168,6 +168,8 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set autoResume false
    omp config set ida.enabled false
    omp config set github.enabled true
+   omp config set plan.enabled false
+   omp config set astEdit.enabled false
    ```
 
 5. Install the Nerd Font; a repeated run only overwrites the same files. On
