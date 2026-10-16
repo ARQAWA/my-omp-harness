@@ -1,9 +1,9 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { shimmerEnabled, shimmerText, visibleWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
+import { getMarkdownTheme, Markdown, shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
-import { hasBlockedItem, todoPanelLines } from "./cursor-feed/panel";
+import { hasBlockedItem, onTodoChange, todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
 import { viewMode } from "./cursor-feed";
 import { getAgentTask } from "./cursor-feed/agent-tasks";
@@ -44,6 +44,10 @@ const actions = ((globalThis as Record<symbol, unknown>)[ACTION] ??= { states: n
 // Process-global: set by the decisions plugin while it processes the owner's message before sending it.
 const DECISIONS = Symbol.for("my-omp-harness.decisions-processing");
 const decisions = ((globalThis as Record<symbol, unknown>)[DECISIONS] ??= { active: false }) as { active: boolean; pending?: string; refresh?: () => void };
+
+// Process-global: the blocked flag last published to herdr, so each herdr:blocked true has one false across module reloads.
+const HERDR_BLOCKED = Symbol.for("my-omp-harness.herdr-blocked");
+const herdrBlocked = ((globalThis as Record<symbol, unknown>)[HERDR_BLOCKED] ??= { active: false }) as { active: boolean };
 
 const lastRateInvalidate = new WeakMap<object, number>();
 
@@ -194,6 +198,7 @@ function patchStatusLine() {
 		const jobCount = this.runningBackgroundJobCount();
 		runningAgents = agentCount;
 		runningJobs = jobCount;
+		syncBlocked();
 		const ompAgents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
 		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `${"\u{F0C0}"} ${agentCount}`) : "";
 		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
@@ -259,6 +264,7 @@ function refreshAction(): void {
 		clearInterval(actions.timer);
 		actions.timer = undefined;
 	}
+	syncBlocked();
 	tui?.requestRender?.();
 }
 
@@ -271,9 +277,11 @@ function stopThinking(agentId: string): void {
 
 /** The current-action row of an agent: a circle and the phrase while it runs a tool, a shimmering Planning phrase while it plans; empty otherwise. */
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
-	const phrase = phraseOf(actions.states.get(agentId));
-	if (phrase?.tool !== true && decisions.active && agentId === latest?.agent?.id) return [fitLine(shimmerText("Processing session decisions", theme), width)];
-	if (phrase === undefined && agentId === latest?.agent?.id && runningAgents + runningJobs > 0) {
+	const main = agentId === latest?.agent?.id;
+	// Main's action state is stale once its turn has ended; the decisions check runs before a turn starts, so it still shows.
+	const phrase = main && turnStart === undefined ? undefined : phraseOf(actions.states.get(agentId));
+	if (phrase?.tool !== true && decisions.active && main) return [fitLine(shimmerText("Processing session decisions", theme), width)];
+	if (phrase === undefined && main && runningAgents + runningJobs > 0) {
 		const n = runningAgents + runningJobs;
 		return [fitLine(`${theme.fg("warning", GLYPH.circle)} Waiting for ${n} background ${n === 1 ? "job" : "jobs"}`, width)];
 	}
@@ -482,12 +490,24 @@ function contextLine(width: number, theme: any, textColor: string): string {
 	return fitLine(line, width);
 }
 
-/** The owner's message the decisions plugin holds before sending: grey rows word-wrapped to the width. */
-function pendingPlate(text: string, width: number): string[] {
-	return text
-		.split("\n")
-		.flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(line, Math.max(1, width - 2))))
-		.map(line => fitLine(`\x1b[48;2;58;56;54m\x1b[38;2;182;182;181m ${line}${" ".repeat(Math.max(0, width - 1 - visibleWidth(line)))}\x1b[39m\x1b[49m`, width));
+/** The grey Markdown card of the owner's message that the decisions plugin holds before sending; kept while its text stays the same. */
+interface PlateCache {
+	plate?: { text: string; markdown: Markdown };
+}
+
+/** The owner's message the decisions plugin holds before sending, laid out like the native user message. */
+function pendingPlate(cache: PlateCache, text: string, width: number): string[] {
+	let plate = cache.plate;
+	if (plate === undefined || plate.text !== text) {
+		const markdown = new Markdown(text, 1, 1, getMarkdownTheme(), {
+			bgColor: value => `\x1b[48;2;58;56;54m${value}\x1b[49m`,
+			color: value => `\x1b[38;2;182;182;181m${value}\x1b[39m`,
+		});
+		markdown.setIgnoreTight(true);
+		plate = { text, markdown };
+		cache.plate = plate;
+	}
+	return plate.markdown.render(width).map(line => fitLine(line, width));
 }
 
 const BLOCKER_TEXT = "Waiting resolve blocker";
@@ -519,7 +539,52 @@ function syncBlockerTicker(on: boolean): void {
 	}
 }
 
+/** True when Main is idle with a blocked to-do item, no owner message on the decisions check, and no running agent or job. */
+function mainBlocked(): boolean {
+	return hasBlockedItem() && turnStart === undefined && !decisions.active && runningAgents + runningJobs === 0;
+}
+
+/** Sends the Main blocked state to herdr when it differs from the last one sent, so every true gets one false. */
+function publishBlocked(blocked: boolean): void {
+	if (blocked === herdrBlocked.active) return;
+	herdrBlocked.active = blocked;
+	piApi?.events.emit("herdr:blocked", { active: blocked, label: BLOCKER_TEXT });
+	tui?.requestRender?.();
+}
+
+/** Recomputes the Main blocked state and publishes it. */
+function syncBlocked(): void {
+	publishBlocked(mainBlocked());
+}
+
+/** Main's own context: only its events move the header, the turn timing and the blocked state. */
+function isMain(ctx: any): boolean {
+	return ctx?.agent?.kind === "main";
+}
+
+function mainUi(ctx: any): boolean {
+	return ctx?.hasUI === true && isMain(ctx);
+}
+
+/** Starts Main's turn timer; an automatic continuation keeps the start of its first turn. */
+function startTurn(): void {
+	if (turnStart !== undefined) return;
+	turnStart = Date.now();
+	refreshAction();
+}
+
+/** Clears Main's action and timing when its session starts or switches; a turn still running there keeps its start time. */
+function resetMain(ctx: any): void {
+	lastTurnMs = undefined;
+	turnStart = ctx.isIdle?.() === false ? Date.now() : undefined;
+	actions.states.delete(ctx.agent.id);
+	// herdr zeroes its blocked count on a session switch, so the flag is cleared now and the recompute waits for that reset.
+	publishBlocked(false);
+	setTimeout(refreshAction, 0).unref?.();
+}
+
 function showTitle(ctx: any) {
+	const plateCache: PlateCache = {};
 	ctx.ui.setWidget(
 		TITLE,
 		(_tui, theme) => (tui = _tui, {
@@ -529,8 +594,10 @@ function showTitle(ctx: any) {
 				const task = ref ? getAgentTask(ref, () => tui?.requestRender?.()) : undefined;
 				const session = focus === undefined ? ctx.sessionManager : viewMode()?.viewSession?.sessionManager;
 				const id = session?.getSessionId?.();
+				const blocked = focus === undefined && mainBlocked();
 				const parts: string[] = [];
 				if (focus === undefined) {
+					if (blocked) parts.push(theme.fg("error", "Blocked"));
 					const name = ctx.sessionManager?.getSessionName?.();
 					if (name) parts.push(goldBold(name));
 					if (turnStart === undefined && lastTurnMs !== undefined) {
@@ -545,11 +612,10 @@ function showTitle(ctx: any) {
 				const left = parts.join(" · ");
 				const right = id ? `\x1b[22m${theme.fg("muted", id)}` : "";
 				const current = currentActionLines(focus ?? ctx.agent.id, width, theme);
-				const blocked = focus === undefined && current.length === 0 && hasBlockedItem() && turnStart === undefined;
 				syncBlockerTicker(blocked);
 				const action = blocked ? [blockerLine(width)] : current;
 				const pending = focus === undefined ? decisions.pending : undefined;
-				const plate = typeof pending === "string" && pending !== "" ? [...pendingPlate(pending, width), ""] : [];
+				const plate = typeof pending === "string" && pending !== "" ? pendingPlate(plateCache, pending, width) : [];
 				const rows = [...plate, ...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
 				if (focus !== undefined) {
 					rows.push(fitLine(theme.fg("error", "alt+x alt+x stops this agent"), width));
@@ -568,6 +634,10 @@ function showTitle(ctx: any) {
 export default function statusBar(pi: ExtensionAPI) {
 	piApi = pi;
 	decisions.refresh = refreshAction;
+	onTodoChange(() => {
+		syncBlocked();
+		tui?.requestRender?.();
+	});
 	patchTokenRate();
 	patchMode();
 	patchStatusJoin();
@@ -578,29 +648,37 @@ export default function statusBar(pi: ExtensionAPI) {
 	patchComposerRows();
 
 	pi.on("session_start", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		latest = ctx;
+		resetMain(ctx);
 		ctx.ui.setStatus("turn", undefined);
 		showTitle(ctx);
 	});
 
 	pi.on("session_switch", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		latest = ctx;
-		lastTurnMs = undefined;
+		resetMain(ctx);
 		ctx.ui.setStatus("turn", undefined);
 		showTitle(ctx);
 	});
 
 	pi.on("before_agent_start", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		latest = ctx;
-		if (turnStart !== undefined) return;
-		turnStart = Date.now();
+		startTurn();
+	});
+
+	pi.on("agent_start", (_event, ctx) => {
+		if (!mainUi(ctx)) return;
+		latest = ctx;
+		startTurn();
 	});
 
 	// Runs for every agent, subagents included, so the focused view can show their current action.
 	pi.on("message_update", (event, ctx) => {
+		if (ctx.isIdle?.() === true) return;
+		if (isMain(ctx) && turnStart === undefined) return;
 		const update = event.assistantMessageEvent;
 		if (update.type === "thinking_start" || update.type === "thinking_delta" || update.type === "text_start" || update.type === "text_delta" || update.type === "toolcall_start") {
 			const state = stateOf(ctx.agent.id);
@@ -630,43 +708,46 @@ export default function statusBar(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", (event, ctx) => {
+		// A continuation is already scheduled: Main's turn, action and timer go on.
+		if (isMain(ctx) && event.willContinue === true) return;
 		if (actions.states.delete(ctx.agent.id)) refreshAction();
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		latest = ctx;
 		if (turnStart === undefined) return;
 		lastTurnMs = Date.now() - turnStart;
 		turnStart = undefined;
 		showTitle(ctx);
+		syncBlocked();
 	});
 
 	pi.on("tool_result", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		if (_event.toolName !== "todo") return;
 		showTitle(ctx);
 	});
 
 	(pi as any).on("auto_compaction_start", (_event: any, ctx: any) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		startGlow();
 	});
 
 	(pi as any).on("auto_compaction_end", (_event: any, ctx: any) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		stopGlow();
 	});
 
 	(pi as any).on("session_compact", (_event: any, ctx: any) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		stopGlow();
 	});
 
 	pi.on("session_start", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		stopGlow();
 	});
 
 	pi.on("session_switch", (_event, ctx) => {
-		if (!ctx.hasUI) return;
+		if (!mainUi(ctx)) return;
 		stopGlow();
 	});
 }

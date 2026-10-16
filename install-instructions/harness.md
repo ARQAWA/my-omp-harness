@@ -245,9 +245,13 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   passed. In plan mode and with an active or paused goal, the command only shows
   a notice.
 - `decisions.ts` keeps a flat list of the owner's decisions for root Main in
-  the TUI. When the owner sends a message that is not a `/` command, the
-  extension holds it: the message hangs over the input field as a grey plate
-  and the action row says "Processing session decisions". Claude Haiku 5.5 with
+  the TUI. The native steering queue keeps messages as usual. Immediately
+  before a Main request, the awaited context hook checks new owner messages
+  in that request; adding a message to the queue does not start the check.
+  During the check, the message hangs over the input field as a grey plate
+  with the normal message's Markdown layout and one filled blank row above
+  and below the text, and the action row says "Processing session decisions".
+  Claude Haiku 5.5 with
   low reasoning first answers whether the message may change a decision; only
   then Claude Sonnet 5.5 with low reasoning returns the changes: add, replace or
   cancel, each with the owner's exact words. Both calls get the list, the text
@@ -256,10 +260,12 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   Markdown file next to it (`<session>.decisions.md`); a replaced decision shows
   "(вместо: …)", a cancelled one "— отменено". A decision taken from an
   approved agent proposal adds the line "Approved decision: …" to the owner's
-  message. Then the message goes to Main as usual, and before every Main request
+  message in the request context. The extension does not send the message again.
+  Before every Main request,
   the list stands at the end of the context with the rule that only the owner
-  changes it. If a call fails, the message is not sent, an error shows and the
-  text returns to the input field. `/decisions` opens the Markdown file in
+  changes it. A checked message is not checked again on later requests.
+  If a call fails, the request stops before sending and an error shows;
+  omp keeps undelivered messages for editing or retry. `/decisions` opens the Markdown file in
   Sublime Text.
 
 Clear Communication: Main starts a chat message with a bold sentence carrying
@@ -337,7 +343,10 @@ timer and disappears when no action is active. While Main has no action but
 its subagents or background jobs still run, the row says "Waiting for N
 background jobs" with the yellow circle. After Main's turn ends with a blocked
 to-do item, the same place shows "Waiting resolve blocker" with a red and gold
-sheen that moves from right to left. omp's own "Working\u2026" row
+sheen that moves from right to left, the header says "Blocked" in red and the
+herdr session circle turns red. These indicators clear when Main resumes work.
+A late streaming update cannot restore Planning after a terminal turn end.
+omp's own "Working\u2026" row
 with the esc hint and intent text never appears. No reasoning-duration rows remain in the transcript. Collapsed
 calls have no raw argument fields, output body or Expand hint. A finished Main turn
 is folded: everything between the question and the final answer becomes the
@@ -397,7 +406,7 @@ shows up to four tasks across all stages: the previous, the current and the
 next two. Near the end it shifts back to keep four tasks visible; fewer tasks
 use fewer rows. The panel draws from the harness's own committed list, not from
 omp's todo HUD. Done keeps a green circle and dim text, the current
-task a yellow circle, and waiting a grey circle. The current task's plan bar
+task a yellow circle, pending a grey circle and blocked a red circle. The current task's plan bar
 sits directly beneath it, indented two more columns: eight Nerd Font progress
 cells followed by "2/4 step text". This nested row is additional to the header
 and task rows. Ctrl+O shows every stage and task and all steps of the current

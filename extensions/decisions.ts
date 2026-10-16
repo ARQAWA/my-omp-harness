@@ -1,6 +1,6 @@
 // Records the owner's decisions of a session in a flat registry, shows them to Main and writes them to a Markdown file.
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import { completeSimple, type ImageContent, type TextContent } from "@oh-my-pi/pi-ai";
+import { completeSimple } from "@oh-my-pi/pi-ai";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
@@ -51,12 +51,9 @@ Step 3. Write each remaining candidate.
 type Decision = { id: string; text: string; quote: string; confirmed?: string; replaces?: string; cancelled: boolean };
 type Applied = { op: "add" | "replace" | "cancel"; id: string; text: string; confirmed?: string };
 type ProcessingSlot = { active: boolean; pending?: string; refresh?: () => void };
-type MessageLike = { role?: unknown; attribution?: unknown; customType?: unknown; content?: unknown; details?: unknown };
+type MessageLike = { role?: unknown; attribution?: unknown; customType?: unknown; content?: unknown; details?: unknown; timestamp?: unknown; synthetic?: unknown };
 type Entry = { type?: unknown; customType?: unknown; data?: unknown; message?: MessageLike; attribution?: unknown; content?: unknown; details?: unknown };
 type SessionView = ExtensionContext["sessionManager"];
-
-let queue: Promise<void> = Promise.resolve();
-const waiting: string[] = [];
 
 /** The text of message content: a trimmed string, or the text parts joined with a line break. */
 function textOf(content: unknown): string {
@@ -123,14 +120,15 @@ function messageOf(entry: Entry | null): MessageLike | undefined {
 	return undefined;
 }
 
-/** The conversation after the given index as blocks of Agent and Owner text, and the agent's latest text. */
-function conversationSince(entries: (Entry | null)[], start: number): { blocks: string[]; agentText: string } {
+/** The conversation after the given index as blocks of Agent and Owner text, and the agent's latest text. The owner message with the skip key, the one being checked, is left out. */
+function conversationSince(entries: (Entry | null)[], start: number, skipKey?: string): { blocks: string[]; agentText: string } {
 	const blocks: string[] = [];
 	let turn = "";
 	let agentText = "";
 	for (const entry of entries.slice(start)) {
 		const message = messageOf(entry);
 		if (message === undefined) continue;
+		if (skipKey !== undefined && message.role === "user" && keyOf(message) === skipKey) continue;
 		const owner = ownerText(message);
 		if (owner !== "") {
 			blocks.push(`Agent: ${turn}\n\nOwner: ${owner}`);
@@ -211,12 +209,11 @@ function markdownPath(ctx: ExtensionContext): string | undefined {
 	return file.replace(/\.jsonl$/, ".decisions.md");
 }
 
-/** Shows the owner's messages that wait for their check on the processing plate, or clears the plate when none wait. */
-function showWaiting(): void {
-	const slot = (globalThis as unknown as Record<symbol, ProcessingSlot | undefined>)[PROCESSING];
-	if (slot === undefined) return;
-	slot.active = waiting.length > 0;
-	slot.pending = waiting.length > 0 ? waiting.join("\n\n") : undefined;
+/** Sets the processing slot that the status bar reads: while an owner message is checked, the plate shows its text; undefined clears the plate. */
+function setProcessing(pending: string | undefined): void {
+	const slot = ((globalThis as unknown as Record<symbol, ProcessingSlot | undefined>)[PROCESSING] ??= { active: false });
+	slot.active = pending !== undefined;
+	slot.pending = pending;
 	slot.refresh?.();
 }
 
@@ -234,59 +231,143 @@ async function ask(ctx: ExtensionContext, modelId: string, systemPrompt: string,
 	return textOf(response.content);
 }
 
-/** Checks the owner's message against the decisions, then sends it on with the approved decisions added, or puts it back in the editor when the check fails. */
-async function checkOwnerMessage(pi: ExtensionAPI, ctx: ExtensionContext, text: string, images: ImageContent[] | undefined): Promise<void> {
-	try {
-		const entries = branchEntries(ctx.sessionManager);
-		const { registry, start } = lastRegistry(entries);
-		const { blocks, agentText } = conversationSince(entries, start);
-		const input = `<decisions>\n${JSON.stringify(registry)}\n</decisions>\n\n<conversation_since_last_change>\n${blocks.join("\n\n---\n\n")}\n</conversation_since_last_change>\n\n<owner_new_message>\n${text}\n</owner_new_message>`;
-		const filter = parseAnswer(await ask(ctx, FILTER_MODEL, FILTER_PROMPT, input));
-		let finalText = text;
-		if (filter?.decision !== false) {
-			const answer = parseAnswer(await ask(ctx, RECORD_MODEL, RECORD_PROMPT, input));
-			const changes = answer?.changes;
-			if (!Array.isArray(changes)) throw new Error("the recorder answer could not be parsed");
-			const next = registry.map(decision => ({ ...decision }));
-			const applied = applyChanges(next, changes, text, agentText);
-			if (applied.length > 0) {
-				pi.appendEntry(ENTRY_TYPE, { registry: next, applied });
-				const markdown = markdownPath(ctx);
-				if (markdown !== undefined) await writeFile(markdown, `# Decisions\n\n${renderLines(next).join("\n")}\n`);
-				finalText = text + applied.filter(change => change.confirmed !== undefined).map(change => `\n\nApproved decision: ${change.text}`).join("");
-			}
-		}
-		const index = waiting.indexOf(text);
-		if (index >= 0) waiting.splice(index, 1);
-		showWaiting();
-		const content: string | (TextContent | ImageContent)[] = images !== undefined && images.length > 0 ? [{ type: "text", text: finalText }, ...images] : finalText;
-		pi.sendUserMessage(content);
-	} catch (error) {
-		const index = waiting.indexOf(text);
-		if (index >= 0) waiting.splice(index, 1);
-		showWaiting();
-		ctx.ui.notify(`Decisions check failed: ${error instanceof Error ? error.message : String(error)}. Your message was not sent.`, "error");
-		ctx.ui.setEditorText(text);
+/** The key of a message: its timestamp with its text, so the same text sent at two times is two messages. */
+function keyOf(message: MessageLike): string {
+	return JSON.stringify([message.timestamp, textOf(message.content)]);
+}
+
+/** Whether a message is an owner message to check: a user message that the agent or the system did not inject, with text that is not a command. */
+function isOwnerPrompt(message: MessageLike): boolean {
+	if (message.role !== "user" || message.attribution === "agent" || message.synthetic === true) return false;
+	const text = textOf(message.content);
+	return text !== "" && !text.startsWith("/");
+}
+
+/** Marks the owner messages of the branch as checked with their own text, so that the history replayed on start, switch, branch or tree is not checked again. */
+function seedChecked(checked: Map<string, string>, sessionManager: SessionView): void {
+	checked.clear();
+	for (const entry of branchEntries(sessionManager)) {
+		const message = messageOf(entry);
+		if (message === undefined || !isOwnerPrompt(message)) continue;
+		checked.set(keyOf(message), textOf(message.content));
 	}
+}
+
+/** The message with the approved decisions added to its text: the final text is the owner's text plus a suffix, and only the suffix is appended to a string content or to the last text part. Every other part keeps its place and value, and so do the timestamp and the attribution. The message itself when there is no suffix. */
+function withText<T extends object>(item: T, message: MessageLike, finalText: string): T {
+	const suffix = finalText.slice(textOf(message.content).length);
+	if (suffix === "") return item;
+	if (typeof message.content === "string") return { ...item, content: message.content + suffix };
+	if (!Array.isArray(message.content)) return item;
+	const parts: unknown[] = message.content;
+	let last = -1;
+	for (let index = 0; index < parts.length; index++) {
+		const block = parts[index] as { type?: unknown; text?: unknown } | null;
+		if (block?.type === "text" && typeof block.text === "string") last = index;
+	}
+	if (last < 0) return item;
+	const content = parts.map((part, index) => (index === last ? { ...(part as object), text: (part as { text: string }).text + suffix } : part));
+	return { ...item, content };
+}
+
+/** The request messages with the final text of each checked owner message. Owner messages not checked yet are left out when `drop` is set and kept otherwise. */
+function applyChecked<T extends object>(messages: readonly T[], checked: Map<string, string>, drop: boolean): T[] {
+	return messages.flatMap(item => {
+		const message = item as unknown as MessageLike;
+		if (!isOwnerPrompt(message)) return [item];
+		const finalText = checked.get(keyOf(message));
+		if (finalText === undefined) return drop ? [] : [item];
+		return [withText(item, message, finalText)];
+	});
+}
+
+/** Checks, one after another, the owner messages of a request that have no check yet, and stores each final text. Returns false when the session changed during a check; nothing is stored after that. */
+async function checkUnchecked<T>(pi: ExtensionAPI, ctx: ExtensionContext, messages: readonly T[], checked: Map<string, string>, isCurrent: () => boolean): Promise<boolean> {
+	for (const item of messages) {
+		const message = item as unknown as MessageLike;
+		if (!isOwnerPrompt(message)) continue;
+		const key = keyOf(message);
+		if (checked.has(key)) continue;
+		const text = textOf(message.content);
+		setProcessing(text);
+		let finalText: string | undefined;
+		try {
+			finalText = await checkOwnerMessage(pi, ctx, text, key, isCurrent);
+		} finally {
+			if (isCurrent()) setProcessing(undefined);
+		}
+		if (finalText === undefined || !isCurrent()) return false;
+		checked.set(key, finalText);
+	}
+	return true;
+}
+
+/** Checks the owner's message against the decisions and returns its final text: the message with the approved decisions added. Records new decisions in the session and the Markdown file. Returns undefined, and records nothing, when the session changed during the check. */
+async function checkOwnerMessage(pi: ExtensionAPI, ctx: ExtensionContext, text: string, key: string, isCurrent: () => boolean): Promise<string | undefined> {
+	const entries = branchEntries(ctx.sessionManager);
+	const { registry, start } = lastRegistry(entries);
+	const { blocks, agentText } = conversationSince(entries, start, key);
+	const input = `<decisions>\n${JSON.stringify(registry)}\n</decisions>\n\n<conversation_since_last_change>\n${blocks.join("\n\n---\n\n")}\n</conversation_since_last_change>\n\n<owner_new_message>\n${text}\n</owner_new_message>`;
+	const filter = parseAnswer(await ask(ctx, FILTER_MODEL, FILTER_PROMPT, input));
+	if (!isCurrent()) return undefined;
+	let finalText = text;
+	if (filter?.decision !== false) {
+		const answer = parseAnswer(await ask(ctx, RECORD_MODEL, RECORD_PROMPT, input));
+		if (!isCurrent()) return undefined;
+		const changes = answer?.changes;
+		if (!Array.isArray(changes)) throw new Error("the recorder answer could not be parsed");
+		const next = registry.map(decision => ({ ...decision }));
+		const applied = applyChanges(next, changes, text, agentText);
+		if (applied.length > 0) {
+			if (!isCurrent()) return undefined;
+			pi.appendEntry(ENTRY_TYPE, { registry: next, applied });
+			const markdown = markdownPath(ctx);
+			if (markdown !== undefined) await writeFile(markdown, `# Decisions\n\n${renderLines(next).join("\n")}\n`);
+			finalText = text + applied.filter(change => change.confirmed !== undefined).map(change => `\n\nApproved decision: ${change.text}`).join("");
+		}
+	}
+	return finalText;
 }
 
 /** Registers the decision check on the owner's messages, the decisions note in Main's context and the decisions command. */
 export default function decisions(pi: ExtensionAPI) {
-	pi.on("input", (event, ctx) => {
-		if (ctx.agent.kind !== "main" || ctx.mode !== "tui") return undefined;
-		const trimmed = event.text.trim();
-		if (event.source !== "interactive" || trimmed === "" || trimmed.startsWith("/")) return undefined;
-		waiting.push(event.text);
-		showWaiting();
-		// Checks run one after another so each reads the registry the previous one wrote.
-		queue = queue.then(() => checkOwnerMessage(pi, ctx, event.text, event.images)).catch(() => undefined);
-		return { handled: true };
-	});
+	// The owner messages of this plugin instance: each one's key (timestamp and text) and the final text it is sent with.
+	const checked = new Map<string, string>();
+	// Counts the session changes of Main: a check that started before the last change is no longer current.
+	let generation = 0;
+	const reseed = (_event: unknown, ctx: ExtensionContext) => {
+		if (ctx.agent.kind !== "main") return;
+		generation++;
+		setProcessing(undefined);
+		seedChecked(checked, ctx.sessionManager);
+	};
+	pi.on("session_start", reseed);
+	pi.on("session_switch", reseed);
+	pi.on("session_branch", reseed);
+	pi.on("session_tree", reseed);
 
-	pi.on("context", (event, ctx) => {
+	// Runs before each request to the model: an owner message is checked when it is sent, not when it is queued.
+	pi.on("context", async (event, ctx) => {
 		if (ctx.agent.kind !== "main") return undefined;
+		const sessionId = ctx.sessionManager.getSessionId();
+		const startGeneration = generation;
+		const isCurrent = () => generation === startGeneration && ctx.sessionManager.getSessionId() === sessionId;
+		try {
+			// Checks run only in the TUI, as they did for the owner's typed messages.
+			if (ctx.mode === "tui" && !(await checkUnchecked(pi, ctx, event.messages, checked, isCurrent))) {
+				return { messages: applyChecked(event.messages, checked, true) };
+			}
+		} catch (error) {
+			// Fail closed: abort the run and keep the unchecked owner messages out of this request. A session that has changed is left alone.
+			if (isCurrent()) {
+				ctx.abort();
+				ctx.ui.notify(`Decisions check failed: ${error instanceof Error ? error.message : String(error)}. Your message was not sent.`, "error");
+			}
+			return { messages: applyChecked(event.messages, checked, true) };
+		}
+		const messages = applyChecked(event.messages, checked, false);
 		const { registry } = lastRegistry(branchEntries(ctx.sessionManager));
-		if (registry.length === 0) return undefined;
+		if (registry.length === 0) return messages.some((message, index) => message !== event.messages[index]) ? { messages } : undefined;
 		const block = `<decisions>\nThe owner's decisions in this session. Keep following them. Only the owner changes them: to change one, propose the change and ask the owner.\n\n${renderLines(registry).join("\n")}\n</decisions>`;
 		const note = {
 			role: "user",
@@ -294,7 +375,7 @@ export default function decisions(pi: ExtensionAPI) {
 			attribution: "agent",
 			timestamp: Date.now(),
 		} as unknown as (typeof event.messages)[number];
-		return { messages: [...event.messages, note] };
+		return { messages: [...messages, note] };
 	});
 
 	pi.registerCommand("decisions", {

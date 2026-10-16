@@ -21,6 +21,8 @@ interface ProgressSlot {
 	setTodos?: (phases: Phase[]) => void;
 	/** The interactive mode of this session, captured when its init starts; its todo panel is drawn. */
 	mode?: ModeLike;
+	/** The listener that the status bar sets; it runs after every published todo change. */
+	todoChange?: () => void;
 }
 
 const GUARD = Symbol.for("my-omp-harness.cursor-feed.panel");
@@ -56,7 +58,8 @@ export function bar(cur: number, total: number): { glyph: string; filled: boolea
 function taskLine(prefix: string, task: Task): string {
 	const { content, status } = task;
 	if (status === "completed" || status === "abandoned") return `${prefix}${paint("success", GLYPH.circle)} ${paint("dim", content)}`;
-	if (status === "pending" || status === "blocked") return `${prefix}${paint("dim", GLYPH.circle)} ${paint("muted", content)}`;
+	if (status === "blocked") return `${prefix}${paint("error", GLYPH.circle)} ${paint("muted", content)}`;
+	if (status === "pending") return `${prefix}${paint("dim", GLYPH.circle)} ${paint("muted", content)}`;
 	return `${prefix}${paint("warning", GLYPH.circle)} ${paint("text", content)}`;
 }
 
@@ -145,6 +148,11 @@ export function hasBlockedItem(): boolean {
 	return (slot.phases ?? []).some(phase => phase.tasks.some(task => task.status === "blocked"));
 }
 
+/** Sets the one listener that runs after every published todo change, replacing the previous one. */
+export function onTodoChange(listener: () => void): void {
+	slot.todoChange = listener;
+}
+
 /** Captures the interactive mode when its init starts and empties its native todo container while the panel is on. */
 export function installPanel(): void {
 	const proto = InteractiveMode.prototype;
@@ -158,6 +166,7 @@ export function installPanel(): void {
 			mode.session.setTodoPhases(phases);
 			if (mode.viewSession === mode.session) mode.setTodos(phases);
 		}
+		slot.todoChange?.();
 	};
 	const init = proto.init;
 	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): Promise<void> {
