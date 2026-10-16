@@ -309,7 +309,11 @@ The current-action row says "Planning next moves" with a light sheen only
 while the model thinks; while a tool runs or the agent waits it shows a yellow
 status circle and a phrase such as "Reading client.py", "Searching files",
 "Running command" or "Waiting for subagent" without a sheen. The row has no
-timer and disappears when no action is active. omp's own "Working\u2026" row
+timer and disappears when no action is active. While Main has no action but
+its subagents or background jobs still run, the row says "Waiting for N
+background jobs" with the yellow circle. After Main's turn ends with a blocked
+to-do item, the same place shows "Waiting resolve blocker" with a red and gold
+sheen that moves from right to left. omp's own "Working\u2026" row
 with the esc hint and intent text never appears. No reasoning-duration rows remain in the transcript. Collapsed
 calls have no raw argument fields, output body or Expand hint. A finished Main turn
 is folded: everything between the question and the final answer becomes the

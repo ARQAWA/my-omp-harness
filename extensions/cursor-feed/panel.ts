@@ -140,6 +140,11 @@ export function todoPanelLines(width: number): string[] {
 	}
 }
 
+/** True when the published todo plan has a task with status blocked. */
+export function hasBlockedItem(): boolean {
+	return (slot.phases ?? []).some(phase => phase.tasks.some(task => task.status === "blocked"));
+}
+
 /** Captures the interactive mode when its init starts and empties its native todo container while the panel is on. */
 export function installPanel(): void {
 	const proto = InteractiveMode.prototype;

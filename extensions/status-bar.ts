@@ -3,7 +3,7 @@ import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-cod
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { shimmerEnabled, shimmerText, visibleWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
-import { todoPanelLines } from "./cursor-feed/panel";
+import { hasBlockedItem, todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
 import { viewMode } from "./cursor-feed";
 import { getAgentTask } from "./cursor-feed/agent-tasks";
@@ -23,6 +23,8 @@ let tui: any;
 let gitText = "";
 let prText = "";
 let rateCaptured = "";
+let runningAgents = 0;
+let runningJobs = 0;
 
 interface ActionState {
 	thinking: boolean;
@@ -190,6 +192,8 @@ function patchStatusLine() {
 		// omp draws the running subagent and background job counters only with the right segments; move them to the model row.
 		const agentCount = this.subagentCount;
 		const jobCount = this.runningBackgroundJobCount();
+		runningAgents = agentCount;
+		runningJobs = jobCount;
 		const ompAgents = agentCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.agents} ${agentCount}`) : "";
 		const agents = agentCount > 0 ? theme.fg("statusLineSubagents", `${"\u{F0C0}"} ${agentCount}`) : "";
 		const jobs = jobCount > 0 ? theme.fg("statusLineSubagents", `${theme.icon.job} ${jobCount}`) : "";
@@ -269,6 +273,10 @@ function stopThinking(agentId: string): void {
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
 	const phrase = phraseOf(actions.states.get(agentId));
 	if (phrase?.tool !== true && decisions.active && agentId === latest?.agent?.id) return [fitLine(shimmerText("Processing session decisions", theme), width)];
+	if (phrase === undefined && agentId === latest?.agent?.id && runningAgents + runningJobs > 0) {
+		const n = runningAgents + runningJobs;
+		return [fitLine(`${theme.fg("warning", GLYPH.circle)} Waiting for ${n} background ${n === 1 ? "job" : "jobs"}`, width)];
+	}
 	if (phrase === undefined) return [];
 	const line = phrase.tool ? `${theme.fg("warning", GLYPH.circle)} ${phrase.text}` : shimmerText(phrase.text, theme);
 	return [fitLine(line, width)];
@@ -482,6 +490,35 @@ function pendingPlate(text: string, width: number): string[] {
 		.map(line => fitLine(`\x1b[48;2;58;56;54m\x1b[38;2;182;182;181m ${line}${" ".repeat(Math.max(0, width - 1 - visibleWidth(line)))}\x1b[39m\x1b[49m`, width));
 }
 
+const BLOCKER_TEXT = "Waiting resolve blocker";
+let blockerTimer: ReturnType<typeof setInterval> | undefined;
+
+/** The blocker row: its text shimmers between red and gold, the wave moving right to left. */
+function blockerLine(width: number): string {
+	const chars = Array.from(BLOCKER_TEXT);
+	const n = chars.length;
+	const phase = Date.now() / 400;
+	const body = chars
+		.map((ch, i) => {
+			const t = 0.5 + 0.5 * Math.sin(2 * Math.PI * (i / n) + phase);
+			const mix = (red: number, gold: number) => Math.round(red + (gold - red) * t);
+			return `\x1b[38;2;${mix(0xff, 0xc9)};${mix(0x47, 0xa2)};${mix(0x57, 0x27)}m${ch}`;
+		})
+		.join("");
+	return fitLine(`${body}\x1b[39m`, width);
+}
+
+/** Runs the render ticker about 30 times a second while the blocker row is shown, and stops it when it is not. */
+function syncBlockerTicker(on: boolean): void {
+	if (on && blockerTimer === undefined) {
+		blockerTimer = setInterval(() => tui?.requestRender?.(), THINKING_FRAME_MS);
+		blockerTimer.unref?.();
+	} else if (!on && blockerTimer !== undefined) {
+		clearInterval(blockerTimer);
+		blockerTimer = undefined;
+	}
+}
+
 function showTitle(ctx: any) {
 	ctx.ui.setWidget(
 		TITLE,
@@ -507,7 +544,10 @@ function showTitle(ctx: any) {
 				}
 				const left = parts.join(" · ");
 				const right = id ? `\x1b[22m${theme.fg("muted", id)}` : "";
-				const action = currentActionLines(focus ?? ctx.agent.id, width, theme);
+				const current = currentActionLines(focus ?? ctx.agent.id, width, theme);
+				const blocked = focus === undefined && current.length === 0 && hasBlockedItem() && turnStart === undefined;
+				syncBlockerTicker(blocked);
+				const action = blocked ? [blockerLine(width)] : current;
 				const pending = focus === undefined ? decisions.pending : undefined;
 				const plate = typeof pending === "string" && pending !== "" ? [...pendingPlate(pending, width), ""] : [];
 				const rows = [...plate, ...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
@@ -583,7 +623,10 @@ export default function statusBar(pi: ExtensionAPI) {
 
 	pi.on("tool_execution_end", (event, ctx) => {
 		const state = actions.states.get(ctx.agent.id);
-		if (state?.tools.delete(event.toolCallId)) refreshAction();
+		if (state?.tools.delete(event.toolCallId)) {
+			if (state.tools.size === 0) state.thinking = true;
+			refreshAction();
+		}
 	});
 
 	pi.on("agent_end", (event, ctx) => {
