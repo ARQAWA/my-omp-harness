@@ -72,23 +72,23 @@ steps, and `step` marks the current step. For a task of several dependent stages
 an omp goal (`goal`) itself. The list holds stages with draft decisions; findings
 lie in `local://` files named in the items. A direct request requires a todo,
 "without todo" excludes it. Before work with changes, except point corrections
-with an obvious meaning (micro), Main turns the request into a plan of checkable
-items that holds only what matters to the user; Spotty checks each item as it is
-drafted and again when it is done, without blocking the work. Only divergences
-that need the user's decision and decisions Main made itself go to the user as
-questions with a one-line go question; a plan without them starts at once.
+with an obvious meaning (micro), Main asks only about wording that leaves the
+result ambiguous and Main's own decisions beyond the user's words. Everything
+else starts at once. The user's answer starts the agreed work without a separate
+go question; no requirement list or work class goes into the chat. The agreement
+is the user's own words, answers and accepted proposals, not Main's unaccepted plan.
 Small is up to 5 requirements and up to 5 changed files, large is more. Root Main gets these rules in the hidden skill
 `main-workflow`. Review runs automatically by the work class: micro without a
 check, small is checked by Spotty before handover, large by Smarty. In
-`/define-goal` the accepted goal replaces the requirement step: `harness.ts`
+`/define-goal` the accepted goal replaces the approval step: `harness.ts`
 registers the command and supplies the procedure `extensions/define-goal.md`;
 in plan mode and with an active or paused goal the command only shows a notice.
 The goal carries verbatim user quotes and a Review section with the class. The
 agent shows a short retelling in the chat; it waits for the user's go only when
-the retelling has questions, otherwise the goal starts at once. Spotty checks
-each success criterion when it is drafted and again when it is done without
-stopping the work, and before completing the goal the agent itself runs the
-reviewer of the class until CLEAN.
+the retelling has questions, otherwise the goal starts at once. There are no
+mandatory per-item or per-criterion review passes; before completing the goal
+the agent itself runs the reviewer of the class until CLEAN. An answer or a
+requested report without project or settings changes has no class review.
 The other automatic reviews are release-time settings and documentation
 coverage and the weekly repository audit below; every required check runs until CLEAN. Ordinary handover runs
 only its class check. Bossy runs on the user's explicit choice, including the
@@ -128,8 +128,8 @@ items and steps and the progress statuses that the agent itself writes are
 Russian. The design files
 `HARNESS-DESIGN.md` and `WORKING-ENVIRONMENTS.md` stay in Russian, because the
 owner reads them. Russian stays in an English file only where an agent must
-give it to the owner word for word, such as the go question «Начинаем: …?»
-or the list of Russian filler phrases in `SYSTEM.md`, and where it
+give it to the owner word for word, such as the go question «Начинаем: …?»,
+and where it
 is a trigger word of the owner, such as «релиз».
 
 ### Branches, worktrees and commits
@@ -344,10 +344,13 @@ Do not add setup skills. Do not refer to the working repository in package files
 
 The model's general instructions describe behavior and working principles
 without binding to specific functions, commands and environment variables.
-`SYSTEM.md` is the general rules based on the final Codex system prompt without
-the parts that do not exist in omp, and it reaches every agent, subagents
-included. Rules supplied by the package's skills are not repeated in it: the
-package supplies root Main with the Gold Standard, `omp-tools`, `main-workflow`,
+`SYSTEM.md` is based on the GPT-5.5 prompt from
+[`my-codex-harness`](https://github.com/ARQAWA/my-codex-harness/blob/68c2b109b473fd192ad1a86329336b996f5b95f4/new-model-instructions.md),
+with omp names, native model-specific edits, readable Unicode and the required
+scope, review and continuity adjustments. It reaches every agent, subagents
+included. It holds general behavior, engineering judgment, formatting and
+progress updates. The package supplies the execution policy and the owner's
+reply format: root Main gets the Gold Standard, `omp-tools`, `main-workflow`,
 `subagents` and `clear-communication`, and a subagent gets `SYSTEM.md`, its
 definition, its brief and `omp-tools`. The todo and review rules belong to the
 package; changes of these rules are not moved into the base prompt. The

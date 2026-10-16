@@ -5,16 +5,19 @@ General status and installation boundaries: [INSTALL_FOR_AGENTS.md](../INSTALL_F
 ## Contents
 
 [`SYSTEM.md`](../SYSTEM.md) at the root of the clone holds the general rules of
-model behavior based on the final Codex system prompt, without the parts that do
-not exist in omp and without the rules that the harness package's skills supply.
+model behavior based on the GPT-5.5 prompt from
+[`my-codex-harness`](https://github.com/ARQAWA/my-codex-harness/blob/68c2b109b473fd192ad1a86329336b996f5b95f4/new-model-instructions.md),
+adapted to omp. It covers epistemic rigor, editing, engineering judgment,
+continuity, formatting and progress updates; it does not contain harness
+procedures or model routing.
 The file is installed as a copy at `<agent-dir>/SYSTEM.md`. omp then replaces
 its built-in instruction template with this file and keeps skills, rules and the
 project context. The prompt applies to root Main and to every subagent in all
 sessions of the profile. The prompt's version is the commit.
 
 The todo, review and subagent rules belong to the harness package and are not
-moved into the prompt. The package supplies them to root Main as skills instead
-of repeating them in the prompt: the Gold Standard, `omp-tools`,
+moved into the prompt. The package supplies execution policy and the owner's
+reply format to root Main as skills: the Gold Standard, `omp-tools`,
 `main-workflow`, `subagents` and `clear-communication`.
 
 ## Requirements

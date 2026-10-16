@@ -178,11 +178,10 @@ The Gold Standard works as a working contract:
   (point corrections here and there with an obvious meaning) without a check,
   small (up to 5 requirements and up to 5 changed files) is checked by Spotty
   before handover, large by Smarty; in `/define-goal` the class is written in the
-  goal. For small and large work Main drafts a plan with only what matters to the
-  user; Spotty checks each item as it is drafted and again when it is done while
-  Main goes on with the next items. Only divergences that need the user's
-  decision and Main's own decisions go to the user as questions; a plan without
-  them starts at once. Bossy runs on
+  goal. Mandatory per-item and per-criterion passes do not run. An answer or a
+  requested report without project or settings changes has no class review.
+  Main asks only about ambiguous wording and its own decisions beyond the
+  user's words; everything else starts at once. Bossy runs on
   explicit choice, including an explicitly adopted standing audit procedure.
   Every check runs until CLEAN. A gate required at the same stage by the
   repository's instructions runs in parallel with the class check; a
@@ -210,11 +209,12 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   items.
 - For a task of several dependent stages, root Main sets a goal (`goal`) itself
   and completes it only after the result and the mandatory actions.
-- Before work with changes, except micro, root Main splits the request into
-  checkable requirements of one sentence each, writes them with the work class
-  and the open questions into the chat, ends the message with a one-line go
-  question and waits; any confirming reply starts the work, and the agreement
-  is the user's words and the accepted requirements.
+- Before work with changes, except micro, root Main asks only about wording
+  by which a reviewer could not check the result and decisions Main added or
+  changed. Each question gives the proposal, reason and real alternatives.
+  The reply starts the agreed work without a separate go question. No
+  requirement list or work class goes into the chat; the agreement is the
+  user's words, answers and accepted proposals, not Main's unaccepted plan.
 - Micro includes mechanical replacement of a specified effort, existing model
   or setting and its required matching mentions when no new decision is needed.
   Adding a provider, introducing a new model contract or changing behavior is not automatically
@@ -235,10 +235,9 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   in the retelling with a reason; each proposal, divergence or own decision is
   a question with options under the retelling, and then the message ends with
   the go question that accepts the whole goal. A retelling without questions
-  needs no go: the agent sets the goal and starts at once. Spotty checks each
-  success criterion when it is drafted and again when it is done, without
-  stopping the work. The goal itself does not go into the chat, and the
-  retelling replaces the requirement step. Questions and messages are clear without earlier
+  needs no go: the agent sets the goal and starts at once. The goal itself does
+  not go into the chat, and the retelling replaces the approval step.
+  Questions and messages are clear without earlier
   messages: the agent does not refer to codes and item numbers without
   restating them. Before completing the goal, the agent itself runs the criteria
   checks and the reviewer of the class (small — Spotty, large — Smarty) until
@@ -267,10 +266,11 @@ Clear Communication: Main starts a chat message with a bold sentence carrying
 the main point and puts the question at the end. Usually it is one paragraph of
 1–4 short sentences, at most 12, and a reply of several parts is 2–3 paragraphs
 of 1–3 sentences separated by a `---` line with empty lines around it. Main
-writes reasons, the course of work, checks and options only on request, and at
+writes reasons, detailed work history, checks and options only on request, and at
 an approval it shows its proposal, its reason and the real alternatives. Every
 message and every question is clear without earlier messages. The same skill
-holds the rules for progress messages and a self-contained final answer. Blocks
+holds the owner's format for progress messages and a self-contained final
+answer; SYSTEM.md governs when to send progress updates and their length. Blocks
 with bold labels are the detailed form, only on a direct request. The harness
 has no HTML reports.
 

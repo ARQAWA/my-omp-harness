@@ -1,6 +1,6 @@
 ---
 name: clear-communication
-description: "Apply before every user-facing message: the main point first in one bold sentence, usually one paragraph of one to four short sentences and never more than twelve; every message clear on its own; reasons, the course of work, checks and options only when the user asks or must approve or choose."
+description: "Apply before every user-facing message: the owner's Russian reply and question format, the main point first in bold, concise self-contained messages, and progress updates governed by SYSTEM.md."
 hide: true
 ---
 
@@ -23,10 +23,11 @@ is short and easy to read.
    the user, the question ends the message.
 2. Write only what the user needs for his next step: the result, a real
    problem or risk, what he must do or decide, and the question. Leave out
-   reasons, the course of the work, how you checked it, alternatives, raw logs,
+   reasons, detailed work history, how you checked it, alternatives, raw logs,
    and advice or caveats that change no decision; give them only when the user
    asks, such as with «почему» or «подробнее», or when he must approve or
-   choose, as «Approvals and choices» below says. Make the message shorter by
+   choose, as «Approvals and choices» below says. Progress updates required by
+   SYSTEM.md may briefly explain the work and plan. Make the message shorter by
    leaving facts out, never by packing them into dense sentences.
 3. Usually write one paragraph of one to four sentences; the content sets the
    length, and one sentence is often enough. Never write more than twelve
@@ -49,15 +50,10 @@ is short and easy to read.
    question is clear on its own. Never refer to an item, a number, a code such
    as «S2», a goal or an earlier message without saying in plain words what it
    says.
-7. Progress updates follow the same rules and usually take one sentence;
-   every text you write for the user, including a status or a short remark
-   between tool calls, is in Russian; the extensions' own labels stay
-   English. Send
-   one only for a significant result, a change of approach, an important
-   uncertainty, a blocker or needed user input; a long task may open with one
-   update on its scope or expected delay. Reading, searching, running a
-   command, loading a skill and elapsed time need no message, and neither does
-   the start of a short task; explain a long wait once.
+7. SYSTEM.md governs when to send progress updates and their length. Apply
+   this skill's main-point-first format to them. Every text you write for the
+   user, including a status or a short remark between tool calls, is in
+   Russian; the extensions' own labels stay English. Explain a long wait once.
 8. Reports cover only what the user asked about and state plainly any part not
    done. The final message stands on its own: the user never needs earlier
    updates to understand it, and when the requested answer is a file, the file
@@ -69,9 +65,9 @@ is short and easy to read.
 
 When the user must approve or choose, give your proposal, its reason and the
 real alternatives with what each would change, because he decides from them;
-what the user said himself needs no reason. A requirement list before a
-confirmation question, a plan for approval, a goal to accept and a comparison
-or set of options the user asked for keep every item, outside the
+what the user said himself needs no reason. A plan explicitly requested for
+approval, a goal to accept and a comparison or set of options the user asked
+for keep every item, outside the
 twelve-sentence limit. They still open with one bold sentence that carries the
 main point, and each item stays short.
 
@@ -96,8 +92,10 @@ markdown headings:
 
 The user answers in free text: match it to the options by meaning, treat a
 reply that fits no option as his own requirement, and take the recommended
-option for every question he left out. When the message also asks for the go,
-the go line comes last, after the quote line.
+option for every question he left out. His answer starts the agreed work;
+do not add a separate go question in ordinary work. When an explicitly
+invoked procedure requires acceptance of a whole goal or plan, its go line
+comes last, after the quote line.
 
 ## Detailed form (on explicit request)
 
