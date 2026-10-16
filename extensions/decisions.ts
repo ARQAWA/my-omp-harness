@@ -243,13 +243,21 @@ function isOwnerPrompt(message: MessageLike): boolean {
 	return text !== "" && !text.startsWith("/");
 }
 
-/** Marks the owner messages of the branch as checked with their own text, so that the history replayed on start, switch, branch or tree is not checked again. */
+/** Marks the owner messages of the branch as checked, so that the history replayed on start, switch, branch or tree is not checked again. A message named by a decisions entry with its saved key gets the final text saved there; older entries carry none and are not matched. */
 function seedChecked(checked: Map<string, string>, sessionManager: SessionView): void {
 	checked.clear();
-	for (const entry of branchEntries(sessionManager)) {
+	const entries = branchEntries(sessionManager);
+	for (const entry of entries) {
 		const message = messageOf(entry);
 		if (message === undefined || !isOwnerPrompt(message)) continue;
 		checked.set(keyOf(message), textOf(message.content));
+	}
+	for (const entry of entries) {
+		if (entry?.type !== "custom" || entry.customType !== ENTRY_TYPE) continue;
+		const saved = (entry.data ?? {}) as { messageKey?: unknown; finalText?: unknown };
+		if (typeof saved.messageKey === "string" && typeof saved.finalText === "string" && checked.has(saved.messageKey)) {
+			checked.set(saved.messageKey, saved.finalText);
+		}
 	}
 }
 
@@ -320,10 +328,10 @@ async function checkOwnerMessage(pi: ExtensionAPI, ctx: ExtensionContext, text: 
 		const applied = applyChanges(next, changes, text, agentText);
 		if (applied.length > 0) {
 			if (!isCurrent()) return undefined;
-			pi.appendEntry(ENTRY_TYPE, { registry: next, applied });
+			finalText = text + applied.filter(change => change.confirmed !== undefined).map(change => `\n\nApproved decision: ${change.text}`).join("");
+			pi.appendEntry(ENTRY_TYPE, { registry: next, applied, messageKey: key, finalText });
 			const markdown = markdownPath(ctx);
 			if (markdown !== undefined) await writeFile(markdown, `# Decisions\n\n${renderLines(next).join("\n")}\n`);
-			finalText = text + applied.filter(change => change.confirmed !== undefined).map(change => `\n\nApproved decision: ${change.text}`).join("");
 		}
 	}
 	return finalText;

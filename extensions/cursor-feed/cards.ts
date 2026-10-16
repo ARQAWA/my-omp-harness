@@ -33,9 +33,18 @@ function str(value: unknown): string {
 	return typeof value === "string" ? value : "";
 }
 
-/** Wraps each source line; blank lines stay blank. */
+/** Wraps each source line to the width; blank lines stay blank. */
 function wrap(text: string, width: number): string[] {
-	return text.split("\n").flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(line, Math.max(10, width))));
+	return text.split("\n").flatMap(line => (line === "" ? [""] : wrapTextWithAnsi(line, width)));
+}
+
+/** A card's source body: wrapped to the width after its indent, blank lines kept. The indent shrinks at tiny widths so the text keeps at least one column. */
+function bodyRows(text: string, width: number): string[] {
+	const indent = Math.min(2, Math.max(0, width - 1));
+	const textWidth = width - indent;
+	if (textWidth <= 0) return [];
+	const pad = " ".repeat(indent);
+	return wrap(text, textWidth).map(line => `${pad}${paint("text", line)}`);
 }
 
 function fit(lines: string[], width: number): string[] {
@@ -85,19 +94,6 @@ export function todoRowLine(
 	return fitLine(line, width);
 }
 
-/** The objective of a goal call: the "## Objective" section, else the whole objective. */
-function objectiveSection(objective: string): string {
-	const lines = objective.split("\n");
-	const start = lines.findIndex(line => /^##\s+Objective\s*$/.test(line));
-	if (start < 0) return objective.trim();
-	const body: string[] = [];
-	for (const line of lines.slice(start + 1)) {
-		if (line.startsWith("## ")) break;
-		body.push(line);
-	}
-	return body.join("\n").trim();
-}
-
 /** The header label of a goal op. */
 export function goalLabel(op: string): string {
 	return (
@@ -122,9 +118,8 @@ export function goalToolLines(
 	const op = str(a.op);
 	const out = [`${paint(DOT[status], GLYPH.circle)} ${goalLabel(op)}`];
 	if (op === "create") {
-		const section = objectiveSection(str(a.objective));
-		const body = wrap(section, width - 2).filter(line => line.trim() !== "");
-		for (const line of body) out.push(`  ${paint("text", line)}`);
+		const objective = str(a.objective).trim();
+		if (objective !== "") out.push(...bodyRows(objective, width));
 	}
 	return fit(out, width);
 }
@@ -145,9 +140,7 @@ export function userGoalCard(text: string, width: number, _expanded: boolean): s
 		return undefined;
 	}
 	const out = ["", paint("text", title)];
-	if (body !== "") {
-		for (const line of wrap(body, width - 2)) out.push(`  ${paint("text", line)}`);
-	}
+	if (body !== "") out.push(...bodyRows(body, width));
 	return fit(out, width);
 }
 

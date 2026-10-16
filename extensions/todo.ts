@@ -39,14 +39,13 @@ type ProgressSlot = {
 };
 const slot = ((globalThis as Record<symbol, unknown>)[SLOT] ??= {}) as ProgressSlot;
 
-let state: TodoState | undefined;
-
 class OpError extends Error {
-	constructor(
-		readonly reason: string,
-		readonly fix: string,
-	) {
+	readonly reason: string;
+	readonly fix: string;
+	constructor(reason: string, fix: string) {
 		super(reason);
+		this.reason = reason;
+		this.fix = fix;
 	}
 }
 
@@ -446,10 +445,6 @@ function restore(sessionManager: { getBranch(): unknown }): TodoState {
 	return { phases: [], plans: new Map() };
 }
 
-function currentState(sessionManager: { getBranch(): unknown }): TodoState {
-	return (state ??= restore(sessionManager));
-}
-
 // Publishes the in-progress item and its plan to the slot that the todo panel draws; clears the slot without a plan.
 function showProgress(next: TodoState): void {
 	const active = allItems(next).find(entry => entry.item.status === "in_progress");
@@ -461,6 +456,12 @@ function showProgress(next: TodoState): void {
 	const total = plan.steps.length;
 	const current = Math.min(Math.max(1, plan.current), total);
 	slot.state = { item: active.item.content, steps: plan.steps, current };
+}
+
+// omp's goal context is a custom message that the agent attributes to itself; only that envelope carries omp's own todo list.
+function isGoalModeContext(message: unknown): boolean {
+	const record = message as { role?: unknown; customType?: unknown; attribution?: unknown };
+	return record.role === "custom" && record.customType === "goal-mode-context" && record.attribution === "agent";
 }
 
 function stripTodoBlock<T>(message: T): T {
@@ -496,9 +497,6 @@ function firstTextLine(result: unknown): string {
 	return "";
 }
 
-// Session name refresh: the newest background request of the current session applies; a session restore or switch starts a new sequence.
-let titleSequence = 0;
-
 /** The text of a user message: its string content, or the text blocks of its content parts. */
 function userText(content: unknown): string {
 	if (typeof content === "string") return content.trim();
@@ -510,21 +508,29 @@ function userText(content: unknown): string {
 	return texts.join("\n").trim();
 }
 
-// Asks the native title model for a session name from input and applies it in the background; does nothing until the session has a name.
-function refreshTitle(pi: ExtensionAPI, ctx: ExtensionContext, input: string): void {
-	const session = currentMode()?.session;
-	if (!session || input === "" || !pi.getSessionName()) return;
-	const sessionId = ctx.sessionManager.getSessionId();
-	const sequence = ++titleSequence;
-	void (async () => {
-		const title = await session.generateTitle(input);
-		if (!title || sequence !== titleSequence || ctx.sessionManager.getSessionId() !== sessionId) return;
-		await pi.setSessionName(title);
-	})().catch(() => undefined);
-}
-
 export default function todo(pi: ExtensionAPI) {
 	const z = pi.zod;
+	// The list and title sequence of this extension instance. A child's todo calls change only its own list.
+	let state: TodoState | undefined;
+	// Session name refresh: the newest background request of the current session applies; a session restore or switch starts a new sequence.
+	let titleSequence = 0;
+
+	function currentState(sessionManager: { getBranch(): unknown }): TodoState {
+		return (state ??= restore(sessionManager));
+	}
+
+	// Asks the native title model for a session name from input and applies it in the background; does nothing until the session has a name.
+	function refreshTitle(pi: ExtensionAPI, ctx: ExtensionContext, input: string): void {
+		const session = currentMode()?.session;
+		if (!session || input === "" || !pi.getSessionName()) return;
+		const sessionId = ctx.sessionManager.getSessionId();
+		const sequence = ++titleSequence;
+		void (async () => {
+			const title = await session.generateTitle(input);
+			if (!title || sequence !== titleSequence || ctx.sessionManager.getSessionId() !== sessionId) return;
+			await pi.setSessionName(title);
+		})().catch(() => undefined);
+	}
 
 	const ITEM = z.union([z.string(), z.object({ title: z.string(), plan: z.array(z.string()).optional() })]);
 	const OP = z.object({
@@ -562,7 +568,7 @@ export default function todo(pi: ExtensionAPI) {
 	pi.on("context", (event, ctx) => {
 		if (ctx.agent.kind !== "main") return undefined;
 		const current = currentState(ctx.sessionManager);
-		const messages = event.messages.map(message => stripTodoBlock(message));
+		const messages = event.messages.map(message => (isGoalModeContext(message) ? stripTodoBlock(message) : message));
 		let changed = messages.some((message, index) => message !== event.messages[index]);
 		const text = allItems(current).some(entry => isOpen(entry.item.status)) ? snapshot(current) : TODO_REMINDER;
 		messages.push({
@@ -633,8 +639,10 @@ export default function todo(pi: ExtensionAPI) {
 			lines.push(...report);
 			if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
 			state = committed;
-			showProgress(committed);
-			if (ctx.agent.kind === "main" && ctx.hasUI) slot.setTodos?.(committed.phases);
+			if (ctx.agent.kind === "main" && ctx.hasUI) {
+				showProgress(committed);
+				slot.setTodos?.(committed.phases);
+			}
 			if (ctx.agent.kind === "main" && ctx.hasUI && ops.slice(0, applied.length).some(op => op.op !== "closed")) {
 				refreshTitle(pi, ctx, snapshot(committed));
 			}

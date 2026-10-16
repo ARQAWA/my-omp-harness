@@ -45,10 +45,12 @@ released repository audit; it has no GitHub Release or build files.
 
 ## Local check of the sources
 
-`node tests/run.mjs` (Node.js) is the single deterministic check of the
+`node tests/run.mjs` (Node.js 22.15 or newer) is the single deterministic check of the
 repository. It covers the package, routing, model mentions, agents, skills,
-installation instructions and links. It does not start omp, does not change
-settings and does not replace the post-installation checks on the target OS from
+installation instructions, links and focused extension regressions. The behavior
+checks load the actual TypeScript with Node's module hooks and small SDK stubs;
+they do not prove native rendering or live-session integration. The check does
+not start omp, does not change settings and does not replace the post-installation checks on the target OS from
 `install-instructions/*.md`.
 
 ## Policy

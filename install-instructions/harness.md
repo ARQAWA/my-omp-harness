@@ -130,8 +130,9 @@ true` in step 4 of [omp.md](omp.md) adds a short intent to every tool call, and
 the subagent's row shows the latest one.
 
 `todo.ts` replaces the built-in `todo` with its own tool of the same name and
-the same omp task panel; the list does not depend on the goal. A call runs in
-parallel with other calls and takes a chain of operations `ops` (`init`,
+the same omp task panel; the list does not depend on the goal. Each agent keeps
+its own list; child sessions do not replace Main's list, progress or title refresh.
+A call runs in parallel with other calls and takes a chain of operations `ops` (`init`,
 `append`, `start`, `done`, `drop`, `block`, `unblock`, `rm`, `plan`, `step`,
 `closed`) applied in order. On the first error the completed operations are
 kept, and the answer names the failed operation, its fix, the operations not
@@ -142,7 +143,8 @@ current step, and the step bar stands directly beneath the item's row on the pan
 answer is one or two lines: what changed and what to do next. While the list
 has open items, Main sees the open items with their numbers and the plan of the
 current item in every model request, and omp's list block is removed from the
-goal context. Closed items fold into counts: a phase without open items takes
+native goal context only; literal todo tags in messages and tool output stay
+unchanged. Closed items fold into counts: a phase without open items takes
 one line, and the other phases show only their open items with their numbers.
 The `closed` operation with an optional phase shows the closed items and does
 not change the list. A closed list leaves the context and panel, but stays in
@@ -260,7 +262,11 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   Markdown file next to it (`<session>.decisions.md`); a replaced decision shows
   "(вместо: …)", a cancelled one "— отменено". A decision taken from an
   approved agent proposal adds the line "Approved decision: …" to the owner's
-  message in the request context. The extension does not send the message again.
+  message in the request context. The originating message key and final text
+  are saved with the registry so the line survives session restore without
+  another model check. Existing registry entries without those fields stay
+  valid; their unsaved per-message suffix is not guessed.
+  The extension does not send the message again.
   Before every Main request,
   the list stands at the end of the context with the rule that only the owner
   changes it. A checked message is not checked again on later requests.
@@ -340,8 +346,10 @@ while the model thinks; while a tool runs or the agent waits it shows a yellow
 status circle and a phrase such as "Reading client.py", "Searching files",
 "Running command" or "Waiting for subagent" without a sheen. The row has no
 timer and disappears when no action is active. While Main has no action but
-its subagents or background jobs still run, the row says "Waiting for N
-background jobs" with the yellow circle. After Main's turn ends with a blocked
+its subagents or background jobs still run, the yellow-circle row names them
+separately: "Waiting for subagent", "Waiting for N subagents", or "Waiting for N
+background jobs"; a mixed wait joins the two counts with "and".
+After Main's turn ends with a blocked
 to-do item, the same place shows "Waiting resolve blocker" with a red and gold
 sheen that moves from right to left, the header says "Blocked" in red and the
 herdr session circle turns red. These indicators clear when Main resumes work.
@@ -415,7 +423,7 @@ tasks keep it visible. There is no separate native todo panel or progress widget
 "● To-do 4/7 ● closed ● started", where the closed task's circle is
 green and the started task's circle is yellow. Interactive actions stay in
 the feed and split the "Worked for" fold into parts.
-`goal` is "Goal set" with the complete wrapped Objective section in both modes,
+`goal` is "Goal set" with the complete wrapped objective source in both modes,
 "Goal complete", "Goal checked", "Goal resumed" or
 "Goal dropped" after the status circle; `/goal <objective>` and `/define-goal`
 messages are the cards "Goal" and "Define goal", with the complete initial
@@ -487,7 +495,8 @@ Claude Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
 terminal with the kitty protocol or CSI u, ctrl or alt with a Russian letter
 arrives as that letter, and the extension turns it into the Latin key of the
 same position, so ctrl+O expands on the Russian layout too. ctrl+P does not
-switch the model: `keybindings.yml` from [omp.md](omp.md) turns it off. A
+switch the model: `keybindings.yml` from [omp.md](omp.md) turns it off. Child
+sessions do not replace Main's keyboard listener. A
 paused goal (after Esc) is resumed by the next message: for a regular message
 (not `/` and not `!`) `harness.ts` first runs `/goal resume` and passes the
 message with its images to the agent after the goal resumes. When omp pauses the goal itself, for example when Esc or a
@@ -495,7 +504,9 @@ steering message interrupts a turn, `harness.ts` resumes it as soon as Main
 works again (a turn starts, Main starts writing a message or calls a tool); a goal paused with a `/goal`
 command stays paused while Main works and resumes only
 by the owner's action: `/goal resume` or the owner's
-next message, as described above. If a Main turn starts without an owner
+next message, as described above. The extension tracks the actual command
+execution, so closing its menu does not make a later unrelated pause
+owner-commanded. If a Main turn starts without an owner
 message, for example with a subagent's result, while the goal is paused,
 `harness.ts` tells Main in a hidden message to resume it with its first call,
 the `goal` tool with op `resume`. shift+↑ works thanks to `keybindings.yml` from [omp.md](omp.md).

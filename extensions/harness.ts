@@ -1,15 +1,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import { StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
+import { InteractiveMode, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-let goalState: "none" | "active" | "paused" = "none";
-let unsubscribe: (() => void) | undefined;
-let pendingFollowUp: { text: string; images?: unknown[] } | undefined;
-let goalCommandAt = 0;
-let ownerPaused = false;
-let resuming = false;
 type GoalSession = {
 	getGoalModeState?(): { goal?: { status: string } } | undefined;
 	goalRuntime: { resumeGoal(): Promise<unknown> };
@@ -32,20 +26,27 @@ if (globals[GOAL_RESUME] !== true) {
 	};
 }
 
-// The goal resumes when the agent works again after a pause that the owner did not make with a /goal command.
-const resumeIfWorking = async (ctx: ExtensionContext) => {
-	if (ctx.agent.kind !== "main" || goalState !== "paused" || ownerPaused || resuming) return;
-	const session = goalSession;
-	if (!session || session.getGoalModeState?.()?.goal?.status !== "paused") return;
-	resuming = true;
-	try {
-		await session.goalRuntime.resumeGoal();
-		if (session.isStreaming) await session.sendGoalModeContext({ deliverAs: "steer" });
-	} catch {
-	} finally {
-		resuming = false;
-	}
-};
+// Sessions whose /goal command is running now: a pause made inside that command is the owner's, any other pause is omp's.
+// The counts are shared through a global symbol, so one prototype wrapper serves every copy of this module.
+const GOAL_COMMAND = Symbol.for("my-omp-harness.goal-command");
+if (globals[GOAL_COMMAND] === undefined) {
+	const commands = new Map<string, number>();
+	globals[GOAL_COMMAND] = commands;
+	const proto = InteractiveMode.prototype as unknown as { handleGoalModeCommand(...args: unknown[]): Promise<unknown> };
+	const original = proto.handleGoalModeCommand;
+	proto.handleGoalModeCommand = async function (this: { session: { sessionManager: { getSessionId(): string } } }, ...args: unknown[]) {
+		const id = this.session.sessionManager.getSessionId();
+		commands.set(id, (commands.get(id) ?? 0) + 1);
+		try {
+			return await original.apply(this, args);
+		} finally {
+			const remaining = (commands.get(id) ?? 0) - 1;
+			if (remaining > 0) commands.set(id, remaining);
+			else commands.delete(id);
+		}
+	};
+}
+const goalCommands = globals[GOAL_COMMAND] as Map<string, number>;
 
 const GOLD = join(import.meta.dir, "..", "skills", "gold-standard", "SKILL.md");
 const COMM = join(import.meta.dir, "..", "skills", "clear-communication", "SKILL.md");
@@ -83,6 +84,27 @@ const latinShortcut = (data: string): string | undefined => {
 };
 
 export default function harness(pi: ExtensionAPI) {
+	// Lifecycle state of this extension instance. The root keeps its own keyboard listener and goal state here.
+	let goalState: "none" | "active" | "paused" = "none";
+	let unsubscribe: (() => void) | undefined;
+	let pendingFollowUp: { text: string; images?: unknown[] } | undefined;
+	let ownerPaused = false;
+	let resuming = false;
+	// The goal resumes when the agent works again after a pause that the owner did not make with a /goal command.
+	const resumeIfWorking = async (ctx: ExtensionContext) => {
+		if (ctx.agent.kind !== "main" || goalState !== "paused" || ownerPaused || resuming) return;
+		const session = goalSession;
+		if (!session || session.getGoalModeState?.()?.goal?.status !== "paused") return;
+		resuming = true;
+		try {
+			await session.goalRuntime.resumeGoal();
+			if (session.isStreaming) await session.sendGoalModeContext({ deliverAs: "steer" });
+		} catch {
+		} finally {
+			resuming = false;
+		}
+	};
+
 	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped.
 	const syncTools = async (kind: string) => {
 		const active = await pi.getActiveTools();
@@ -105,6 +127,7 @@ export default function harness(pi: ExtensionAPI) {
 	pi.on("agent_end", async (_event, ctx) => syncTools(ctx.agent.kind));
 
 	const bindKeys = (ctx: ExtensionContext) => {
+		if (ctx.agent.kind !== "main") return;
 		unsubscribe?.();
 		unsubscribe = undefined;
 		let mode: string | undefined;
@@ -121,9 +144,13 @@ export default function harness(pi: ExtensionAPI) {
 	};
 	pi.on("session_start", (_event, ctx) => bindKeys(ctx));
 	pi.on("session_switch", (_event, ctx) => bindKeys(ctx));
+	pi.on("session_shutdown", () => {
+		unsubscribe?.();
+		unsubscribe = undefined;
+	});
 	pi.on("input", (event, ctx) => {
-		pendingFollowUp = undefined;
 		if (ctx.agent.kind !== "main") return undefined;
+		pendingFollowUp = undefined;
 		let mode: string | undefined;
 		try {
 			mode = ctx.sessionManager.buildSessionContext().mode;
@@ -131,7 +158,6 @@ export default function harness(pi: ExtensionAPI) {
 			mode = undefined;
 		}
 		const text = event.text.trim();
-		if (text.startsWith("/goal")) goalCommandAt = Date.now();
 		// A follow-up typed while the goal is paused resumes the goal through omp's /goal resume; the text is delivered once the goal is active again.
 		if (event.source === "interactive" && mode === "goal_paused" && text !== "" && !text.startsWith("/") && !text.startsWith("!")) {
 			pendingFollowUp = { text: event.text, images: event.images };
@@ -162,14 +188,14 @@ export default function harness(pi: ExtensionAPI) {
 		},
 	});
 	pi.on("goal_updated", (event, ctx) => {
+		if (ctx.agent.kind !== "main") return;
 		const status = event.goal?.status;
 		goalState = status === "active" ? "active" : status === "paused" ? "paused" : "none";
 		if (status === "paused") {
-			ownerPaused = Date.now() - goalCommandAt <= 60_000;
+			ownerPaused = goalCommands.has(ctx.sessionManager.getSessionId());
 		} else if (status === "active") {
 			ownerPaused = false;
 		}
-		goalCommandAt = 0;
 		if (status === "active" && pendingFollowUp !== undefined) {
 			const { text, images } = pendingFollowUp;
 			pendingFollowUp = undefined;

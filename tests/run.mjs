@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runBehaviorChecks } from './behavior.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = file => readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
@@ -132,4 +133,6 @@ assert.ok(todo.includes('z.enum(["init", "append", "start", "done", "drop", "blo
 assert.doesNotMatch(todo, /"view"/, 'todo.ts: no view op');
 assert.doesNotMatch(read('extensions/harness.ts'), /name: "progress"/, 'harness.ts: no progress tool');
 
-console.log('PASS: package, routing, models, agents, skills, install docs and links.');
+await runBehaviorChecks(root);
+
+console.log('PASS: package, routing, models, agents, skills, install docs, links and behavior checks.');

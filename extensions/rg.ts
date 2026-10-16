@@ -130,6 +130,11 @@ function normalizeInputPath(raw: string): string {
 	return s;
 }
 
+function resolveCallCwd(raw: string, base: string): string {
+	const p = normalizeInputPath(raw);
+	return p.includes("://") ? p : resolve(base, p);
+}
+
 function editDistance(a: string, b: string): number {
 	let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
 	for (let i = 1; i <= a.length; i++) {
@@ -325,6 +330,17 @@ async function runSearch(opts: {
 	});
 }
 
+/** A note that names the lines of a match group, so that read can recover the part the output limit cut. */
+function matchRecoveryNote(p: string, entries: { lineNumber: number }[]): string {
+	let first = Number.POSITIVE_INFINITY;
+	let last = 0;
+	for (const e of entries) {
+		first = Math.min(first, e.lineNumber);
+		last = Math.max(last, e.lineNumber);
+	}
+	return `[Output limit cut this match; read path=${p} offset=${first} limit=${last - first + 1} to see lines ${first}-${last}]`;
+}
+
 function renderContent(
 	files: SearchFile[],
 	offset: number,
@@ -360,13 +376,18 @@ function renderContent(
 			const cost = add.reduce((n, l) => n + l.length + 1, 0);
 			if (used + cost > budget) {
 				if (taken === 0) {
+					// Reserve the recovery note before slicing, so the cut part of the group and the note fit the budget together.
+					const note = matchRecoveryNote(p, g.entries);
+					const noteCost = note.length + 1;
 					for (const l of add) {
-						const room = budget - used;
+						const room = budget - noteCost - used - 1;
 						if (room <= 0) break;
 						const piece = l.slice(0, room);
 						out.push(piece);
 						used += piece.length + 1;
 					}
+					out.push(note);
+					used += noteCost;
 					taken = 1;
 				}
 				break outer;
@@ -432,6 +453,10 @@ function readDetails(text: string, total: number, fileSize: number, outputLines:
 	};
 }
 
+function lineOutOfRange(line: number, total: number): ReadResult {
+	return { text: `Error: line ${line} ${line > total ? "is past the end" : "is before the first line"}; the file has ${total} lines (use a line from 1 to ${total})`, details: {}, error: true };
+}
+
 function readFragment(
 	lines: string[],
 	fileSize: number,
@@ -441,7 +466,7 @@ function readFragment(
 	charCount: number,
 ): ReadResult {
 	const total = lines.length;
-	if (line < 1 || line > total) return { text: `Error: line ${line} ${line > total ? "is past the end" : "is before the first line"}; the file has ${total} lines (use a line from 1 to ${total})`, details: {}, error: true };
+	if (line < 1 || line > total) return lineOutOfRange(line, total);
 	const s = lines[line - 1]!;
 	if (charStart >= s.length && s.length > 0) return { text: `Error: char offset ${charStart} is past the end of line ${line}; the line has ${s.length} characters (use an offset from 0 to ${s.length - 1})`, details: {}, error: true };
 	const prefix = charStart === 0 && total >= 10 && line % 10 === 0 ? `${String(line).padStart(6)}|` : "";
@@ -489,6 +514,7 @@ function readTextBody(text: string, fileSize: number, pathLabel: string, sel: Re
 		start = Math.max(1, total - sel.offsetNeg + 1);
 		end = sel.limit !== undefined ? Math.min(total, start + sel.limit - 1) : total;
 	} else {
+		if (sel.start > total) return lineOutOfRange(sel.start, total);
 		if (sel.start >= 1 && sel.start <= total) start = sel.start;
 		if (sel.limit !== undefined) end = Math.min(total, start + sel.limit - 1);
 	}
@@ -804,6 +830,8 @@ export default function rg(pi: ExtensionAPI) {
 			if (typeof first !== "object" || first === null || !("type" in first) || first.type !== "text") return;
 			const original = "text" in first && typeof first.text === "string" ? first.text : "";
 			const exitCode = typeof details.exitCode === "number" ? details.exitCode : event.isError ? 1 : 0;
+			const rawCwd = hookFields(event.input).cwd;
+			const callCwd = typeof rawCwd === "string" && rawCwd !== "" ? resolveCallCwd(rawCwd, ctx.cwd) : ctx.cwd;
 			const text = [
 				`Exit code: ${exitCode}`,
 				"",
@@ -815,7 +843,7 @@ export default function rg(pi: ExtensionAPI) {
 				"",
 				`Command completed in ${Math.round(wall)} ms.`,
 				"",
-				`Shell state (cwd, env vars) persists for subsequent calls. Current directory: ${ctx.cwd}`,
+				`Working directory for this call: ${callCwd}`,
 			].join("\n");
 			return { content: [{ type: "text", text }], details: event.details, isError: event.isError };
 		} catch {

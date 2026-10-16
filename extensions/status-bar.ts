@@ -275,6 +275,14 @@ function stopThinking(agentId: string): void {
 	refreshAction();
 }
 
+/** Main's waiting row text: the subagents and background jobs it waits for, each counted in its own words. */
+function waitingText(agents: number, jobs: number): string {
+	const parts: string[] = [];
+	if (agents > 0) parts.push(agents === 1 ? "subagent" : `${agents} subagents`);
+	if (jobs > 0) parts.push(`${jobs} background ${jobs === 1 ? "job" : "jobs"}`);
+	return `Waiting for ${parts.join(" and ")}`;
+}
+
 /** The current-action row of an agent: a circle and the phrase while it runs a tool, a shimmering Planning phrase while it plans; empty otherwise. */
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
 	const main = agentId === latest?.agent?.id;
@@ -282,8 +290,7 @@ export function currentActionLines(agentId: string, width: number, theme: any): 
 	const phrase = main && turnStart === undefined ? undefined : phraseOf(actions.states.get(agentId));
 	if (phrase?.tool !== true && decisions.active && main) return [fitLine(shimmerText("Processing session decisions", theme), width)];
 	if (phrase === undefined && main && runningAgents + runningJobs > 0) {
-		const n = runningAgents + runningJobs;
-		return [fitLine(`${theme.fg("warning", GLYPH.circle)} Waiting for ${n} background ${n === 1 ? "job" : "jobs"}`, width)];
+		return [fitLine(`${theme.fg("warning", GLYPH.circle)} ${waitingText(runningAgents, runningJobs)}`, width)];
 	}
 	if (phrase === undefined) return [];
 	const line = phrase.tool ? `${theme.fg("warning", GLYPH.circle)} ${phrase.text}` : shimmerText(phrase.text, theme);

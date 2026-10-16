@@ -303,18 +303,19 @@ export function bodyOf(toolName: string, args: unknown, results: CallResult[]): 
 	switch (toolName) {
 		case "edit":
 		case "ast_edit":
-		case "apply_patch":
-			return diffLines(results);
+		case "apply_patch": {
+			const diff = diffLines(results);
+			// A failed edit has no diff: its error text is the body.
+			return diff.length > 0 ? diff : outputLines(results);
+		}
 		case "bash": {
 			const command: Line[] = str(asRecord(args).command)
 				.split("\n")
 				.map((text, index) => ({ tone: "text", text: `${index === 0 ? "$ " : "  "}${text}` }));
 			return [...command, ...outputLines(results)];
 		}
-		case "eval":
-			return outputLines(results);
 		default:
-			return [];
+			return outputLines(results);
 	}
 }
 

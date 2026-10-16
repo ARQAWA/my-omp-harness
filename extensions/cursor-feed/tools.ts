@@ -1,5 +1,6 @@
+import { basename } from "node:path";
 import { AssistantMessageComponent, ReadToolGroupComponent, ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Container, MetricRow, Spacer, theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
+import { type Component, Container, MetricRow, replaceTabs, Spacer, theme, type ThemeColor, visibleWidth } from "@oh-my-pi/pi-tui";
 import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome";
 import { toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import {
@@ -63,6 +64,8 @@ interface Action {
 	durationMs?: number;
 	/** The tool name, which picks the row glyph. */
 	tool: string;
+	/** A read group's own call, whose expanded body follows its row; tool blocks keep theirs on the segment. */
+	call?: Call;
 }
 
 /** A part of an Explored run: the actions of one component, or one error action that breaks the run. */
@@ -298,11 +301,13 @@ function actionsOf(call: Call, owner: object): Action[] {
 function groupActions(map: Map<string, ReadAction>): Action[] {
 	const actions: Action[] = [];
 	for (const entry of map.values()) {
+		const results = entry.result ? [entry.result] : [];
 		actions.push({
 			row: readRow(entry.args),
-			status: statusOf(entry.result ? [entry.result] : [], entry.isPartial),
+			status: statusOf(results, entry.isPartial),
 			durationMs: durationOf(entry),
 			tool: "read",
+			call: { toolName: "read", args: entry.args, results, isPartial: entry.isPartial },
 		});
 	}
 	return actions;
@@ -367,9 +372,20 @@ function tailDetail(detail: string, room: number): string {
 	return `…${kept.join("")}`;
 }
 
-/** One tool row: glyph, verb, detail, stats and elapsed time; a long detail loses its start to fit the width. */
+/** Tools whose detail is a file path: the basename of the path is kept before the verb. */
+const FILE_TOOLS: Record<string, true | undefined> = {
+	read: true,
+	write: true,
+	edit: true,
+	ast_edit: true,
+	apply_patch: true,
+};
+
+/** One tool row: glyph, verb, detail, stats and elapsed time; the detail loses its start first, and stats and time stay whenever they fit. A file's basename stays too, and the verb gives way first. */
 function rowLine(action: Action, withElapsed: boolean, width: number, indent = ""): string {
 	const { row } = action;
+	// Tabs and line breaks would break the row and its width, so they become spaces before anything is measured.
+	const detail = replaceTabs(row.detail).replace(/[\r\n\u2028\u2029]/g, " ");
 	const stats = [
 		row.added === undefined ? "" : paint(TONE.added, `+${row.added}`),
 		row.removed === undefined ? "" : paint(TONE.removed, `−${row.removed}`),
@@ -380,13 +396,32 @@ function rowLine(action: Action, withElapsed: boolean, width: number, indent = "
 		withElapsed && action.durationMs !== undefined ? paint("dim", `· ${formatElapsed(action.durationMs)}`) : "";
 	const tail = [stats, time].filter(Boolean).join(" ");
 	const tailText = tail === "" ? "" : ` ${tail}`;
-	const head = `${indent}${paint(DOT[action.status], GLYPH.circle)} ${row.verb}`;
-	const whole = row.detail === "" ? `${head}${tailText}` : `${head} ${paint("dim", row.detail)}${tailText}`;
+	const glyph = `${indent}${paint(DOT[action.status], GLYPH.circle)}`;
+	const head = `${glyph} ${row.verb}`;
+	const whole = detail === "" ? `${head}${tailText}` : `${head} ${paint("dim", detail)}${tailText}`;
 	if (visibleWidth(whole) <= width) return whole;
-	if (row.detail === "") return fitLine(whole, width);
-	const room = width - visibleWidth(head) - visibleWidth(tailText) - 1;
-	if (room < 1) return `${fitLine(head, width - visibleWidth(tailText))}${tailText}`;
-	return `${head} ${paint("dim", tailDetail(row.detail, room))}${tailText}`;
+	// The tail stays whenever it fits; the head and the detail give way first.
+	const tailWidth = visibleWidth(tailText);
+	if (tailWidth > width) return fitLine(tail, width);
+	let shown = head;
+	let room = width - visibleWidth(head) - tailWidth - 1;
+	// A file keeps its basename: when the verb leaves no room for it, the verb goes and the path gets the room.
+	const file = detail !== "" && FILE_TOOLS[action.tool] === true;
+	const name = file ? basename(detail) : "";
+	if (file && room < visibleWidth(name)) {
+		shown = glyph;
+		room = width - visibleWidth(glyph) - tailWidth - 1;
+	}
+	if (detail === "" || room < 1) {
+		// One or two cells beside the tail hold the status circle alone, which keeps its space before the tail.
+		const budget = width - tailWidth;
+		const glyphWidth = visibleWidth(glyph);
+		const head = budget === glyphWidth || budget === glyphWidth + 1 ? glyph : fitLine(shown, budget);
+		return `${head}${tailText}`;
+	}
+	// A basename that fills the room exactly is shown alone, since an ellipsis would cut it.
+	const kept = file && room === visibleWidth(name) ? name : tailDetail(detail, room);
+	return `${shown} ${paint("dim", kept)}${tailText}`;
 }
 
 /** Settled todo blocks' phases, cached per owner once the owner's own call has settled. */
@@ -545,7 +580,8 @@ function groupLines(owner: object, run: Segment[], width: number): string[] {
 	const running = actions.some(action => action.status === "running");
 	const timed = actions.flatMap(action => (action.durationMs === undefined ? [] : [action.durationMs]));
 	const total = timed.reduce((sum, ms) => sum + ms, 0);
-	const elapsed = timed.length > 0 ? ` ${paint("dim", `· ${formatElapsed(total)}`)}` : "";
+	const time = timed.length > 0 ? paint("dim", `· ${formatElapsed(total)}`) : "";
+	const elapsed = time === "" ? "" : ` ${time}`;
 	const counts = countsText(
 		totalOf(actions, "files"),
 		totalOf(actions, "searches"),
@@ -554,10 +590,23 @@ function groupLines(owner: object, run: Segment[], width: number): string[] {
 		totalOf(actions, "edits"),
 	);
 	const status: Status = running ? "running" : "done";
-	const out = [`${paint(DOT[status], GLYPH.circle)} ${running ? "Exploring" : "Explored"} ${paint("dim", counts)}${elapsed}`];
+	const glyph = paint(DOT[status], GLYPH.circle);
+	const prefix = `${glyph} ${running ? "Exploring" : "Explored"} ${paint("dim", counts)}`;
+	// The elapsed time stays whole whenever it fits. The circle stands in for the counts when one or two cells remain,
+	// and the bare time is kept when even the leading space does not fit.
+	const room = width - visibleWidth(elapsed);
+	const glyphWidth = visibleWidth(glyph);
+	const header =
+		room < 0
+			? fitLine(time, width)
+			: `${room === glyphWidth || room === glyphWidth + 1 ? glyph : fitLine(prefix, room)}${elapsed}`;
+	const out = [header];
 	if (isExpanded(owner)) {
 		for (const segment of run) {
-			for (const action of segment.actions) out.push(rowLine(action, true, width, "  "));
+			for (const action of segment.actions) {
+				out.push(rowLine(action, true, width, "  "));
+				if (action.call) out.push(...bodyOfCall(action.call).map(text => `    ${text}`));
+			}
 			if (segment.call) out.push(...bodyOfCall(segment.call).map(text => `    ${text}`));
 		}
 	}
@@ -576,7 +625,10 @@ function exploreLines(owner: object, width: number, segments: Segment[]): string
 	const out: string[] = [];
 	segments.forEach((segment, index) => {
 		if (segment.error) {
-			for (const action of segment.actions) out.push(rowLine(action, true, width));
+			for (const action of segment.actions) {
+				out.push(rowLine(action, true, width));
+				if (action.call && isExpanded(owner)) out.push(...bodyOfCall(action.call).map(text => `  ${text}`));
+			}
 			return;
 		}
 		const run = runAround(owner, width, segments, index);
