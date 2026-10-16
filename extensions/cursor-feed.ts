@@ -5,7 +5,7 @@ import { InteractiveMode } from "@oh-my-pi/pi-coding-agent";
 import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
 import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 import { isKeyRelease, matchesKey, theme } from "@oh-my-pi/pi-tui";
-import { enabled, goalObjectives, scheduleReset, setTuiRef, shared, type TuiRef } from "./cursor-feed/state";
+import { enabled, goalObjectives, promoteChromeFloor, scheduleReset, setTuiRef, shared, trackRuntimeChildren, type TuiRef } from "./cursor-feed/state";
 import { installCursorFeed } from "./cursor-feed/tools";
 import { installSubagents } from "./cursor-feed/subagents";
 import { installAgentBoard, isAgentBoardOpen } from "./cursor-feed/hub";
@@ -168,6 +168,7 @@ function installFocus(): void {
 	const init = proto.init;
 	proto.init = function (this: InteractiveMode, ...args: Parameters<InteractiveMode["init"]>): ReturnType<InteractiveMode["init"]> {
 		shared.mainMode = this;
+		trackRuntimeChildren(this.composer);
 		installView(this);
 		return init.apply(this, args);
 	};
@@ -325,6 +326,7 @@ export default function cursorFeed(pi: ExtensionAPI) {
 		if (event.willContinue) return;
 		mainAgentEnded();
 		scheduleReset();
+		promoteChromeFloor();
 		nudgeHerdr(ctx);
 	});
 }

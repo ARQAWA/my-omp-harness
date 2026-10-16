@@ -103,10 +103,23 @@ export interface TuiRef {
 }
 
 const SHARED = Symbol.for("my-omp-harness.cursor-feed.shared");
+/** A composer's last setRuntimeChildren call, with the original bound to that composer. */
+interface RuntimeChildrenCall {
+	args: unknown[];
+	original: (...args: unknown[]) => unknown;
+}
 /** Process-wide state of cursor-feed: each extension file loads its own module copy, so module variables are not shared. */
-export const shared = ((globalThis as Record<symbol, unknown>)[SHARED] ??= {}) as { tui?: TuiRef; mainMode?: unknown };
+export const shared = ((globalThis as Record<symbol, unknown>)[SHARED] ??= {}) as {
+	tui?: TuiRef;
+	mainMode?: unknown;
+	/** The last setRuntimeChildren call of each tracked composer. */
+	runtimeChildren?: WeakMap<object, RuntimeChildrenCall>;
+};
 let lastGlobal: boolean | undefined;
 let resetPending = false;
+let floorPending = false;
+/** Set on a composer once its setRuntimeChildren is wrapped. */
+const TRACKED_CHILDREN = Symbol.for("my-omp-harness.cursor-feed.runtime-children");
 
 export function setTuiRef(ref: TuiRef | undefined): void {
 	shared.tui = ref;
@@ -152,4 +165,40 @@ export function recordExpanded(component: object, expanded: boolean): void {
 	if (lastGlobal === expanded) return;
 	lastGlobal = expanded;
 	scheduleReset();
+	promoteChromeFloor();
+}
+
+/** Wraps a composer's setRuntimeChildren once, recording each call's arguments and its bound original. */
+export function trackRuntimeChildren(composer: object): void {
+	const record = composer as unknown as Record<symbol, unknown>;
+	if (record[TRACKED_CHILDREN]) return;
+	record[TRACKED_CHILDREN] = true;
+	const target = composer as { setRuntimeChildren: (...args: unknown[]) => unknown };
+	const original = target.setRuntimeChildren.bind(composer);
+	target.setRuntimeChildren = (...args: unknown[]) => {
+		runtimeCalls().set(composer, { args, original });
+		return original(...args);
+	};
+}
+
+/** The last setRuntimeChildren call of every tracked composer, kept on the shared state. */
+function runtimeCalls(): WeakMap<object, RuntimeChildrenCall> {
+	return (shared.runtimeChildren ??= new WeakMap<object, RuntimeChildrenCall>());
+}
+
+/** Schedules one re-run of the main composer's last setRuntimeChildren call, 300 ms later, to raise omp's chrome floor. */
+export function promoteChromeFloor(): void {
+	if (floorPending) return;
+	floorPending = true;
+	// omp's chrome floor never rises while the harness keeps tall chrome; remove this when an omp release raises the floor itself.
+	setTimeout(() => {
+		floorPending = false;
+		try {
+			const composer = (shared.mainMode as { composer?: object } | undefined)?.composer;
+			const call = composer ? runtimeCalls().get(composer) : undefined;
+			if (call) call.original(...call.args);
+		} catch {
+			// Fail safe: the floor stays where omp left it.
+		}
+	}, 300);
 }
