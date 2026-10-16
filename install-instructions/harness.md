@@ -13,7 +13,7 @@ and `dependencies` fields), `bun.lock`, `extensions/harness.ts` with the
 `extensions/diagram.ts`, `extensions/cursor-feed.ts` with modules in
 `extensions/cursor-feed/`,
 `extensions/write.ts`, `extensions/edit.ts`, `extensions/bash.ts`,
-`extensions/todo.ts`, `extensions/results.ts`, `skills/` and
+`extensions/todo.ts`, `extensions/results.ts`, `extensions/decisions.ts`, `skills/` and
 `agents/`. omp loads a directory from the
 `extensions` list in `config.yml` as a whole: it takes the extensions from its
 `package.json` and finds `skills/` and `agents/` next to it. The dependency of
@@ -245,6 +245,23 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   CLEAN, and gives the result briefly: what is done and whether the checks
   passed. In plan mode and with an active or paused goal, the command only shows
   a notice.
+- `decisions.ts` keeps a flat list of the owner's decisions for root Main in
+  the TUI. When the owner sends a message that is not a `/` command, the
+  extension holds it: the message hangs over the input field as a grey plate
+  and the action row says "Processing session decisions". Claude Haiku 5.5 with
+  low reasoning first answers whether the message may change a decision; only
+  then Claude Sonnet 5.5 with low reasoning returns the changes: add, replace or
+  cancel, each with the owner's exact words. Both calls get the list, the text
+  conversation since the last change and the new message, without prompt
+  caching and without a time limit. The list goes to the session JSONL and to a
+  Markdown file next to it (`<session>.decisions.md`); a replaced decision shows
+  "(вместо: …)", a cancelled one "— отменено". A decision taken from an
+  approved agent proposal adds the line "Approved decision: …" to the owner's
+  message. Then the message goes to Main as usual, and before every Main request
+  the list stands at the end of the context with the rule that only the owner
+  changes it. If a call fails, the message is not sent, an error shows and the
+  text returns to the input field. `/decisions` opens the Markdown file in
+  Sublime Text.
 
 Clear Communication: Main starts a chat message with a bold sentence carrying
 the main point and puts the question at the end. Usually it is one paragraph of
