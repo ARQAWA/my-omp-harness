@@ -178,7 +178,11 @@ The Gold Standard works as a working contract:
   (point corrections here and there with an obvious meaning) without a check,
   small (up to 5 requirements and up to 5 changed files) is checked by Spotty
   before handover, large by Smarty; in `/define-goal` the class is written in the
-  goal. Bossy runs on
+  goal. For small and large work Main drafts a plan with only what matters to the
+  user; Spotty checks each item as it is drafted and again when it is done while
+  Main goes on with the next items. Only divergences that need the user's
+  decision and Main's own decisions go to the user as questions; a plan without
+  them starts at once. Bossy runs on
   explicit choice, including an explicitly adopted standing audit procedure.
   Every check runs until CLEAN. A gate required at the same stage by the
   repository's instructions runs in parallel with the class check; a

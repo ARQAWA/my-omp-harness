@@ -72,10 +72,12 @@ steps, and `step` marks the current step. For a task of several dependent stages
 an omp goal (`goal`) itself. The list holds stages with draft decisions; findings
 lie in `local://` files named in the items. A direct request requires a todo,
 "without todo" excludes it. Before work with changes, except point corrections
-with an obvious meaning (micro), Main splits the request into checkable
-requirements and confirms them with the user in the chat together with the
-work class, ending the message with a one-line go question: small is up to 5 requirements and up to 5 changed files, large is
-more. Root Main gets these rules in the hidden skill
+with an obvious meaning (micro), Main turns the request into a plan of checkable
+items that holds only what matters to the user; Spotty checks each item as it is
+drafted and again when it is done, without blocking the work. Only divergences
+that need the user's decision and decisions Main made itself go to the user as
+questions with a one-line go question; a plan without them starts at once.
+Small is up to 5 requirements and up to 5 changed files, large is more. Root Main gets these rules in the hidden skill
 `main-workflow`. Review runs automatically by the work class: micro without a
 check, small is checked by Spotty before handover, large by Smarty. In
 `/define-goal` the accepted goal replaces the requirement step: `harness.ts`
