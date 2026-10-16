@@ -20,7 +20,7 @@ type TurnBudget = { budgetChars: number; used: number };
 
 // Per agent id, so that concurrent sessions keep their own turn budgets.
 const budgets = new Map<string, TurnBudget>();
-const answers = new Map<string, string>();
+const answers = new Map<string, { mtimeMs: number; size: number; text: string }>();
 
 const PREVIEW = /<preview full-output="agent:\/\/([\w-]+)">([\s\S]*?)<\/preview>/g;
 const FULL_OUTPUT = /^Full output: artifact:\/\/(\d+)$/gm;
@@ -87,12 +87,18 @@ function decodeAnswer(raw: string): string {
 }
 
 function answerText(dir: string, id: string): string | undefined {
-	const cached = answers.get(id);
-	if (cached !== undefined) return cached;
 	const file = join(dir, `${id}.md`);
-	if (!isRegularFile(file)) return undefined;
+	let st;
+	try {
+		st = statSync(file);
+	} catch {
+		return undefined;
+	}
+	if (!st.isFile()) return undefined;
+	const cached = answers.get(file);
+	if (cached !== undefined && cached.mtimeMs === st.mtimeMs && cached.size === st.size) return cached.text;
 	const text = decodeAnswer(readFileSync(file, "utf8"));
-	answers.set(id, text);
+	answers.set(file, { mtimeMs: st.mtimeMs, size: st.size, text });
 	return text;
 }
 

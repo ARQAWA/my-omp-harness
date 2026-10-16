@@ -2,12 +2,14 @@
 // through Node's module hooks. @oh-my-pi packages are small stubs; nothing is installed or spawned.
 // Direct run: node behavior.mjs <repo-root>. tests/run.mjs imports and awaits runBehaviorChecks(root).
 import assert from "node:assert/strict";
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { registerHooks, stripTypeScriptTypes } from "node:module";
+import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const AI_CONTROL = Symbol.for("my-omp-harness.behavior.ai");
+const GREP_CONTROL = Symbol.for("my-omp-harness.behavior.grep");
 const PROGRESS = Symbol.for("my-omp-harness.progress");
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ANSI = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
@@ -76,11 +78,14 @@ export function wrapTextWithAnsi(text, width) {
 	"@oh-my-pi/pi-tui/chrome": "export class TranscriptContainer {}\n",
 	"@oh-my-pi/pi-tui/native/state": "export function isNativeRendering() {\n\treturn false;\n}\n",
 	"@oh-my-pi/pi-tui/tools": "export const toolRenderers = {};\n",
+	"@oh-my-pi/pi-coding-agent/config/registry": "export const lookup = () => ({ get: () => undefined, override() {}, clearOverride() {} });\n",
 	"@oh-my-pi/pi-natives": String.raw`
 export async function glob() {
 	throw new Error("pi-natives glob is not stubbed for behavior checks");
 }
-export async function grep() {
+export async function grep(options) {
+	const control = globalThis[Symbol.for("my-omp-harness.behavior.grep")];
+	if (typeof control === "function") return control(options);
 	throw new Error("pi-natives grep is not stubbed for behavior checks");
 }
 `,
@@ -145,6 +150,7 @@ async function loadModules(base) {
 		harness: (await load("extensions/harness.ts")).default,
 		todo: (await load("extensions/todo.ts")).default,
 		decisions: (await load("extensions/decisions.ts")).default,
+		results: (await load("extensions/results.ts")).default,
 	};
 }
 
@@ -279,6 +285,29 @@ async function readChecks(check, { rg }) {
 			assert.ok(!text.includes("Current directory: /workspace"), "footer names the workspace for a call that ran elsewhere");
 		});
 	}
+	await check("rg grep: a file path searches only that file", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "rg-file-"));
+		try {
+			writeFileSync(join(dir, "package.json"), "{}\n");
+			mkdirSync(join(dir, "sub"));
+			writeFileSync(join(dir, "sub", "package.json"), "{}\n");
+			globalThis[GREP_CONTROL] = () => ({
+				matches: [
+					{ path: "package.json", lineNumber: 1, line: "name" },
+					{ path: "sub/package.json", lineNumber: 1, line: "name" },
+				],
+			});
+			const api = fakeApi();
+			rg.default(api.api);
+			const result = await api.tools.grep.execute("id", { pattern: "name", path: "package.json" }, undefined, undefined, { cwd: dir });
+			const text = textOf(result);
+			assert.ok(text.includes("package.json:1:name"), JSON.stringify(text));
+			assert.ok(!text.includes("sub/package.json"), JSON.stringify(text));
+		} finally {
+			delete globalThis[GREP_CONTROL];
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 }
 
 async function cardChecks(check, { cards }) {
@@ -753,6 +782,27 @@ async function decisionChecks(check, { decisions }) {
 	});
 }
 
+async function resultsChecks(check, { results }) {
+	await check("results: a reused subagent's new answer replaces the cached one", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "results-answer-"));
+		try {
+			writeFileSync(join(dir, "Agent1.md"), `FIRST ${"a".repeat(200)}`);
+			const ctx = { sessionManager: { getArtifactsDir: () => dir, getSessionFile: () => undefined } };
+			const bound = fakeApi();
+			results(bound.api);
+			const messages = [{ role: "user", content: [{ type: "text", text: '<preview full-output="agent://Agent1">short</preview>' }] }];
+			const [first] = await contextOf(bound, ctx, messages);
+			assert.ok(textOf(first).includes("FIRST"), JSON.stringify(textOf(first).slice(0, 80)));
+			writeFileSync(join(dir, "Agent1.md"), `SECOND ${"b".repeat(300)}`);
+			const [second] = await contextOf(bound, ctx, messages);
+			assert.ok(textOf(second).includes("SECOND"), JSON.stringify(textOf(second).slice(0, 80)));
+			assert.ok(!textOf(second).includes("FIRST"), JSON.stringify(textOf(second).slice(0, 80)));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+}
+
 export async function runBehaviorChecks(root) {
 	const base = resolve(root);
 	const addedBun = globalThis.Bun === undefined;
@@ -779,6 +829,7 @@ export async function runBehaviorChecks(root) {
 		await harnessChecks(check, env);
 		await todoChecks(check, env);
 		await decisionChecks(check, env);
+		await resultsChecks(check, env);
 	} finally {
 		hooks.deregister?.();
 		if (addedBun) delete globalThis.Bun;

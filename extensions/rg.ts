@@ -266,6 +266,7 @@ async function runSearch(opts: {
 	after?: number;
 	multiline?: boolean;
 	type?: string;
+	only?: string;
 	signal?: AbortSignal;
 }): Promise<SearchFile[]> {
 	const nativeGlob = opts.glob ? ensureDoubleStar(opts.glob) : undefined;
@@ -290,6 +291,7 @@ async function runSearch(opts: {
 	const byPath = new Map<string, { abs: string; matches: GrepMatch[]; count: number }>();
 	for (const m of grepMatchesFrom(result)) {
 		const abs = resolve(opts.base, m.path);
+		if (opts.only !== undefined && abs !== opts.only) continue;
 		const rel = displayPath(relative(opts.cwd, abs));
 		if (!withoutGit(rel)) continue;
 		if (excluded?.match(displayPath(relative(opts.base, abs)))) continue;
@@ -931,6 +933,7 @@ export default function rg(pi: ExtensionAPI) {
 				after,
 				multiline: params.multiline,
 				type: params.type,
+				only: isFile ? searchPath : undefined,
 				signal,
 			};
 			let note = "";
