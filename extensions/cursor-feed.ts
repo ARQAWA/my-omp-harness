@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent";
 import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
@@ -231,6 +233,42 @@ function seedObjectives(ctx: ExtensionContext): void {
 	scheduleReset();
 }
 
+let lastNudgeAt = 0;
+
+/** herdr repaints its host surface only on resize; a bare SIGWINCH triggers the same full repaint without a size change. */
+function nudgeHerdr(ctx: ExtensionContext): void {
+	if (process.env.HERDR_ENV !== "1" || process.platform === "win32") return;
+	const now = Date.now();
+	if (now - lastNudgeAt < 5000) return;
+	lastNudgeAt = now;
+	setTimeout(() => {
+		try {
+			const text = ctx.ui.getEditorText?.();
+			if (typeof text === "string" && text.trim() !== "") return;
+			for (const pid of herdrClientPids()) {
+				try {
+					process.kill(pid, "SIGWINCH");
+				} catch {}
+			}
+		} catch {}
+	}, 400);
+}
+
+function herdrClientPids(): number[] {
+	const out = execFileSync("ps", ["-axo", "pid=,tty=,command="], { encoding: "utf8" });
+	const pids: number[] = [];
+	for (const line of out.split("\n")) {
+		const match = /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+		if (!match) continue;
+		const [, pid = "", tty = "", command = ""] = match;
+		if (tty === "??" || tty === "?") continue;
+		const [first = "", ...args] = command.trim().split(/\s+/);
+		if (basename(first) !== "herdr" || args.includes("server")) continue;
+		pids.push(Number(pid));
+	}
+	return pids;
+}
+
 export default function cursorFeed(pi: ExtensionAPI) {
 	installFocus();
 	installQueueRefresh();
@@ -287,5 +325,6 @@ export default function cursorFeed(pi: ExtensionAPI) {
 		if (event.willContinue) return;
 		mainAgentEnded();
 		scheduleReset();
+		nudgeHerdr(ctx);
 	});
 }

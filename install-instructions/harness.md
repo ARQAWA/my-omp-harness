@@ -317,7 +317,10 @@ line "Worked for 7m 11s ›". Ctrl+O expands and folds everything at once: Explo
 each call with the last six lines of its diff or output, Worked for the turn. So that lines that have scrolled up also
 change, at the end of a turn and after Ctrl+O omp redraws the screen once and
 erases the terminal history, including the text that was in the window before
-omp started. A `task` call is a card: the header "Running 2 agents · 1 done" or
+omp started. In herdr, about 0.4 s after that redraw at the end of a Main turn,
+the extension sends the herdr client SIGWINCH without a size change, so herdr
+repaints the whole terminal as on a resize; it skips this while the input field
+has text and runs it at most once in 5 s. A `task` call is a card: the header "Running 2 agents · 1 done" or
 "3 agents finished · 1 failed · 4m 10s", then two rows per subagent: its status
 circle, name and agent type, followed by its indented live action with a
 light sheen. That second row has no circle and ends as "Completed", "Stopped"
