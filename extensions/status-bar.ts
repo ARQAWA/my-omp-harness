@@ -587,7 +587,7 @@ export default function statusBar(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", (event, ctx) => {
-		if (!event.willContinue && actions.states.delete(ctx.agent.id)) refreshAction();
+		if (actions.states.delete(ctx.agent.id)) refreshAction();
 		if (!ctx.hasUI) return;
 		latest = ctx;
 		if (turnStart === undefined) return;
