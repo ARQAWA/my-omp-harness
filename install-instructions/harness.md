@@ -442,19 +442,18 @@ and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
 Claude Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
-`harness.ts`: ctrl+shift+P pauses the active goal, and a second press resumes it
-(the extension puts `/goal pause` or `/goal resume` into the empty input field);
-the key arrives separately from ctrl+P only in a terminal with the kitty
-protocol or CSI u. ctrl+P itself does not switch the model: `keybindings.yml`
-from [omp.md](omp.md) turns it off. A paused goal (after Esc or ctrl+shift+P) is
-resumed by the next message: for a regular message (not `/` and not `!`)
-`harness.ts` first runs `/goal resume` and passes the message with its images to
-the agent after the goal resumes, and replaces `.` or `c` with Enter with
-`/goal resume`. When omp pauses the goal itself, for example when Esc or a
+`harness.ts` makes ctrl and alt shortcuts work on non-Latin layouts: in a
+terminal with the kitty protocol or CSI u, ctrl or alt with a Russian letter
+arrives as that letter, and the extension turns it into the Latin key of the
+same position, so ctrl+O expands on the Russian layout too. ctrl+P does not
+switch the model: `keybindings.yml` from [omp.md](omp.md) turns it off. A
+paused goal (after Esc) is resumed by the next message: for a regular message
+(not `/` and not `!`) `harness.ts` first runs `/goal resume` and passes the
+message with its images to the agent after the goal resumes. When omp pauses the goal itself, for example when Esc or a
 steering message interrupts a turn, `harness.ts` resumes it as soon as Main
 works again (a turn starts, Main starts writing a message or calls a tool); a goal paused with a `/goal`
-command, including ctrl+shift+P, stays paused while Main works and resumes only
-by the owner's action: `/goal resume`, a second ctrl+shift+P or the owner's
+command stays paused while Main works and resumes only
+by the owner's action: `/goal resume` or the owner's
 next message, as described above. If a Main turn starts without an owner
 message, for example with a subagent's result, while the goal is paused,
 `harness.ts` tells Main in a hidden message to resume it with its first call,

@@ -1,6 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
-import { isKeyRelease, matchesKey } from "@oh-my-pi/pi-tui";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -67,6 +66,22 @@ const GPT_NOTES =
 	"Use the listed PATH programs. Read internal URLs with `read`; selectors such as `:raw` are not shell paths. " +
 	"Read `xd://` topics without line selectors. In computer calls, use a window ID from the current window list; refresh the list after a missing-window error. " +
 	"A rejected patch hunk comes back with its expected lines and the closest match: re-read that region and resend only the rejected hunks.";
+// Non-Latin layouts send the letter's own codepoint, so ctrl/alt shortcuts are mapped to the Latin key in the same position.
+const RUSSIAN_TO_LATIN: Record<string, string> = {
+	й: "q", ц: "w", у: "e", к: "r", е: "t", н: "y", г: "u", ш: "i", щ: "o", з: "p", х: "[", ъ: "]",
+	ф: "a", ы: "s", в: "d", а: "f", п: "g", р: "h", о: "j", л: "k", д: "l", ж: ";", э: "'",
+	я: "z", ч: "x", с: "c", м: "v", и: "b", т: "n", ь: "m", б: ",", ю: ".", ё: "`",
+};
+const CSI_U = /^\x1b\[(\d+)(?::\d*)*(;(\d+)(?::\d+)?)?u$/;
+const latinShortcut = (data: string): string | undefined => {
+	const match = CSI_U.exec(data);
+	if (!match || Number(match[1]) > 0x10ffff) return undefined;
+	const latin = RUSSIAN_TO_LATIN[String.fromCodePoint(Number(match[1])).toLowerCase()];
+	const modifiers = Math.max(Number(match[3] ?? 1) - 1, 0); // shift = 1, alt = 2, ctrl = 4
+	if (latin === undefined || (modifiers & 6) === 0) return undefined;
+	return `\x1b[${latin.codePointAt(0)}${data.slice(2 + match[1].length)}`;
+};
+
 export default function harness(pi: ExtensionAPI) {
 	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped.
 	const syncTools = async (kind: string) => {
@@ -89,8 +104,7 @@ export default function harness(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => syncTools(ctx.agent.kind));
 	pi.on("agent_end", async (_event, ctx) => syncTools(ctx.agent.kind));
 
-	// ctrl+shift+P pauses or resumes the session goal by sending the matching /goal command, when the editor is empty.
-	const bindPauseKey = (ctx: ExtensionContext) => {
+	const bindKeys = (ctx: ExtensionContext) => {
 		unsubscribe?.();
 		unsubscribe = undefined;
 		let mode: string | undefined;
@@ -101,18 +115,12 @@ export default function harness(pi: ExtensionAPI) {
 		}
 		goalState = mode === "goal" ? "active" : mode === "goal_paused" ? "paused" : "none";
 		unsubscribe = ctx.ui.onTerminalInput(data => {
-			// omp's continue shortcuts ("." or "c" then Enter while paused) never reach input handlers, so this resumes the goal before they run.
-			if (!isKeyRelease(data) && matchesKey(data, "enter") && goalState === "paused" && [".", "c"].includes(ctx.ui.getEditorText().trim())) {
-				ctx.ui.setEditorText("/goal resume");
-				return { data: "\r" };
-			}
-			if (isKeyRelease(data) || !matchesKey(data, "ctrl+shift+p") || goalState === "none" || ctx.ui.getEditorText() !== "") return undefined;
-			ctx.ui.setEditorText(goalState === "active" ? "/goal pause" : "/goal resume");
-			return { data: "\r" };
+			const remapped = latinShortcut(data);
+			return remapped === undefined ? undefined : { data: remapped };
 		});
 	};
-	pi.on("session_start", (_event, ctx) => bindPauseKey(ctx));
-	pi.on("session_switch", (_event, ctx) => bindPauseKey(ctx));
+	pi.on("session_start", (_event, ctx) => bindKeys(ctx));
+	pi.on("session_switch", (_event, ctx) => bindKeys(ctx));
 	pi.on("input", (event, ctx) => {
 		pendingFollowUp = undefined;
 		if (ctx.agent.kind !== "main") return undefined;
