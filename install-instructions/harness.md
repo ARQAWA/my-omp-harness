@@ -297,7 +297,7 @@ reuse and brief rules. `harness.ts` gives it only to root Main.
   `NAMED` table under any parent: `spotty` on `anthropic/claude-haiku-5-5:low`,
   `smarty` on `anthropic/claude-haiku-5-5:medium`, `bossy` on
   `anthropic/claude-sonnet-5-5:low`, the others on
-  `anthropic/claude-haiku-5-5:xhigh`. Without an `anthropic` sign-in these agents
+  `anthropic/claude-haiku-5-5:medium`. Without an `anthropic` sign-in these agents
   do not start.
 - The agent `custom` has no role. Main launches it only when the user directly
   tells it to run a subagent on a named model: one `task` item with
@@ -526,8 +526,8 @@ Named agents:
 | `spotty` | `anthropic/claude-haiku-5-5:low` | Light review |
 | `smarty` | `anthropic/claude-haiku-5-5:medium` | Blind review |
 | `bossy` | `anthropic/claude-sonnet-5-5:low` | High review |
-| `code_writer` | `anthropic/claude-haiku-5-5:xhigh` | code and configs from Main's briefs |
-| `shell_runner` | `anthropic/claude-haiku-5-5:xhigh` | program runs from Main's briefs |
+| `code_writer` | `anthropic/claude-haiku-5-5:medium` | code and configs from Main's briefs |
+| `shell_runner` | `anthropic/claude-haiku-5-5:medium` | program runs from Main's briefs |
 | `custom` | the model the user names | no role; only on the user's direct order |
 
 Skills. Eight hidden ones (`hide: true`) are called through `/skill:<name>` and

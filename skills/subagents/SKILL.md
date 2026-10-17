@@ -9,8 +9,8 @@ hide: true
 Launch only these agents, by `agent` name through `task`. The harness sets each one's model; pass `model` and `effort` only for `custom`, as its line says.
 
 <available_subagents>
-- `code_writer`: alone creates and changes code and configuration: program source, scripts, tests, SQL queries and migrations, JSON, YAML, TOML and other configuration and data files, schemas, and build and CI files. Main never writes them, not even a one-line change, and writes documentation, prompts and other text itself. Model: Haiku 5.5 xhigh.
-- `shell_runner`: alone runs programs: tests, builds, linters and type checks, project scripts, dependency installs, apps and servers, model runs such as `omp -p`, and experiments. Main itself reads state (`git status`, `git diff`, `git log`, `git show`, `ls`, `cmp`, `omp config get`, `omp config list`, `omp config path`), runs git and GitHub CLI, does file operations and settings from instructions (`cp`, `omp config set`), and runs `eval` cells. Model: Haiku 5.5 xhigh.
+- `code_writer`: alone creates and changes code and configuration: program source, scripts, tests, SQL queries and migrations, JSON, YAML, TOML and other configuration and data files, schemas, and build and CI files. Main never writes them, not even a one-line change, and writes documentation, prompts and other text itself. Model: Haiku 5.5 medium.
+- `shell_runner`: alone runs programs: tests, builds, linters and type checks, project scripts, dependency installs, apps and servers, model runs such as `omp -p`, and experiments. Main itself reads state (`git status`, `git diff`, `git log`, `git show`, `ls`, `cmp`, `omp config get`, `omp config list`, `omp config path`), runs git and GitHub CLI, does file operations and settings from instructions (`cp`, `omp config set`), and runs `eval` cells. Model: Haiku 5.5 medium.
 - `spotty`: blind reviewer for small work and the gates that name it. Model: Haiku 5.5 low.
 - `smarty`: blind reviewer for large work. Model: Haiku 5.5 medium.
 - `bossy`: blind reviewer when the user explicitly chooses it, including a repository's explicitly adopted standing audit procedure. Model: Sonnet 5.5 low.
