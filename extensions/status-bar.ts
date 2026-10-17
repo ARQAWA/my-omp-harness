@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { InteractiveMode, SEGMENTS, StatusLineComponent } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-import { getMarkdownTheme, Markdown, shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
+import { shimmerEnabled, shimmerText, visibleWidth } from "@oh-my-pi/pi-tui";
 import { fitLine } from "./cursor-feed/fit";
 import { hasBlockedItem, onTodoChange, todoPanelLines } from "./cursor-feed/panel";
 import { enabled } from "./cursor-feed/state";
@@ -40,10 +40,6 @@ interface ActionSlot {
 // Process-global: the action state of every agent, keyed by agent id.
 const ACTION = Symbol.for("my-omp-harness.current-action");
 const actions = ((globalThis as Record<symbol, unknown>)[ACTION] ??= { states: new Map<string, ActionState>() }) as ActionSlot;
-
-// Process-global: set by the decisions plugin while it processes the owner's message before sending it.
-const DECISIONS = Symbol.for("my-omp-harness.decisions-processing");
-const decisions = ((globalThis as Record<symbol, unknown>)[DECISIONS] ??= { active: false }) as { active: boolean; pending?: string; refresh?: () => void };
 
 // Process-global: the blocked flag last published to herdr, so each herdr:blocked true has one false across module reloads.
 const HERDR_BLOCKED = Symbol.for("my-omp-harness.herdr-blocked");
@@ -258,7 +254,7 @@ function animates(state: ActionState): boolean {
 
 // The render ticker runs only while some Planning row is shown and the shimmer is on: ~30fps. Otherwise each state change requests one render.
 function refreshAction(): void {
-	const animate = shimmerEnabled() && (decisions.active || [...actions.states.values()].some(animates));
+	const animate = shimmerEnabled() && [...actions.states.values()].some(animates);
 	if (animate && actions.timer === undefined) {
 		actions.timer = setInterval(() => tui?.requestRender?.(), THINKING_FRAME_MS);
 		actions.timer.unref?.();
@@ -288,9 +284,8 @@ function waitingText(agents: number, jobs: number): string {
 /** The current-action row of an agent: a circle and the phrase while it runs a tool, a shimmering Planning phrase while it plans; empty otherwise. */
 export function currentActionLines(agentId: string, width: number, theme: any): string[] {
 	const main = agentId === latest?.agent?.id;
-	// Main's action state is stale once its turn has ended; the decisions check runs before a turn starts, so it still shows.
+	// Main's action state is stale once its turn has ended.
 	const phrase = main && turnStart === undefined ? undefined : phraseOf(actions.states.get(agentId));
-	if (phrase?.tool !== true && decisions.active && main) return [fitLine(shimmerText("Processing session decisions", theme), width)];
 	if (phrase === undefined && main && runningAgents + runningJobs > 0) {
 		return [fitLine(`${theme.fg("warning", GLYPH.circle)} ${waitingText(runningAgents, runningJobs)}`, width)];
 	}
@@ -499,26 +494,6 @@ function contextLine(width: number, theme: any, textColor: string): string {
 	return fitLine(line, width);
 }
 
-/** The grey Markdown card of the owner's message that the decisions plugin holds before sending; kept while its text stays the same. */
-interface PlateCache {
-	plate?: { text: string; markdown: Markdown };
-}
-
-/** The owner's message the decisions plugin holds before sending, laid out like the native user message. */
-function pendingPlate(cache: PlateCache, text: string, width: number): string[] {
-	let plate = cache.plate;
-	if (plate === undefined || plate.text !== text) {
-		const markdown = new Markdown(text, 1, 1, getMarkdownTheme(), {
-			bgColor: value => `\x1b[48;2;58;56;54m${value}\x1b[49m`,
-			color: value => `\x1b[38;2;182;182;181m${value}\x1b[39m`,
-		});
-		markdown.setIgnoreTight(true);
-		plate = { text, markdown };
-		cache.plate = plate;
-	}
-	return plate.markdown.render(width).map(line => fitLine(line, width));
-}
-
 const BLOCKER_TEXT = "Waiting resolve blocker";
 let blockerTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -548,9 +523,9 @@ function syncBlockerTicker(on: boolean): void {
 	}
 }
 
-/** True when Main is idle with a blocked to-do item, no owner message on the decisions check, and no running agent or job. */
+/** True when Main is idle with a blocked to-do item and no running agent or job. */
 function mainBlocked(): boolean {
-	return hasBlockedItem() && turnStart === undefined && !decisions.active && runningAgents + runningJobs === 0;
+	return hasBlockedItem() && turnStart === undefined && runningAgents + runningJobs === 0;
 }
 
 /** Sends the Main blocked state to herdr when it differs from the last one sent, so every true gets one false. */
@@ -593,7 +568,6 @@ function resetMain(ctx: any): void {
 }
 
 function showTitle(ctx: any) {
-	const plateCache: PlateCache = {};
 	ctx.ui.setWidget(
 		TITLE,
 		(_tui, theme) => (tui = _tui, {
@@ -623,9 +597,7 @@ function showTitle(ctx: any) {
 				const current = currentActionLines(focus ?? ctx.agent.id, width, theme);
 				syncBlockerTicker(blocked);
 				const action = blocked ? [blockerLine(width)] : current;
-				const pending = focus === undefined ? decisions.pending : undefined;
-				const plate = typeof pending === "string" && pending !== "" ? pendingPlate(plateCache, pending, width) : [];
-				const rows = [...plate, ...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
+				const rows = [...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
 				if (focus !== undefined) {
 					rows.push(fitLine(theme.fg("error", "alt+x alt+x stops this agent"), width));
 				}
@@ -642,7 +614,6 @@ function showTitle(ctx: any) {
 
 export default function statusBar(pi: ExtensionAPI) {
 	piApi = pi;
-	decisions.refresh = refreshAction;
 	onTodoChange(() => {
 		syncBlocked();
 		tui?.requestRender?.();

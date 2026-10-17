@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const AI_CONTROL = Symbol.for("my-omp-harness.behavior.ai");
 const GREP_CONTROL = Symbol.for("my-omp-harness.behavior.grep");
 const PROGRESS = Symbol.for("my-omp-harness.progress");
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -89,14 +88,6 @@ export async function grep(options) {
 	throw new Error("pi-natives grep is not stubbed for behavior checks");
 }
 `,
-	"@oh-my-pi/pi-ai": String.raw`
-export async function completeSimple(model, context) {
-	const control = globalThis[Symbol.for("my-omp-harness.behavior.ai")];
-	control.calls.push({ model: model.id, system: context.systemPrompt });
-	if (control.queue.length === 0) throw new Error("completeSimple called without a queued answer");
-	return { content: [{ type: "text", text: control.queue.shift() }] };
-}
-`,
 };
 const stubUrl = specifier => `data:text/javascript,${encodeURIComponent(STUBS[specifier])}`;
 
@@ -149,7 +140,6 @@ async function loadModules(base) {
 		tools: await load("extensions/cursor-feed/tools.ts"),
 		harness: (await load("extensions/harness.ts")).default,
 		todo: (await load("extensions/todo.ts")).default,
-		decisions: (await load("extensions/decisions.ts")).default,
 		results: (await load("extensions/results.ts")).default,
 	};
 }
@@ -699,89 +689,6 @@ async function todoChecks(check, { todo, base }) {
 	});
 }
 
-async function decisionChecks(check, { decisions }) {
-	const ai = { queue: [], calls: [] };
-	globalThis[AI_CONTROL] = ai;
-	const DECISION = "Approved decision: Chosen rule";
-	const FINAL = `yes\n\n${DECISION}`;
-	const PROPOSAL = {
-		role: "assistant",
-		content: [{ type: "text", text: "Proposal: Chosen rule or Other rule. Reply with the option." }],
-		stopReason: "stop",
-		timestamp: 1,
-	};
-	const OWNER = { role: "user", content: "yes", timestamp: 2 };
-	const FILTER = JSON.stringify({ decision: true });
-	const RECORD = JSON.stringify({ changes: [{ op: "add", text: "Chosen rule", quote: "yes", confirmed: "Chosen rule" }] });
-	const bindDecisions = () => {
-		const api = fakeApi();
-		decisions(api.api);
-		return api;
-	};
-	const ctxOf = branch => ({
-		agent: { kind: "main", id: "main", name: "main", depth: 0 },
-		mode: "tui",
-		cwd: ".",
-		hasUI: true,
-		abort() {},
-		ui: { notify() {} },
-		modelRegistry: {
-			find: (_provider, id) => ({ id }),
-			getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-key", headers: {} }),
-		},
-		sessionManager: { getBranch: () => branch, getSessionId: () => "decisions-session", getSessionFile: () => null },
-	});
-	const reset = (...answers) => {
-		ai.calls.length = 0;
-		ai.queue.splice(0, ai.queue.length, ...answers);
-	};
-
-	await check("decisions: an approved proposal is saved with its message and replays without a new check", async () => {
-		const d = bindDecisions();
-		const branch = [{ type: "message", message: PROPOSAL }];
-		const ctx = ctxOf(branch);
-		d.api.appendEntry = (customType, data) => {
-			branch.push({ type: "custom", customType, data });
-		};
-		reset(FILTER, RECORD);
-		await fire(d, "session_start", {}, ctx);
-		const [sent] = await contextOf(d, ctx, [OWNER]);
-		assert.equal(textOf(sent), FINAL);
-		assert.equal(ai.calls.length, 2);
-		const saved = branch.at(-1);
-		assert.equal(saved.customType, "my-omp-harness.decisions");
-		assert.equal(saved.data.finalText, FINAL);
-		assert.equal(typeof saved.data.messageKey, "string");
-		branch.push({ type: "message", message: OWNER });
-		await fire(d, "session_switch", {}, ctx);
-		const [replayed] = await contextOf(d, ctx, [OWNER]);
-		assert.equal(textOf(replayed), FINAL);
-		assert.equal(ai.calls.length, 2);
-	});
-
-	await check("decisions: a legacy registry without saved message keys still lists its decisions and is not rechecked", async () => {
-		const d = bindDecisions();
-		const branch = [
-			{ type: "message", message: PROPOSAL },
-			{ type: "message", message: OWNER },
-			{
-				type: "custom",
-				customType: "my-omp-harness.decisions",
-				data: {
-					registry: [{ id: "D1", text: "Chosen rule", quote: "yes", confirmed: "Chosen rule", cancelled: false }],
-					applied: [{ op: "add", id: "D1", text: "Chosen rule", confirmed: "Chosen rule" }],
-				},
-			},
-		];
-		const ctx = ctxOf(branch);
-		reset();
-		await fire(d, "session_start", {}, ctx);
-		const out = await contextOf(d, ctx, [OWNER]);
-		assert.equal(ai.calls.length, 0);
-		assert.match(textOf(out.at(-1)), /D1\. Chosen rule/);
-	});
-}
-
 async function resultsChecks(check, { results }) {
 	await check("results: a reused subagent's new answer replaces the cached one", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "results-answer-"));
@@ -828,7 +735,6 @@ export async function runBehaviorChecks(root) {
 		await rowChecks(check, env);
 		await harnessChecks(check, env);
 		await todoChecks(check, env);
-		await decisionChecks(check, env);
 		await resultsChecks(check, env);
 	} finally {
 		hooks.deregister?.();

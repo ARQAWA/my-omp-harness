@@ -13,7 +13,7 @@ and `dependencies` fields), `bun.lock`, `extensions/harness.ts` with the
 `extensions/diagram.ts`, `extensions/cursor-feed.ts` with modules in
 `extensions/cursor-feed/`,
 `extensions/write.ts`, `extensions/edit.ts`, `extensions/bash.ts`,
-`extensions/todo.ts`, `extensions/results.ts`, `extensions/decisions.ts`, `skills/` and
+`extensions/todo.ts`, `extensions/results.ts`, `skills/` and
 `agents/`. omp loads a directory from the
 `extensions` list in `config.yml` as a whole: it takes the extensions from its
 `package.json` and finds `skills/` and `agents/` next to it. The dependency of
@@ -246,33 +246,6 @@ in the OS temporary folder, which the system cleans. Root Main writes briefs for
   CLEAN, and gives the result briefly: what is done and whether the checks
   passed. In plan mode and with an active or paused goal, the command only shows
   a notice.
-- `decisions.ts` keeps a flat list of the owner's decisions for root Main in
-  the TUI. The native steering queue keeps messages as usual. Immediately
-  before a Main request, the awaited context hook checks new owner messages
-  in that request; adding a message to the queue does not start the check.
-  During the check, the message hangs over the input field as a grey plate
-  with the normal message's Markdown layout and one filled blank row above
-  and below the text, and the action row says "Processing session decisions".
-  Claude Haiku 5.5 with
-  low reasoning first answers whether the message may change a decision; only
-  then Claude Sonnet 5.5 with low reasoning returns the changes: add, replace or
-  cancel, each with the owner's exact words. Both calls get the list, the text
-  conversation since the last change and the new message, without prompt
-  caching and without a time limit. The list goes to the session JSONL and to a
-  Markdown file next to it (`<session>.decisions.md`); a replaced decision shows
-  "(вместо: …)", a cancelled one "— отменено". A decision taken from an
-  approved agent proposal adds the line "Approved decision: …" to the owner's
-  message in the request context. The originating message key and final text
-  are saved with the registry so the line survives session restore without
-  another model check. Existing registry entries without those fields stay
-  valid; their unsaved per-message suffix is not guessed.
-  The extension does not send the message again.
-  Before every Main request,
-  the list stands at the end of the context with the rule that only the owner
-  changes it. A checked message is not checked again on later requests.
-  If a call fails, the request stops before sending and an error shows;
-  omp keeps undelivered messages for editing or retry. `/decisions` opens the Markdown file in
-  Sublime Text.
 
 Clear Communication: Main starts a chat message with a bold sentence carrying
 the main point and puts the question at the end. Usually it is one paragraph of
