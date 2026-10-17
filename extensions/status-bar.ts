@@ -218,7 +218,9 @@ function patchStatusLine() {
 		const placeAndJobs = jobs ? (place ? `${place} ${dot} ${jobs}` : jobs) : place;
 		// Drop omp's blank gap row so the context bar sits right under the input.
 		const textColor = theme.getFgAnsi("text");
-		const right1 = rateCaptured;
+		const count = (contextSession()?.sessionManager?.getEntries?.() ?? []).reduce((completed: number, entry: { type?: unknown }) => completed + (entry.type === "compaction" ? 1 : 0), 0);
+		const label = theme.fg("muted", `cmp ${count}`);
+		const right1 = [label, rateCaptured].filter(Boolean).join(` ${dot} `);
 		const row1 = rowLeftRight(model, right1, width);
 		const row2 = rowLeftRight(placeAndJobs, [gitText, prText].filter(Boolean).join(" "), width);
 		const rows = [contextLine(width, theme, textColor), row1];

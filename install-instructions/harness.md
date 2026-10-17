@@ -461,7 +461,11 @@ one-cell Nerd Font users glyph U+F0C0); at its right edge the generation speed
 counter as the built-in `composer.tokenRate`, which is turned off, updates it
 every 80 ms during a turn, keeps the last value between turns, puts the theme's
 speed icon right in front of the number and colors it: below 30 tok/s red,
-below 60 yellow, below 90 pale green, otherwise bright green). Status row 2 holds, left
+below 60 yellow, below 90 pale green, otherwise bright green). To the left
+of the speed, the muted `cmp N` label counts the viewed session's saved completed
+compactions, including zero; a dot separates it from the speed. The count is
+restored when the session is reopened and stays visible without a dot when
+there is no speed. Status row 2 holds, left
 to right, the folder, the collab and stream indicators and the count of hidden
 background jobs; at its right edge the git branch with its change count and
 the PR. The extension takes the right segments from the line above the input
