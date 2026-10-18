@@ -17,6 +17,8 @@ export interface Spec {
 	role: Role;
 	model: string;
 	thinking: string;
+	/** Model and thinking without Anthropic credentials; default gpt-6-luna medium. */
+	fallback?: { model: string; thinking: string };
 }
 
 /** Reads agents/<name>.md: front matter as key-value lines, the body as the role prompt. */
@@ -34,13 +36,13 @@ export function loadRole(name: string): Role {
 
 const keyOf = (spec: Spec) => `${spec.role.name}|${spec.model}|${spec.thinking}`;
 
-// Without Anthropic credentials, Anthropic roles run on gpt-6-luna at medium effort.
+// Without Anthropic credentials, Anthropic roles run on their fallback, by default gpt-6-luna at medium effort.
 const FALLBACK = { model: "openai-codex/gpt-6-luna", thinking: "medium" };
 
 function effective(spec: Spec, ctx: ExtensionContext): Spec {
 	if (!spec.model.startsWith("anthropic/")) return spec;
 	const model = ctx.modelRegistry.find("anthropic", spec.model.slice("anthropic/".length));
-	return model && ctx.modelRegistry.hasConfiguredAuth(model) ? spec : { ...spec, ...FALLBACK };
+	return model && ctx.modelRegistry.hasConfiguredAuth(model) ? spec : { ...spec, ...(spec.fallback ?? FALLBACK) };
 }
 
 // Idle warm sessions and sessions still being created, per launch target.
