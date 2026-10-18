@@ -144,7 +144,13 @@ export function launch(pi: ExtensionAPI, label: string, work: () => Promise<stri
 		)
 		.then(message => {
 			if (mainWaiting) undelivered.push(message);
-			else pi.sendMessage({ customType: "subagent-result", content: message, display: true }, { deliverAs: "aside", triggerTurn: true });
+			else {
+				try {
+					pi.sendMessage({ customType: "subagent-result", content: message, display: true }, { deliverAs: "aside", triggerTurn: true });
+				} catch {
+					// Main's session is already gone; nobody is left to read the final.
+				}
+			}
 		})
 		.finally(() => running.delete(done));
 	running.add(done);
@@ -156,8 +162,11 @@ export async function collectAtStop(): Promise<string[]> {
 	if (running.size === 0 && undelivered.length === 0) return [];
 	mainWaiting = true;
 	try {
-		if (undelivered.length === 0) await Promise.race(running);
-		return undelivered.splice(0);
+		// omp cuts a session_stop handler at 30 s, so wait at most 25 s and continue Main for another wait.
+		if (undelivered.length === 0) await Promise.race([...running, Bun.sleep(25_000)]);
+		const finals = undelivered.splice(0);
+		if (finals.length > 0 || running.size === 0) return finals;
+		return [`${running.size} subagent task(s) still running. End your response without tool calls; each final wakes you.`];
 	} finally {
 		mainWaiting = false;
 	}
@@ -172,5 +181,5 @@ export async function disposeAll(): Promise<void> {
 
 /** Result of a launch tool call. */
 export function started(id: string) {
-	return { content: [{ type: "text" as const, text: `Started ${id}. Its final arrives as a message starting with [${id}]; keep working meanwhile.` }] };
+	return { content: [{ type: "text" as const, text: `Started ${id}. Its final arrives as a message starting with [${id}]. Keep working; when nothing else is left, end your response without tool calls and the final wakes you. Never poll.` }] };
 }

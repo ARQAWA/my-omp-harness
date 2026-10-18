@@ -18,7 +18,7 @@
       "./extensions/subagents.ts",
       "./extensions/tools/code_writer/index.ts",
       "./extensions/tools/shell_runner/index.ts",
-      "./extensions/tools/explore/index.ts",
+      "./extensions/tools/codebase_explorer/index.ts",
       "./extensions/tools/review/index.ts",
       "./extensions/tools/custom/index.ts"
     ]
