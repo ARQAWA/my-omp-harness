@@ -22,7 +22,8 @@ applied on top of it:
 - context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
   `<agent-dir>/models.yml`: 700 000 tokens for all GPT models (GPT-6.1 Sol,
   GPT-6 Sol, GPT-6 Luna, GPT-5.6 Luna), all Claude models (Opus 5.5, Sonnet 5.5,
-  Haiku 5.5) and DeepSeek V4.1 Flash 1017;
+  Haiku 5.5) and DeepSeek V4.1 Flash 1017; the file also pins DeepSeek V4.1 Flash
+  1017 on OpenRouter to the Baseten provider (`compat.openRouterRouting.only`);
 - keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
   `<agent-dir>/keybindings.yml`: it frees shift+↑ (the built-in
   `app.message.dequeue` stays on alt+↑) so that it switches the model, and

@@ -21,3 +21,6 @@ providers:
     modelOverrides:
       deepseek/deepseek-v4.1-flash-1017:
         contextWindow: 700000
+        compat:
+          openRouterRouting:
+            only: [baseten]

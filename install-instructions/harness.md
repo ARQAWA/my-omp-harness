@@ -467,7 +467,7 @@ notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
-DeepSeek V4.1 Flash 1017 (OpenRouter), Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.1 Sol,
+DeepSeek V4.1 Flash 1017 (OpenRouter, pinned to Baseten), Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.1 Sol,
 GPT-6 Sol, GPT-6 Luna, GPT-5.6 Luna, Claude Haiku 5.5. A reasoning level above the
 new model's cap moves to the nearest lower supported level.
 `harness.ts` makes ctrl and alt shortcuts work on non-Latin layouts: in a
@@ -535,7 +535,7 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
   omp bash tool or Git Bash.
 - Provider credentials:
   - `openai-codex` for GPT;
-  - `openrouter` for DeepSeek (an API key; the provider must not be in `disabledProviders`);
+  - `openrouter` for DeepSeek, served only by Baseten (an API key; the provider must not be in `disabledProviders`);
   - `anthropic` for Claude and for all named agents under any parent.
 - Global `config.yml` values; the other keys are kept:
   - `extensions` contains the clone path.
