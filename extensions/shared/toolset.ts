@@ -6,7 +6,8 @@ const EXTRA = ["eval", "lsp", "ast_grep"] as const;
 const ALL_BASE = process.env.OMPLITE_TOOLS === "base";
 
 // Subagent tools are Main's only; a subagent keeps the tools its role file lists.
-export const SUBAGENT_TOOLS = ["code_writer", "shell_runner", "codebase_explorer", "review", "custom"];
+// OMPLITE_EXPLORER=off removes codebase_explorer for the A/B bench.
+export const SUBAGENT_TOOLS = ["code_writer", "shell_runner", ...(process.env.OMPLITE_EXPLORER === "off" ? [] : ["codebase_explorer"]), "review", "custom"];
 export const BASE_TOOLS = ["read", "grep", "glob", "bash", "edit", "write", ...(ALL_BASE ? EXTRA : ["load_tools"]), ...SUBAGENT_TOOLS];
 export const LOADABLE_TOOLS = EXTRA;
 

@@ -1,6 +1,6 @@
 // Subagent runtime: role files, a pool of warm sessions, and non-blocking delivery of finals to Main.
 import type { AgentSession, ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import { createAgentSession, SessionManager } from "@oh-my-pi/pi-coding-agent";
+import { createAgentSession, SessionManager, settings } from "@oh-my-pi/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -19,6 +19,8 @@ export interface Spec {
 	thinking: string;
 	/** Model and thinking without Anthropic credentials; default gpt-6-luna medium. */
 	fallback?: { model: string; thinking: string };
+	/** Model and thinking used first whenever its provider has credentials. */
+	prefer?: { model: string; thinking: string };
 }
 
 /** Reads agents/<name>.md: front matter as key-value lines, the body as the role prompt. */
@@ -39,18 +41,22 @@ const keyOf = (spec: Spec) => `${spec.role.name}|${spec.model}|${spec.thinking}`
 // Without Anthropic credentials, Anthropic roles run on their fallback, by default gpt-6-luna at medium effort.
 const FALLBACK = { model: "openai-codex/gpt-6-luna", thinking: "medium" };
 
-function effective(spec: Spec, ctx: ExtensionContext): Spec {
-	if (!spec.model.startsWith("anthropic/")) return spec;
-	const model = ctx.modelRegistry.find("anthropic", spec.model.slice("anthropic/".length));
-	return model && ctx.modelRegistry.hasConfiguredAuth(model) ? spec : { ...spec, ...(spec.fallback ?? FALLBACK) };
+// "provider/id" refs; the id may itself contain slashes.
+function hasAuth(ref: string, ctx: ExtensionContext): boolean {
+	const at = ref.indexOf("/");
+	const model = ctx.modelRegistry.find(ref.slice(0, at), ref.slice(at + 1));
+	return model !== undefined && ctx.modelRegistry.hasConfiguredAuth(model);
 }
 
-// Idle warm sessions and sessions still being created, per launch target.
-const idle = new Map<string, AgentSession[]>();
-const starting = new Map<string, Promise<AgentSession>[]>();
-// Sessions that ran a task: the next task starts from a clean history.
-const used = new WeakSet<AgentSession>();
-const all = new Set<AgentSession>();
+function effective(spec: Spec, ctx: ExtensionContext): Spec {
+	if (spec.prefer && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
+	if (!spec.model.startsWith("anthropic/") || hasAuth(spec.model, ctx)) return spec;
+	return { ...spec, ...(spec.fallback ?? FALLBACK) };
+}
+
+// omp loads every extension file with its own import tag, so each extension gets its own copy of this module; the state lives on globalThis so all copies share it.
+// idle: warm sessions per launch target. starting: sessions still being created, per target. used: sessions that ran a task, so the next task starts from a clean history. all: every session, for disposeAll. running: launches in flight. undelivered: finals not yet delivered. mainWaiting: Main is waiting for finals at its stop. counter: task id sequence. sessions: agent id sequence.
+const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0 });
 
 async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> {
 	const model = spec.model === "" ? ctx.model : undefined;
@@ -65,14 +71,17 @@ async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> 
 		sessionManager: SessionManager.inMemory(ctx.cwd),
 		taskDepth: 1,
 		agentName: spec.role.name,
+		agentId: `${spec.role.name}-${++state.sessions}`,
 		appendSystemPrompt: spec.role.prompt,
 		hasUI: false,
 		cacheWarming: false,
 		autoTitle: false,
 		enableMCP: false,
 		enableLsp: spec.role.tools?.includes("lsp") === true,
+		// A preferred model fails fast, so runTask can rerun the task on the regular model.
+		settings: spec.prefer && spec.model === spec.prefer.model ? settings.overlay({ "retry.enabled": false }) : undefined,
 	});
-	all.add(session);
+	state.all.add(session);
 	return session;
 }
 
@@ -82,14 +91,14 @@ export function prestart(target: Spec, ctx: ExtensionContext): void {
 	const key = keyOf(spec);
 	const promise = create(spec, ctx);
 	promise.catch(() => {});
-	starting.set(key, [...(starting.get(key) ?? []), promise]);
+	state.starting.set(key, [...(state.starting.get(key) ?? []), promise]);
 }
 
 async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> {
 	const key = keyOf(spec);
-	const warm = idle.get(key)?.pop();
+	const warm = state.idle.get(key)?.pop();
 	if (warm) return warm;
-	const early = starting.get(key)?.shift();
+	const early = state.starting.get(key)?.shift();
 	if (early) {
 		try {
 			return await early;
@@ -99,19 +108,28 @@ async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession>
 }
 
 /** Runs one task on a warm session of the target and returns the subagent's last message. */
-export async function runTask(target: Spec, text: string, ctx: ExtensionContext): Promise<string> {
+async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; failed: boolean }> {
 	const spec = effective(target, ctx);
 	const session = await acquire(spec, ctx);
 	try {
 		// A reused session keeps its system prompt and tools; only the previous task's history goes.
-		if (used.has(session)) await session.newSession();
-		used.add(session);
+		if (state.used.has(session)) await session.newSession();
+		state.used.add(session);
 		await session.prompt(text);
 		await session.waitForIdle();
-		return session.getLastAssistantText()?.trim() || "(the subagent returned no text)";
+		const failed = session.getLastAssistantMessage()?.stopReason === "error";
+		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", failed };
 	} finally {
-		idle.set(keyOf(spec), [...(idle.get(keyOf(spec)) ?? []), session]);
+		state.idle.set(keyOf(spec), [...(state.idle.get(keyOf(spec)) ?? []), session]);
 	}
+}
+
+/** Runs one task; if the preferred model fails, reruns the task once on the spec without prefer. */
+export async function runTask(target: Spec, text: string, ctx: ExtensionContext): Promise<string> {
+	const onPreferred = target.prefer !== undefined && effective(target, ctx).model === target.prefer.model;
+	const first = await runOnce(target, text, ctx);
+	if (!first.failed || !onPreferred) return first.text;
+	return (await runOnce({ ...target, prefer: undefined }, text, ctx)).text;
 }
 
 /** Every file's current content, for a task that would otherwise start by reading them. */
@@ -128,22 +146,16 @@ export async function fileBlocks(paths: string[], cwd: string): Promise<string> 
 	return blocks.join("\n");
 }
 
-// Finals not yet delivered, launches still running, and whether Main is waiting for them at its stop.
-const running = new Set<Promise<void>>();
-const undelivered: string[] = [];
-let mainWaiting = false;
-let counter = 0;
-
 /** Starts a task without blocking Main; its final reaches Main as a message. Returns the task id. */
 export function launch(pi: ExtensionAPI, label: string, work: () => Promise<string>): string {
-	const id = `${label}#${++counter}`;
+	const id = `${label}#${++state.counter}`;
 	const done: Promise<void> = work()
 		.then(
 			text => `[${id}] ${text}`,
 			error => `[${id}] failed: ${error instanceof Error ? error.message : String(error)}`,
 		)
 		.then(message => {
-			if (mainWaiting) undelivered.push(message);
+			if (state.mainWaiting) state.undelivered.push(message);
 			else {
 				try {
 					pi.sendMessage({ customType: "subagent-result", content: message, display: true }, { deliverAs: "aside", triggerTurn: true });
@@ -152,31 +164,31 @@ export function launch(pi: ExtensionAPI, label: string, work: () => Promise<stri
 				}
 			}
 		})
-		.finally(() => running.delete(done));
-	running.add(done);
+		.finally(() => state.running.delete(done));
+	state.running.add(done);
 	return id;
 }
 
 /** At Main's stop: waits for the first running task when nothing is pending, and returns the finals to continue with. */
 export async function collectAtStop(): Promise<string[]> {
-	if (running.size === 0 && undelivered.length === 0) return [];
-	mainWaiting = true;
+	if (state.running.size === 0 && state.undelivered.length === 0) return [];
+	state.mainWaiting = true;
 	try {
 		// omp cuts a session_stop handler at 30 s, so wait at most 25 s and continue Main for another wait.
-		if (undelivered.length === 0) await Promise.race([...running, Bun.sleep(25_000)]);
-		const finals = undelivered.splice(0);
-		if (finals.length > 0 || running.size === 0) return finals;
-		return [`${running.size} subagent task(s) still running. End your response without tool calls; each final wakes you.`];
+		if (state.undelivered.length === 0) await Promise.race([...state.running, Bun.sleep(25_000)]);
+		const finals = state.undelivered.splice(0);
+		if (finals.length > 0 || state.running.size === 0) return finals;
+		return [`${state.running.size} subagent task(s) still running. End your response without tool calls; each final wakes you.`];
 	} finally {
-		mainWaiting = false;
+		state.mainWaiting = false;
 	}
 }
 
 export async function disposeAll(): Promise<void> {
-	await Promise.all([...all].map(session => session.dispose().catch(() => {})));
-	all.clear();
-	idle.clear();
-	starting.clear();
+	await Promise.all([...state.all].map(session => session.dispose().catch(() => {})));
+	state.all.clear();
+	state.idle.clear();
+	state.starting.clear();
 }
 
 /** Result of a launch tool call. */
