@@ -597,7 +597,8 @@ function showTitle(ctx: any) {
 				const current = currentActionLines(focus ?? ctx.agent.id, width, theme);
 				syncBlockerTicker(blocked);
 				const action = blocked ? [blockerLine(width)] : current;
-				const rows = [...action, ...(action.length > 0 ? [""] : []), ...todoPanelLines(width)];
+				// The action row and the blank row after it always take their place, so the chrome below the transcript keeps one height and omp never clips transcript rows when an action starts or ends.
+				const rows = [...(action.length > 0 ? action : [""]), "", ...todoPanelLines(width)];
 				if (focus !== undefined) {
 					rows.push(fitLine(theme.fg("error", "alt+x alt+x stops this agent"), width));
 				}

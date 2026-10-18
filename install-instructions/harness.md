@@ -343,11 +343,7 @@ erases the terminal history, including the text that was in the window before
 omp started. In herdr, about 0.4 s after that redraw at the end of a Main turn,
 the extension sends the herdr client SIGWINCH without a size change, so herdr
 repaints the whole terminal as on a resize; it skips this while the input field
-has text and runs it at most once in 5 s. omp 18.10 keeps the lowest height
-of the rows below the transcript and cuts transcript rows when the to-do panel
-and the action row stay taller, so 0.3 s after the end of a Main turn and after
-Ctrl+O the extension resets that height to the real one and the cut rows return
-to the history in order. A `task` call is a card: the header "Running 2 agents · 1 done" or
+has text and runs it at most once in 5 s. A `task` call is a card: the header "Running 2 agents · 1 done" or
 "3 agents finished · 1 failed · 4m 10s", then two rows per subagent: its status
 circle, name and agent type, followed by its indented live action with a
 light sheen. That second row has no circle and ends as "Completed", "Stopped"
@@ -385,9 +381,10 @@ comes from the owner's settings from [omp.md](omp.md):
 `hideThinkingBlock: true`.
 
 One widget directly above the input draws, top to bottom, the current action
-if present, one blank row after it, the todo panel and the session title/ID
-row; omp's divider and input follow. The action and blank row disappear
-together when no action is active. The collapsed panel has no header and
+row, one blank row after it, the todo panel and the session title/ID
+row; omp's divider and input follow. The action row stays blank when no
+action is active, so the widget keeps its height and omp does not cut
+transcript rows when an action starts or ends. The collapsed panel has no header and
 shows up to four tasks across all stages: the previous, the current and the
 next two. Near the end it shifts back to keep four tasks visible; fewer tasks
 use fewer rows. The panel draws from the harness's own committed list, not from
