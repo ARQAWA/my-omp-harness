@@ -4,6 +4,7 @@ import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 export function triggerTokens(id: string): number | undefined {
 	if (/claude-/i.test(id)) return 450_000;
 	if (/(?:^|[/.])gpt-\d/i.test(id)) return 450_000;
+	if (/deepseek-/i.test(id)) return 450_000;
 	return undefined;
 }
 

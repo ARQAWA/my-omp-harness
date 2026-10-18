@@ -34,8 +34,8 @@ a fork, so `omp update` keeps working.
   context on its server, Anthropic for Claude and OpenAI for GPT, with omp's
   text summary as the fallback; the summary starts in the background before
   the threshold, so the turn never waits for it. Main's autocompaction
-  threshold is 450 000 tokens at a 700 000 context window for all Claude and
-  all GPT models.
+  threshold is 450 000 tokens at a 700 000 context window for all Claude, all
+  GPT and the DeepSeek model.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
   and `write`, replacement edits and `todo` run in parallel with other calls.

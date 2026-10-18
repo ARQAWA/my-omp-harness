@@ -5,6 +5,10 @@ providers:
         contextWindow: 700000
       gpt-6-luna:
         contextWindow: 700000
+      gpt-6-sol:
+        contextWindow: 700000
+      gpt-5.6-luna:
+        contextWindow: 700000
   anthropic:
     modelOverrides:
       claude-opus-5-5:
@@ -12,4 +16,8 @@ providers:
       claude-sonnet-5-5:
         contextWindow: 700000
       claude-haiku-5-5:
+        contextWindow: 700000
+  openrouter:
+    modelOverrides:
+      deepseek/deepseek-v4.1-flash-1017:
         contextWindow: 700000

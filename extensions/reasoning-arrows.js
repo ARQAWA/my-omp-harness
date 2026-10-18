@@ -1,12 +1,17 @@
 export const ORDER = ["off", "low", "medium", "high", "xhigh", "max"];
 
+// Highest effort each model accepts; levels above it are not offered.
+const CAPS = { "anthropic/claude-opus-5-5": "high", "anthropic/claude-sonnet-5-5": "xhigh" };
+
 // off exists for Sonnet 5.5 (between_tools) and Haiku 5.5 (thinking disabled).
 export function levelsFor(model) {
+  const cap = CAPS[`${model?.provider}/${model?.id}`];
   return ORDER.filter(level =>
-    level === "off"
+    (cap === undefined || ORDER.indexOf(level) <= ORDER.indexOf(cap)) &&
+    (level === "off"
       ? model?.compat?.supportsBetweenToolsThinking === true ||
         (model?.provider === "anthropic" && model?.id === "claude-haiku-5-5")
-      : model?.thinking?.efforts?.includes(level),
+      : model?.thinking?.efforts?.includes(level)),
   );
 }
 

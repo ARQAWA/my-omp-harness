@@ -21,7 +21,8 @@ applied on top of it:
   they draw is in this font and takes one cell;
 - context windows: a copy of [`settings/models.yml`](../settings/models.yml) at
   `<agent-dir>/models.yml`: 700 000 tokens for all GPT models (GPT-6.1 Sol,
-  GPT-6 Luna) and all Claude models (Opus 5.5, Sonnet 5.5, Haiku 5.5);
+  GPT-6 Sol, GPT-6 Luna, GPT-5.6 Luna), all Claude models (Opus 5.5, Sonnet 5.5,
+  Haiku 5.5) and DeepSeek V4.1 Flash 1017;
 - keys: a copy of [`settings/keybindings.yml`](../settings/keybindings.yml) at
   `<agent-dir>/keybindings.yml`: it frees shift+↑ (the built-in
   `app.message.dequeue` stays on alt+↑) so that it switches the model, and
@@ -108,9 +109,9 @@ and reasoning with the shift arrows is part of the [harness package](harness.md)
    omp config set hideThinkingBlock true
    omp config set proseOnlyThinking false
    omp config set omitThinking false
-   omp config set enabledModels '["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-luna","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","anthropic/claude-haiku-5-5"]'
+   omp config set enabledModels '["openrouter/deepseek/deepseek-v4.1-flash-1017","anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-haiku-5-5"]'
    omp config set modelRoles '{"default":"anthropic/claude-sonnet-5-5:high"}'
-   omp config set disabledProviders '["openrouter"]'
+   omp config set disabledProviders '[]'
    omp config set browser.enabled true
    omp config set computer.enabled true
    omp config set task.agentIdleTtlMs 120000

@@ -95,7 +95,7 @@ assert.ok(models.length > 0, 'model-arrows.js: MODELS');
 const windowed = new Set();
 let provider = '', model = '';
 for (const line of read('settings/models.yml').split('\n')) {
-  const key = line.match(/^( {2}| {6})([\w.-]+):$/);
+  const key = line.match(/^( {2}| {6})([\w./-]+):$/);
   if (key?.[1].length === 2) provider = key[2];
   else if (key) model = key[2];
   if (/^ {8}contextWindow:/.test(line)) windowed.add(`${provider}/${model}`);

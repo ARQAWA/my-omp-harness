@@ -1,10 +1,13 @@
-import { levelsFor } from "./reasoning-arrows.js";
+import { levelsFor, ORDER } from "./reasoning-arrows.js";
 export const MODELS = [
+  "openrouter/deepseek/deepseek-v4.1-flash-1017",
   "anthropic/claude-opus-5-5",
   "anthropic/claude-sonnet-5-5",
-  "anthropic/claude-haiku-5-5",
   "openai-codex/gpt-6.1-sol",
+  "openai-codex/gpt-6-sol",
   "openai-codex/gpt-6-luna",
+  "openai-codex/gpt-5.6-luna",
+  "anthropic/claude-haiku-5-5",
 ];
 
 export default function (pi) {
@@ -21,9 +24,13 @@ export default function (pi) {
         const model = ctx.models.resolve(MODELS[next]);
         if (!model) return;
         await pi.setModel(model);
-        // A level the new model lacks (e.g. off) moves to its lowest supported level.
+        // A level the new model lacks or caps moves to the nearest lower supported level, or the lowest.
         const levels = levelsFor(model);
-        if (levels.length && !levels.includes(pi.getThinkingLevel())) pi.setThinkingLevel(levels[0]);
+        const current = ORDER.indexOf(pi.getThinkingLevel());
+        if (levels.length && !levels.includes(pi.getThinkingLevel())) {
+          const lower = levels.filter(level => ORDER.indexOf(level) <= current);
+          pi.setThinkingLevel(lower.at(-1) ?? levels[0]);
+        }
       },
     });
   }

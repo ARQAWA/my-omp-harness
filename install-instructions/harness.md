@@ -447,8 +447,8 @@ reasoning level. The rows have no turn timer; the completed turn keeps
 "Worked …" above the input. In a subagent view the rows use its model, speed
 and context.
 The layout and segments are set by [omp.md](omp.md). `autocompaction.ts` sets
-Main's autocompaction threshold: 450 000 tokens for all Claude and all GPT
-models at their 700 000 context window from [omp.md](omp.md), if the threshold
+Main's autocompaction threshold: 450 000 tokens for all Claude, all GPT and
+the DeepSeek model at their 700 000 context window from [omp.md](omp.md), if the threshold
 is below the context window.
 
 Context compaction is omp's own, set by the step 4 keys of [omp.md](omp.md).
@@ -467,7 +467,9 @@ notepad, `context_notes` and `new_context`; `compaction.supersedeReads false`
 and `compaction.dropUseless false` turn off trimming of tool outputs.
 
 `model-arrows.js`: shift+↑ and shift+↓ switch Main's model through the list
-Claude Opus 5.5, Claude Sonnet 5.5, Claude Haiku 5.5, GPT-6.1 Sol, GPT-6 Luna.
+DeepSeek V4.1 Flash 1017 (OpenRouter), Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.1 Sol,
+GPT-6 Sol, GPT-6 Luna, GPT-5.6 Luna, Claude Haiku 5.5. A reasoning level above the
+new model's cap moves to the nearest lower supported level.
 `harness.ts` makes ctrl and alt shortcuts work on non-Latin layouts: in a
 terminal with the kitty protocol or CSI u, ctrl or alt with a Russian letter
 arrives as that letter, and the extension turns it into the Latin key of the
@@ -488,7 +490,7 @@ message, for example with a subagent's result, while the goal is paused,
 `harness.ts` tells Main in a hidden message to resume it with its first call,
 the `goal` tool with op `resume`. shift+↑ works thanks to `keybindings.yml` from [omp.md](omp.md).
 `reasoning-arrows.js`: shift+← and shift+→ lower and raise reasoning among the
-levels the model supports; `off` is added as the no-reasoning level: for Sonnet 5.5 it is
+levels the model supports, capped at `high` for Opus 5.5 and at `xhigh` for Sonnet 5.5; `off` is added as the no-reasoning level: for Sonnet 5.5 it is
 `between_tools` with effort medium, for Haiku 5.5 thinking is turned off
 (`thinking: disabled`) with effort high; the request hook sets them on send.
 
@@ -533,6 +535,7 @@ Every cycle ends with one clean pass. The agents' models are in the table above.
   omp bash tool or Git Bash.
 - Provider credentials:
   - `openai-codex` for GPT;
+  - `openrouter` for DeepSeek (an API key; the provider must not be in `disabledProviders`);
   - `anthropic` for Claude and for all named agents under any parent.
 - Global `config.yml` values; the other keys are kept:
   - `extensions` contains the clone path.
