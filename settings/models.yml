@@ -24,3 +24,5 @@ providers:
         compat:
           openRouterRouting:
             only: [baseten]
+      cognitivecomputations/dolphin-mistral-24b-venice-edition:
+        contextWindow: 128000

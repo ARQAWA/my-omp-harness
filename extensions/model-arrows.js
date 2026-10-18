@@ -1,6 +1,5 @@
 import { levelsFor, ORDER } from "./reasoning-arrows.js";
 export const MODELS = [
-  "openrouter/deepseek/deepseek-v4.1-flash-1017",
   "anthropic/claude-opus-5-5",
   "anthropic/claude-sonnet-5-5",
   "openai-codex/gpt-6.1-sol",
@@ -8,6 +7,8 @@ export const MODELS = [
   "openai-codex/gpt-6-luna",
   "openai-codex/gpt-5.6-luna",
   "anthropic/claude-haiku-5-5",
+  "openrouter/deepseek/deepseek-v4.1-flash-1017",
+  "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition",
 ];
 
 export default function (pi) {
