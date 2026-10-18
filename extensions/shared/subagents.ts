@@ -34,6 +34,15 @@ export function loadRole(name: string): Role {
 
 const keyOf = (spec: Spec) => `${spec.role.name}|${spec.model}|${spec.thinking}`;
 
+// Without Anthropic credentials, Anthropic roles run on gpt-6-luna at medium effort.
+const FALLBACK = { model: "openai-codex/gpt-6-luna", thinking: "medium" };
+
+function effective(spec: Spec, ctx: ExtensionContext): Spec {
+	if (!spec.model.startsWith("anthropic/")) return spec;
+	const model = ctx.modelRegistry.find("anthropic", spec.model.slice("anthropic/".length));
+	return model && ctx.modelRegistry.hasConfiguredAuth(model) ? spec : { ...spec, ...FALLBACK };
+}
+
 // Idle warm sessions and sessions still being created, per launch target.
 const idle = new Map<string, AgentSession[]>();
 const starting = new Map<string, Promise<AgentSession>[]>();
@@ -66,7 +75,8 @@ async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> 
 }
 
 /** Starts one session for the target in the background, so its first task skips session setup. */
-export function prestart(spec: Spec, ctx: ExtensionContext): void {
+export function prestart(target: Spec, ctx: ExtensionContext): void {
+	const spec = effective(target, ctx);
 	const key = keyOf(spec);
 	const promise = create(spec, ctx);
 	promise.catch(() => {});
@@ -87,7 +97,8 @@ async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession>
 }
 
 /** Runs one task on a warm session of the target and returns the subagent's last message. */
-export async function runTask(spec: Spec, text: string, ctx: ExtensionContext): Promise<string> {
+export async function runTask(target: Spec, text: string, ctx: ExtensionContext): Promise<string> {
+	const spec = effective(target, ctx);
 	const session = await acquire(spec, ctx);
 	try {
 		// A reused session keeps its system prompt and tools; only the previous task's history goes.

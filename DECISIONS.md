@@ -54,7 +54,8 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - `lsp` and `ast_grep` are wrappers (`extensions/tools/lsp/`, `extensions/tools/ast_grep/`) with our descriptions: when each beats grep, and to call it in the first wave. `load_tools` lists each loadable tool by the jobs it does exactly, and says to load in the first response. `eval` names the jobs computed over many files.
 - bench24 (10 tool-shaped tasks, 1 run, stock descriptions): the model never called `load_tools`.
 - bench25 (A/B, all four runs at the same time, gpt-6-sol low, 2 runs each; `OMPLITE_TOOLS=load` vs `base` in `extensions/shared/toolset.ts`). Tool tasks: load 31.5 s avg / 28.1 median, special tools used in 15 of 20 runs (16 `load_tools` calls); base 32.1 / 31.7, 18 of 20. T01-T07: load 31.4 / 27.1, no special tool used, quality 89.0; base 37.8 / 35.9, `lsp` called in all 14 runs without need, quality 90.2 (fallback judge). Decision: keep `load` (the default): the tools come in where they help and stay out of ordinary search, which they slowed by 6 s.
-- Subagents (`task`, `extensions/tools/task/`) are the next stage and are not registered yet.
+- Subagents are tools, one per role: `code_writer`, `shell_runner`, `explore`, `review` (`level` light|blind|high picks the model), `custom` (user: «чтобы каждый саб-агент был как инструмент»). They run on own omp SDK sessions (`extensions/shared/subagents.ts`), not omp's `task`: one warm session per role starts with Main, a reused session gets `newSession()` before the next task, and its system prompt and tools stay the same. A call returns an id at once; the final arrives as a message, and Main waits for a running final only at its own stop. Role prompts live in `agents/*.md`; the brief and trust rules live in the tool descriptions. Commands `/lightreview`, `/blindreview`, `/highreview`.
+- Models: code_writer and shell_runner Haiku 5.5 medium; review light Haiku low, blind Haiku medium, high Sonnet 5.5 low; explore on Main's model at medium. Without Anthropic credentials (`modelRegistry.hasConfiguredAuth`), every Anthropic role runs on `openai-codex/gpt-6-luna` at medium (user: «если авторизация anthropic доступна, то haiku. если нет, то luna 6 medium»).
 
 ## Todo
 
@@ -77,7 +78,7 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 
 ## Other settings
 
-- Subagents stay disabled (`task.disabledAgents`).
+- omp's built-in subagents stay disabled (`task.disabledAgents`).
 - Startup profile, not yet changed: `buildSessionOptions` 164 ms, `loadCachedStandardModels` 73 ms, first `rediscoverRules` 104 ms; omp-lite reaches the first request in about 1.7 s versus Pi's 0.9 s.
 
 ## Code mode of read
