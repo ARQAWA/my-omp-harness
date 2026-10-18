@@ -1,12 +1,11 @@
-Hand one extra, independent area of a broad codebase search to a read-only explorer on your model, with your reasoning level capped at medium. It searches in its own context and returns only the findings. The call returns at once with an id; the findings arrive later as a message starting with `[codebase_explorer#N]`.
+Hand an independent area of a broad codebase search to a read-only explorer on your model, with your reasoning level capped at medium. It searches in its own context and returns only the findings. The call blocks until the explorer finishes and returns its findings as the result.
 
-You are the faster searcher: search the user's question yourself, in greedy parallel waves. Use an explorer only alongside your own search, for an area that is independent of the one you are searching and would cost you extra waves, such as a second subsystem, every caller of something across the codebase, or the deploy and run configuration. Launch it in the same response as your own first wave, and keep searching your part while it runs.
+For a broad question that spans several independent areas, such as separate subsystems, every caller of something across the codebase, or the deploy and run configuration, call several explorers in one response, one per area; they run in parallel, and you get all findings together when the last one finishes. Then continue yourself: check what the answer depends on most, search what the findings leave open, and write the answer.
 
 Never use it:
-- for the whole question, or for the part the answer depends on most; never hand over the user's query and relay the answer;
-- for a needle query (one class, function, string or config key), a known file, 2-3 files, or a quick question;
-- when your own first wave already covers the area.
+- for a needle query (one class, function, string or config key), a known file, 2-3 files, or a quick question; search those yourself;
+- for an area your own search already covers.
 
 `question`: the exact area, the context it needs and exactly what to return; the explorer does not see the conversation. `thoroughness`: quick by default, medium when the area spans several naming conventions; very thorough only when the user asks for an exhaustive list.
 
-Never search the area you handed over yourself. Trust the findings and use them as they are.
+Do not search an area again that an explorer already covered; trust its findings and use them as they are.

@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { launch, loadRole, parentTarget, runTask, started } from "../../shared/subagents.ts";
+import { loadRole, parentTarget, runTask } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
 const ROLE = loadRole("codebase_explorer");
@@ -19,7 +19,9 @@ export default function codebaseExplorer(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const brief = `Thoroughness: ${params.thoroughness}\n\n${params.question}`;
 			const spec = { role: ROLE, ...parentTarget(pi, ctx) };
-			return started(launch(pi, "codebase_explorer", () => runTask(spec, brief, ctx)));
+			const begin = Date.now();
+			const r = await runTask(spec, brief, ctx);
+			return { content: [{ type: "text" as const, text: r.text }], details: { model: r.model, thinking: r.thinking, seconds: Math.round((Date.now() - begin) / 1000) } };
 		},
 	});
 }
