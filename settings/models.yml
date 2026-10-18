@@ -25,7 +25,8 @@ providers:
         contextWindow: 700000
         compat:
           openRouterRouting:
-            only: [baseten]
+            order: [inference-net, baseten]
+            only: [inference-net, baseten]
       cognitivecomputations/dolphin-mistral-24b-venice-edition:
         contextWindow: 136192
     models:
