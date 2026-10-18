@@ -35,8 +35,8 @@ a fork, so `omp update` keeps working.
   text summary as the fallback; the summary starts in the background before
   the threshold, so the turn never waits for it. Main's autocompaction
   threshold is 450 000 tokens at a 700 000 context window for all Claude, all
-  GPT and the DeepSeek model; other models, such as Venice: Uncensored, keep
-  omp's default threshold (the window minus a 15% reserve).
+  GPT and the DeepSeek model; for Venice: Uncensored it is 108 800 tokens at
+  its 136 192 context window.
 - **Tools at least as strong as Cursor's.** Reads and searches return up to
   100 000 characters without forcing rereads, subagent answers arrive in full,
   and `write`, replacement edits and `todo` run in parallel with other calls.

@@ -449,8 +449,8 @@ and context.
 The layout and segments are set by [omp.md](omp.md). `autocompaction.ts` sets
 Main's autocompaction threshold: 450 000 tokens for all Claude, all GPT and
 the DeepSeek model at their 700 000 context window from [omp.md](omp.md), if the threshold
-is below the context window. Other models, such as Venice: Uncensored, keep omp's default
-threshold: the context window minus a 15% reserve.
+is below the context window. For Venice: Uncensored it sets 108 800 tokens at its 136 192
+context window from [omp.md](omp.md).
 
 Context compaction is omp's own, set by the step 4 keys of [omp.md](omp.md).
 `compaction.methodOrder` `["remote", "soft"]`: `remote` is the provider's

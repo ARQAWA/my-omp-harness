@@ -27,7 +27,7 @@ providers:
           openRouterRouting:
             only: [baseten]
       cognitivecomputations/dolphin-mistral-24b-venice-edition:
-        contextWindow: 128000
+        contextWindow: 136192
     models:
       - id: cognitivecomputations/dolphin-mistral-24b-venice-edition
         name: "Venice: Uncensored"
@@ -36,5 +36,5 @@ providers:
         input: [text]
         supportsTools: false
         cost: { input: 0.2, output: 0.9, cacheRead: 0, cacheWrite: 0 }
-        contextWindow: 128000
+        contextWindow: 136192
         maxTokens: 8192
