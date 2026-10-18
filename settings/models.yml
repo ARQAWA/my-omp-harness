@@ -18,6 +18,8 @@ providers:
       claude-haiku-5-5:
         contextWindow: 700000
   openrouter:
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: OPENROUTER_API_KEY
     modelOverrides:
       deepseek/deepseek-v4.1-flash-1017:
         contextWindow: 700000
@@ -26,3 +28,13 @@ providers:
             only: [baseten]
       cognitivecomputations/dolphin-mistral-24b-venice-edition:
         contextWindow: 128000
+    models:
+      - id: cognitivecomputations/dolphin-mistral-24b-venice-edition
+        name: "Venice: Uncensored"
+        api: openai-completions
+        reasoning: false
+        input: [text]
+        supportsTools: false
+        cost: { input: 0.2, output: 0.9, cacheRead: 0, cacheWrite: 0 }
+        contextWindow: 128000
+        maxTokens: 8192
