@@ -1,5 +1,18 @@
 {
   "name": "my-omp-harness-lite",
   "private": true,
-  "omp": { "extensions": ["./extensions/harness.ts", "./extensions/cursor/index.ts", "./extensions/write.ts", "./extensions/edit.ts", "./extensions/bash.ts", "./extensions/eval.ts", "./extensions/autocompaction.ts"] }
+  "omp": {
+    "extensions": [
+      "./extensions/harness.ts",
+      "./extensions/autocompaction.ts",
+      "./extensions/tools/read/index.ts",
+      "./extensions/tools/grep/index.ts",
+      "./extensions/tools/glob/index.ts",
+      "./extensions/tools/bash/index.ts",
+      "./extensions/tools/edit/index.ts",
+      "./extensions/tools/write/index.ts",
+      "./extensions/tools/eval/index.ts",
+      "./extensions/tools/load_tools/index.ts"
+    ]
+  }
 }

@@ -1,17 +1,14 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Text } from "@oh-my-pi/pi-tui";
-import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { editDescription, editGrammar } from "@oh-my-pi/pi-natives";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { inFlight, lockKey } from "../../shared/locks.ts";
+import { nativeRenderers, unavailable } from "../../shared/native.ts";
+import description from "./description.md" with { type: "text" };
 
-const CLAUDE_DESCRIPTION =
-	"Replace exact text in files. Give path, old_string and new_string for one replacement, or edits: [{path, old_string, new_string, replace_all?}, …] for several replacements in one call, in one or many files. " +
-	"Edits of different files run in parallel; edits of one file apply in the given order, and after a failed edit the rest of that file's edits are skipped. " +
-	"A file that another edit or write is still changing is refused as busy, and the other files are still edited. " +
-	"old_string must identify one place in the file: add context, or set replace_all: true to replace every occurrence. Read a file before editing it. " +
-	"The result lists edited, busy, failed and skipped files; a failed edit shows the nearest matching lines with line numbers.";
+// Replace mode (description.md) for every model except GPT, which gets omp's apply_patch text and grammar.
+const REPLACE_DESCRIPTION = description.trim();
 
 type EditItem = { path: string; old_string: string; new_string: string; replace_all?: boolean };
 type Params = Partial<EditItem> & { input?: string; edits?: EditItem[] };
@@ -26,16 +23,6 @@ type FileRun = {
 	failedEdit?: number;
 	nearest?: string;
 };
-
-const fileLocks = Symbol.for("my-omp-harness.fileLocks");
-const lockStore = globalThis as unknown as Record<symbol, Set<string> | undefined>;
-const inFlight = (lockStore[fileLocks] ??= new Set<string>());
-
-function lockKey(path: string, cwd: string): string {
-	if (path.includes("://")) return path;
-	const absolute = resolve(cwd, path);
-	return process.platform === "win32" ? absolute.toLowerCase() : absolute;
-}
 
 function splitFileLines(text: string): string[] {
 	let body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -79,20 +66,6 @@ function nearestMatchText(relPath: string, oldString: string, cwd: string): stri
 	const out = [`Nearest match in ${relPath} (lines ${bestStart + 1}-${bestStart + n}):`];
 	for (let i = bestStart; i < bestStart + n; i++) out.push(`${i + 1}|${lines[i]!}`);
 	return out.join("\n");
-}
-
-/** The first line of the first text block of a tool result. */
-function firstTextLine(result: unknown): string {
-	const content =
-		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
-			? result.content
-			: [];
-	for (const block of content) {
-		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
-			return block.text.split("\n")[0] ?? "";
-		}
-	}
-	return "";
 }
 
 function cleanParams(raw: unknown): Params {
@@ -216,7 +189,7 @@ export default function (pi: ExtensionAPI) {
 		loadMode: "essential",
 		approval: "write",
 		get description() {
-			return gpt ? editDescription("apply_patch") : CLAUDE_DESCRIPTION;
+			return gpt ? editDescription("apply_patch") : REPLACE_DESCRIPTION;
 		},
 		get parameters() {
 			return gpt ? gptParameters : claudeParameters;
@@ -227,15 +200,11 @@ export default function (pi: ExtensionAPI) {
 		get customWireName() {
 			return gpt ? "apply_patch" : undefined;
 		},
-		concurrency: (args: { input?: unknown } | undefined) => (typeof args?.input === "string" ? "exclusive" : "shared"),
+		// Both modes lock each file they change and refuse a busy one, so edits of different files run in parallel.
+		concurrency: "shared",
 		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
 			const params = cleanParams(rawParams);
-			if (!ctx.invokeTool) {
-				return {
-					content: [{ type: "text" as const, text: "edit is not available to this agent." }],
-					isError: true,
-				};
-			}
+			if (!ctx.invokeTool) return unavailable("edit");
 			if (typeof params.input === "string") {
 				const sections = parsePatch(params.input);
 				if (!sections) return ctx.invokeTool!({ input: params.input }, { signal, onUpdate });
@@ -463,13 +432,6 @@ export default function (pi: ExtensionAPI) {
 				isError: runs.some(run => run.status !== "edited"),
 			};
 		},
-		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
-			const host = toolRenderers["edit"];
-			return host ? (host.renderCall(...args) as Component) : new Text("edit", 0, 0);
-		},
-		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
-			const host = toolRenderers["edit"];
-			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
-		},
+		...nativeRenderers("edit"),
 	});
 }

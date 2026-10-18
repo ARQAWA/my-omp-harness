@@ -1,7 +1,7 @@
-// Result text for the search tools, as Cursor's grep formatters, pagination, result cache and glob formatter produce it.
+// Result text of grep and glob: formatters, pagination, the result cache and the glob listing.
 import { basename, isAbsolute, relative, resolve } from "node:path";
 
-// Raised from Cursor's 15_000 / 5_000 to 50 KB in characters, Pi's output size, with no line cap (see DECISIONS.md).
+// 50 KB in characters, Pi's output size, with no line cap (see DECISIONS.md).
 export const GREP_CHAR_BUDGET = 51_200;
 export const GLOB_CHAR_BUDGET = 51_200;
 
@@ -68,14 +68,14 @@ export function toolText(text: string, isError = false): ToolText {
 	return isError ? { content: [{ type: "text", text }], details: undefined, isError: true } : { content: [{ type: "text", text }], details: undefined };
 }
 
-// Cursor's truncateOutput with frontAndBack: the first and last halves of the limit, joined by a marker.
+// The first and last halves of the limit, joined by a marker.
 export function truncateOutput(output: string, maxLength: number): string {
 	if (output.length <= maxLength) return output;
 	const half = Math.floor(maxLength / 2);
 	return `${output.substring(0, half)}\n\n... (output truncated) ...\n\n${output.substring(output.length - half)}`;
 }
 
-// Cursor's truncateLinesToCharBudget: joins lines, trims, and keeps whole lines that fit the budget.
+// Joins lines, trims, and keeps whole lines that fit the budget.
 function truncateLines(lines: string[], charBudget: number): { content: string; truncated: boolean; keptLines: number } {
 	const joined = lines.join("\n");
 	const content = joined.trim();
@@ -234,9 +234,9 @@ export function formatSearchResult(success: SearchSuccess): string {
 	return `<workspace_result workspace_path="${success.root}">\n${section}\n</workspace_result>\n`.trim();
 }
 
-// Model-facing text of a search error: the message cut twice, as Cursor's serializeError and resultToString do.
+// Model-facing text of a search error, cut to the budget.
 export function formatSearchError(message: string): string {
-	return `Error running tool: ${truncateOutput(truncateOutput(message, GREP_CHAR_BUDGET), GREP_CHAR_BUDGET)}`;
+	return `Error running tool: ${truncateOutput(message, GREP_CHAR_BUDGET)}`;
 }
 
 function paginateArray<T>(items: T[], offset: number, headLimit: number | undefined): { items: T[]; truncated: boolean } {
@@ -286,7 +286,7 @@ function paginateContent(value: ContentValue, offset: number, headLimit: number 
 	};
 }
 
-// Cursor's applyGrepPagination: head_limit and offset cut the page after the search ran.
+// head_limit and offset cut the page after the search ran.
 export function applyPagination(union: SearchUnion, offset: number, headLimit: number | undefined): SearchUnion {
 	if (offset === 0 && headLimit === undefined) return union;
 	const pageInfo = { headLimitApplied: headLimit, offsetApplied: offset > 0 ? offset : undefined };
@@ -332,7 +332,7 @@ export interface SearchKey {
 	context?: number;
 }
 
-// Cursor's GrepResultCache: the last five full (unpaginated) results, most recent first.
+// The last five full (unpaginated) results, most recent first.
 export class SearchResultCache {
 	private entries: { args: SearchKey; result: SearchSuccess }[] = [];
 
@@ -362,7 +362,7 @@ export interface GlobResult {
 	ripgrepTruncated: boolean;
 }
 
-// Cursor's mapGrepResultToGlobToolResult: file paths relative to the requested folder.
+// File paths relative to the requested folder.
 export function mapToGlob(success: SearchSuccess): GlobResult | undefined {
 	if (success.union.mode !== "files_with_matches") return undefined;
 	const value = success.union.value;
@@ -384,7 +384,7 @@ function truncationNotice(totalFiles: number, ripgrepTruncated: boolean): string
 	return `[Results truncated.${total} Narrow the search with a more specific target_directory or glob_pattern.]\n`;
 }
 
-// Cursor's formatFilesForGlob for a successful glob result.
+// Listing of a successful glob result.
 export function formatGlob(result: GlobResult, searchRoot: string): string {
 	const normalizedRoot = searchRoot.replace(/\/$/, "");
 	const files = normalizedRoot === "." ? result.files.map((file) => file.replace(/^\.\//, "")) : result.files;

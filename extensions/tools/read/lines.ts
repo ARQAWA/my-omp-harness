@@ -1,8 +1,8 @@
 import { ReadToolError } from "./errors.ts";
 
-// Cursor's READ_CHAR_HARD_LIMIT: longer output is replaced by a message that asks for offset and limit.
+// Longer output is replaced by a message that asks for offset and limit.
 export const READ_CHAR_HARD_LIMIT = 100_000;
-// Cursor's MAX_TEXT_SIZE: text is cut to this many characters before the line logic runs.
+// Text is cut to this many characters before the line logic runs.
 export const MAX_TEXT_SIZE = 8 * 1024 * 1024;
 
 export interface ReadRange {
@@ -20,7 +20,7 @@ function capText(text: string): string {
 	return text.length > MAX_TEXT_SIZE ? text.slice(0, MAX_TEXT_SIZE) : text;
 }
 
-// Cursor's streaming line reader over decoded text. A file whose line endings are at least 5% CRLF has its "\r"
+// Line reader over decoded text. A file whose line endings are at least 5% CRLF has its "\r"
 // removed from every line that ends with a newline. A negative offset takes the last |offset| lines.
 export function readTextRange(text: string, offset: number | undefined, limit: number | undefined): TextRead {
 	const parts = text.split("\n");
@@ -49,7 +49,7 @@ export function readTextRange(text: string, offset: number | undefined, limit: n
 	return { content: capText(lines.slice(start, end).join("\n")), totalLines, rangeApplied: true };
 }
 
-// Cursor's computeReadSlice: the lines an offset and limit select, or undefined when neither is given.
+// The lines an offset and limit select, or undefined when neither is given.
 export function computeReadSlice(
 	totalLines: number,
 	offset: number | undefined,
@@ -66,7 +66,7 @@ export function computeReadSlice(
 	return { start, end, readRange: { startLine: start + 1, endLine: end } };
 }
 
-// Cursor's formatCodeBlock without line numbers: the content, with a "not shown" line above and below the range.
+// The content without line numbers, with a "not shown" line above and below the range.
 export function formatReadCodeBlock(content: string, range: ReadRange, totalLines: number): string {
 	let result = content;
 	if (range.startLine <= 1 && range.endLine >= totalLines) return result;

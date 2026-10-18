@@ -1,37 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Text } from "@oh-my-pi/pi-tui";
-import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
-import { resolve } from "node:path";
-
-const DESCRIPTION =
-	"Create or overwrite files. Give path and content for one file, or files: [{path, content}, …] to write several files at once; " +
-	"they are written in parallel. A file that another write is still writing is refused as busy and the other files are still written; " +
-	"the result lists written, busy and failed files. Internal URLs work as in the built-in write: agent:// sends a message, " +
-	"local:// writes a session file, xd:// calls a tool device, and archive and SQLite paths write entries.";
-
-const fileLocks = Symbol.for("my-omp-harness.fileLocks");
-const lockStore = globalThis as unknown as Record<symbol, Set<string> | undefined>;
-const inFlight = (lockStore[fileLocks] ??= new Set<string>());
-
-function lockKey(path: string, cwd: string): string {
-	if (path.includes("://")) return path;
-	const absolute = resolve(cwd, path);
-	return process.platform === "win32" ? absolute.toLowerCase() : absolute;
-}
-
-/** The first line of the first text block of a tool result. */
-function firstTextLine(result: unknown): string {
-	const content =
-		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
-			? result.content
-			: [];
-	for (const block of content) {
-		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
-			return block.text.split("\n")[0] ?? "";
-		}
-	}
-	return "";
-}
+import { inFlight, lockKey } from "../../shared/locks.ts";
+import { nativeRenderers, unavailable } from "../../shared/native.ts";
+import description from "./description.md" with { type: "text" };
 
 export default function (pi: ExtensionAPI) {
 	const z = pi.zod;
@@ -42,19 +12,14 @@ export default function (pi: ExtensionAPI) {
 		loadMode: "essential",
 		concurrency: "shared",
 		approval: "write",
-		description: DESCRIPTION,
+		description: description.trim(),
 		parameters: z.object({
 			path: z.string().optional(),
 			content: z.string().optional(),
 			files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
 		}),
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			if (!ctx.invokeTool) {
-				return {
-					content: [{ type: "text" as const, text: "write is not available to this agent." }],
-					isError: true,
-				};
-			}
+			if (!ctx.invokeTool) return unavailable("write");
 			const filesGiven = params.files !== undefined && params.files.length > 0;
 			const singleGiven = params.path !== undefined && params.path !== "" && params.content !== undefined;
 			if (!filesGiven && !singleGiven && params.path !== undefined) {
@@ -111,13 +76,6 @@ export default function (pi: ExtensionAPI) {
 			const isError = runs.some(run => run.status !== "written");
 			return { content: [{ type: "text" as const, text: lines.join("\n") }], details: { files }, isError };
 		},
-		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
-			const host = toolRenderers["write"];
-			return host ? (host.renderCall(...args) as Component) : new Text("write", 0, 0);
-		},
-		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
-			const host = toolRenderers["write"];
-			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
-		},
+		...nativeRenderers("write"),
 	});
 }

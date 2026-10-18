@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { homedir } from "node:os";
+import { BASE_TOOLS, loaded } from "./shared/toolset.ts";
 
 const ENV_PROGRAMS = ["git", "node", "bun", "npm", "pnpm", "python3", "python", "cargo", "rustc", "go", "java", "docker", "gh", "rg", "fd", "jq", "make", "cmake"];
 const ENVIRONMENT = (() => {
@@ -10,9 +11,9 @@ const ENVIRONMENT = (() => {
 })();
 
 export default function harness(pi: ExtensionAPI) {
-	// Only the tools below are active; a name is kept only when omp lists it among all tools.
-	const KEEP = ["read", "grep", "glob", "bash", "edit", "write", "lsp", "ast_grep", "eval"];
+	// Only the base tools and the loaded ones are active; a name is kept only when omp lists it among all tools.
 	const syncTools = async () => {
+		const KEEP = [...BASE_TOOLS, ...loaded];
 		const active = await pi.getActiveTools();
 		const all = typeof pi.getAllTools === "function" ? ((await pi.getAllTools()) as (string | { name: string })[]) : undefined;
 		const known = all?.map(tool => (typeof tool === "string" ? tool : tool.name));

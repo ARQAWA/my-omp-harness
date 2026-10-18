@@ -1,7 +1,7 @@
-import { type ArgIssue, booleanLike, checkType, invalidArguments, optionalEnum, optionalLenientNumber, optionalString } from "../cursor-args.ts";
-import type { OutputMode } from "./format.ts";
+import type { OutputMode } from "../../shared/search/format.ts";
+import { type ArgIssue, booleanLike, checkType, invalidArguments, optionalEnum, optionalLenientNumber, optionalString } from "../../shared/validate.ts";
 
-export interface RgParams {
+export interface GrepParams {
 	pattern: string;
 	path?: string;
 	glob?: string;
@@ -18,9 +18,9 @@ export interface RgParams {
 
 const OUTPUT_MODES = ["content", "files_with_matches", "count"] as const;
 
-// Cursor's rg schema, read in its key order. pattern is required; the context and paging numbers are lenient; the two flags
-// accept boolean spellings, and a null or absent flag reads as false.
-export function parseRgArgs(params: unknown): { args: RgParams } | { error: string } {
+// pattern is required; the context and paging numbers are lenient; the two flags accept boolean spellings, and a null or
+// absent flag reads as false.
+export function parseGrepArgs(params: unknown): { args: GrepParams } | { error: string } {
 	const issues: ArgIssue[] = [];
 	if (!checkType(params, "object", [], issues)) return { error: invalidArguments(issues) };
 	const input = params as Record<string, unknown>;

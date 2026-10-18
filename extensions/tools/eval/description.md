@@ -1,0 +1,1 @@
+Never use eval to search or read code while gathering context; grep, glob and read do that in parallel. Use eval for computation, data processing, or many tool calls whose output must be filtered in code. An eval call runs alone: it waits for the calls before it and holds back the calls after it.

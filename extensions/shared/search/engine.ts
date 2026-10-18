@@ -1,10 +1,10 @@
-// Cursor's LocalGrepExecutor for one workspace, run on omp's Rust search engine (@oh-my-pi/pi-natives grep and glob)
-// instead of a ripgrep process: argument mapping, result grouping, newest-first ordering, and the path and worktree errors.
+// Workspace search for grep and glob on omp's Rust search engine (@oh-my-pi/pi-natives grep and glob), inside the omp
+// process: argument mapping, result grouping, newest-first ordering, and the path errors.
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { FileType, GrepOutputMode, glob as nativeGlob, grep as nativeGrep, type GrepMatch } from "@oh-my-pi/pi-natives";
-import { isInsideWorkspaceRoot, isPathWithin, resolvePath, resolveRealPathStrict } from "./paths.ts";
+import { isInsideWorkspaceRoot, resolvePath, resolveRealPathStrict } from "../paths.ts";
 import type { ContentMatch, FileMatch, OutputMode, SearchSuccess, SearchUnion } from "./format.ts";
 
 export interface SearchRequest {
@@ -20,7 +20,6 @@ export interface SearchRequest {
 	context?: number;
 }
 
-const WORKTREE_GUARD_ERROR = "You cannot search other worktrees for this repository, stay within your workspace paths.";
 const MAX_INT32 = 2_147_483_647;
 const MIN_INT32 = -2_147_483_648;
 const SORT_STAT_TIMEOUT_MS = 2000;
@@ -34,7 +33,7 @@ function clampInt32(value: number): number {
 	return Math.min(Math.max(value, MIN_INT32), MAX_INT32);
 }
 
-// Cursor's describeRegexParseError: names the pattern and the escape hint for unbalanced brackets.
+// A regex parse error names the pattern and, for unbalanced brackets, the escape hint.
 export function classifyRipgrepMessage(message: string, pattern?: string): string {
 	if (!message.toLowerCase().includes("regex parse error") || pattern === undefined) return message;
 	const reason = /^error: (.+)$/m.exec(message)?.[1];
@@ -44,23 +43,7 @@ export function classifyRipgrepMessage(message: string, pattern?: string): strin
 	return `${described} Escape special characters such as ( [ { with a backslash to match them literally.`;
 }
 
-// Cursor's shouldBlockWorktreePath with no main-worktree guard from the IDE: a worktree agent may not search its repo root.
-function isBlockedWorktreeTarget(cwd: string, rawPath: string | undefined): boolean {
-	if (rawPath === undefined) return false;
-	const normalizedCwd = cwd.replace(/\\/g, "/");
-	if (!normalizedCwd.includes(".cursor/worktrees")) return false;
-	if (isPathWithin(cwd, rawPath)) return false;
-	const marker = "/.cursor/worktrees/";
-	const markerIndex = normalizedCwd.indexOf(marker);
-	if (markerIndex === -1) return false;
-	const repoName = normalizedCwd.slice(markerIndex + marker.length).split("/")[0] ?? "";
-	if (repoName === "") return false;
-	const repoRoot = normalizedCwd.slice(0, markerIndex + marker.length + repoName.length);
-	const target = resolvePath(rawPath, cwd);
-	return isPathWithin(repoRoot, target);
-}
-
-// Cursor's search target: "." for the workspace root, a relative path inside it, or the absolute path outside.
+// Search target: "." for the workspace root, a relative path inside it, or the absolute path outside.
 function searchTargetFor(rawPath: string | undefined, cwd: string): string {
 	if (!rawPath) return ".";
 	const target = resolvePath(rawPath, cwd);
@@ -72,7 +55,7 @@ function isRootIndependentSearchPath(path: string): boolean {
 	return isAbsolute(path) || /^~(?=$|[/\\])/.test(path) || path.startsWith("file://");
 }
 
-// Cursor's sortNewestFirst: newest mtime first, ties by path; keeps the input order when the stats take too long.
+// Newest mtime first, ties by path; keeps the input order when the stats take too long.
 async function sortNewestFirst<T>(items: T[], pathOf: (item: T) => string): Promise<T[]> {
 	const keyed = Promise.all(
 		items.map(async (item) => {
@@ -133,7 +116,6 @@ function groupContent(matches: GrepMatch[], display: (path: string) => string): 
 }
 
 export async function searchWorkspace(request: SearchRequest, cwd: string, signal?: AbortSignal): Promise<SearchSuccess> {
-	if (isBlockedWorktreeTarget(cwd, request.path)) throw new Error(WORKTREE_GUARD_ERROR);
 	const rawPath = request.path === "" ? undefined : request.path;
 	const rgTarget = searchTargetFor(rawPath, cwd);
 	let outsideTarget: string | undefined;

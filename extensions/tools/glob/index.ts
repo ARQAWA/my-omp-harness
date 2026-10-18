@@ -1,18 +1,32 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@oh-my-pi/pi-coding-agent";
-import { type ArgIssue, checkType, invalidArguments, optionalString } from "./cursor-args.ts";
-import { declaration } from "./declarations.ts";
-import { formatGlob, GLOB_CHAR_BUDGET, mapToGlob, toolText, truncateOutput, type ToolText } from "./rg/format.ts";
-import { classifyRipgrepMessage, searchWorkspace } from "./rg/search.ts";
+import { classifyRipgrepMessage, searchWorkspace } from "../../shared/search/engine.ts";
+import { formatGlob, GLOB_CHAR_BUDGET, mapToGlob, toolText, truncateOutput, type ToolText } from "../../shared/search/format.ts";
+import { type ArgIssue, checkType, invalidArguments, optionalString, sortedSchema } from "../../shared/validate.ts";
+import description from "./description.md" with { type: "text" };
 
-const GLOB = declaration("Glob");
+const PARAMETERS = {
+	type: "object",
+	properties: {
+		glob_pattern: {
+			type: "string",
+			description:
+				'The glob pattern to match files against.\nPatterns not starting with "**/" are automatically prepended with "**/" to enable recursive searching.\n\nExamples:\n\t- "*.js" (becomes "**/*.js") - find all .js files\n\t- "**/node_modules/**" - find all node_modules directories\n\t- "**/test/**/test_*.ts" - find all test_*.ts files in any test directory',
+		},
+		target_directory: {
+			type: "string",
+			description: "Absolute path to directory to search for files in. If not provided, defaults to the workspace root.",
+		},
+	},
+	required: ["glob_pattern"],
+};
 
 interface GlobParams {
 	glob_pattern: string;
 	target_directory?: string;
 }
 
-// Cursor's Glob schema: target_directory is an optional string and glob_pattern a required one; unknown keys are dropped.
-export function parseGlobArgs(params: unknown): { args: GlobParams } | { error: string } {
+/** target_directory is an optional string and glob_pattern a required one; unknown keys are dropped. */
+function parseGlobArgs(params: unknown): { args: GlobParams } | { error: string } {
 	const issues: ArgIssue[] = [];
 	if (!checkType(params, "object", [], issues)) return { error: invalidArguments(issues) };
 	const input = params as Record<string, unknown>;
@@ -22,7 +36,7 @@ export function parseGlobArgs(params: unknown): { args: GlobParams } | { error: 
 	return { args: { glob_pattern: globPattern, target_directory: targetDirectory } };
 }
 
-// Cursor's normalizeGlob: forward slashes, no leading or trailing slash, and a **/ prefix unless present.
+/** Forward slashes, no leading or trailing slash, and a **\/ prefix unless present. */
 function normalizeGlob(glob: string): string {
 	let result = glob.replace(/\\/g, "/");
 	if (result.startsWith("/")) result = result.substring(1);
@@ -31,23 +45,22 @@ function normalizeGlob(glob: string): string {
 	return result;
 }
 
-export function register(pi: ExtensionAPI): void {
+export default function glob(pi: ExtensionAPI): void {
 	pi.registerTool({
-		// omp folds the name Glob into its built-in glob, so this tool replaces that built-in under its name.
 		name: "glob",
-		label: GLOB.name,
+		label: "glob",
 		loadMode: "essential",
+		concurrency: "shared",
 		strict: false,
-		description: GLOB.description,
-		parameters: GLOB.parameters as never,
+		description: description.trim(),
+		parameters: sortedSchema(PARAMETERS) as never,
 		execute: (_toolCallId, params, signal, _onUpdate, ctx) => executeGlob(params, signal, ctx),
 	});
 }
 
-export async function executeGlob(params: unknown, signal: AbortSignal | undefined, ctx: ExtensionToolContext): Promise<ToolText> {
+async function executeGlob(params: unknown, signal: AbortSignal | undefined, ctx: ExtensionToolContext): Promise<ToolText> {
 	const parsed = parseGlobArgs(params);
-	// Cursor's Glob reports an argument failure as its error text, cut twice and never classified.
-	if ("error" in parsed) return toolText(truncateOutput(truncateOutput(parsed.error, GLOB_CHAR_BUDGET), GLOB_CHAR_BUDGET), true);
+	if ("error" in parsed) return toolText(truncateOutput(parsed.error, GLOB_CHAR_BUDGET), true);
 	const args = parsed.args;
 	try {
 		const glob = normalizeGlob(args.glob_pattern);
@@ -62,7 +75,6 @@ export async function executeGlob(params: unknown, signal: AbortSignal | undefin
 		return toolText(formatGlob(result, result.path || "."));
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		// Cursor cuts the message in serializeError and again in the formatter.
-		return toolText(truncateOutput(truncateOutput(classifyRipgrepMessage(message), GLOB_CHAR_BUDGET), GLOB_CHAR_BUDGET), true);
+		return toolText(truncateOutput(classifyRipgrepMessage(message), GLOB_CHAR_BUDGET), true);
 	}
 }

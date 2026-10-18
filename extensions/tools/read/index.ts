@@ -1,67 +1,63 @@
 import { readFile, stat } from "node:fs/promises";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { declaration } from "./declarations.ts";
-import { parseReadFileArgs } from "./read-file/args.ts";
-import { ReadToolError } from "./read-file/errors.ts";
-import { computeReadSlice, formatReadCodeBlock, READ_CHAR_HARD_LIMIT, readTextRange } from "./read-file/lines.ts";
-import { resolveReadPath, resolveRealPath } from "./read-file/paths.ts";
 import { getEvalDocTopics } from "@oh-my-pi/pi-coding-agent/tools/eval";
-import { enclosingBlockBoundaries, summarizeCodeAsync } from "@oh-my-pi/pi-natives";
+import { enclosingBlockBoundaries } from "@oh-my-pi/pi-natives";
+import { resolvePath, resolveRealPathStrict } from "../../shared/paths.ts";
+import { sortedSchema } from "../../shared/validate.ts";
+import { parseReadArgs } from "./args.ts";
+import description from "./description.md" with { type: "text" };
+import { ReadToolError } from "./errors.ts";
+import { computeReadSlice, formatReadCodeBlock, READ_CHAR_HARD_LIMIT, readTextRange } from "./lines.ts";
 
-// Cursor's ReadFile for text files, with a greedy first read: a file without offset and limit comes back whole up to
-// FIRST_READ_LINES lines; a longer one returns its first lines and the offset to continue from.
-const READ_FILE = declaration("ReadFile");
+// A file read without offset and limit comes back whole up to this many lines; a longer one returns its first lines
+// and the offset to continue from. The number is also written in description.md.
 const FIRST_READ_LINES = 1000;
-// Images and PDF go to omp's built-in read, which this tool replaces under the same name.
+// A range in a code file grows to the enclosing blocks, at most this many lines each way.
+const EXPAND_REACH = 150;
+const CODE_EXTENSIONS = /\.(py|pyi|rs|go|java|kt|kts|scala|ts|tsx|js|jsx|mjs|cjs|c|h|cc|cpp|hpp|cs|rb|php|swift)$/i;
+// Images and PDF go to omp's native read, which this tool replaces under the same name.
 const NATIVE_READ_EXTENSIONS = /\.(png|jpe?g|gif|webp|pdf)$/i;
+const UNSUPPORTED_BINARY_EXTENSIONS = /\.(zip|tar|gz|exe|dll|so|dylib|bin|mp4|webm|mov|avi|mkv|wmv|flv|m4v)$/i;
 const INTERNAL_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
 // omp serves xd://eval/<topic> only for its built-in eval, so the eval wrapper's doc topics are served here.
 const EVAL_TOPIC = /^xd:\/\/eval\/([\w-]+)$/;
 const EVAL_TOPICS = getEvalDocTopics({ spawns: false, waitTool: false, eagerDelegation: false });
-// Probe switch: base = text read as Cursor; expand = code windows grow to enclosing blocks; map = expand plus an
-// outline for long code files read without a range.
-export const VARIANT = process.env.OMPLITE_VARIANT ?? "expand";
-const EXPAND = VARIANT !== "base";
-const MAP = VARIANT.startsWith("map");
-const CODE_EXTENSIONS = /\.(py|pyi|rs|go|java|kt|kts|scala|ts|tsx|js|jsx|mjs|cjs|c|h|cc|cpp|hpp|cs|rb|php|swift)$/i;
-const MAP_MIN_LINES = 200;
-const EXPAND_REACH = 150;
-const UNSUPPORTED_BINARY_EXTENSIONS = /\.(zip|tar|gz|exe|dll|so|dylib|bin|mp4|webm|mov|avi|mkv|wmv|flv|m4v)$/i;
 
-// Relative paths cost fewer output tokens than absolute ones; resolveReadPath already resolves them against the workspace.
-const PARAMETERS = structuredClone(READ_FILE.parameters) as { properties: { path: { description: string } } };
-PARAMETERS.properties.path.description = "Path of the file to read, relative to the workspace root (absolute paths also work).";
+const PARAMETERS = {
+	type: "object",
+	properties: {
+		path: { type: "string", description: "Path of the file to read, relative to the workspace root (absolute paths also work)." },
+		offset: {
+			type: "integer",
+			description:
+				"The line number to start reading from. Positive values are 1-indexed from the start of the file. Negative values count backwards from the end (e.g. -1 is the last line). Only provide if the file is too large to read at once.",
+		},
+		limit: { type: "integer", description: "The number of lines to read. Only provide if the file is too large to read at once." },
+	},
+	required: ["path"],
+};
 
-const DESCRIPTION =
-	`${READ_FILE.description}\n` +
-	`- Without offset and limit, a file of up to ${FIRST_READ_LINES} lines comes back whole; a longer file returns its first ${FIRST_READ_LINES} lines and the offset to continue from. ` +
-	"Read every file that may relate to the subject in one response." +
-	(EXPAND ? "\n- In code files a range grows to the enclosing function or block, so a window around a match shows the whole block." : "") +
-	(MAP
-		? `\n- A code file longer than ${MAP_MIN_LINES} lines read without offset and limit returns an outline: declarations and signatures with line numbers, bodies hidden. Read the bodies you need with offset and limit, all in one response. Config, docs and other text files come back whole.`
-		: "");
-
-export function register(pi: ExtensionAPI): void {
+export default function read(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "read",
 		label: "read",
 		loadMode: "essential",
+		concurrency: "shared",
 		strict: false,
-		description: DESCRIPTION,
-		parameters: PARAMETERS as never,
+		description: description.trim(),
+		parameters: sortedSchema(PARAMETERS) as never,
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const path = (params as { path?: unknown }).path;
 			const topic = typeof path === "string" ? EVAL_TOPIC.exec(path)?.[1] : undefined;
 			if (topic !== undefined && EVAL_TOPICS[topic] !== undefined) return text(EVAL_TOPICS[topic]);
 			if (typeof path === "string" && ctx.invokeTool !== undefined) {
-				// Internal URLs such as xd://eval/judge, which the eval description links to, are served only by omp's read.
+				// Internal URLs such as xd:// and local:// are served only by omp's native read.
 				if (INTERNAL_URL.test(path)) return ctx.invokeTool({ path }, { signal, onUpdate });
-				if (NATIVE_READ_EXTENSIONS.test(path)) return ctx.invokeTool({ path: resolveReadPath(path, ctx.cwd) }, { signal, onUpdate });
+				if (NATIVE_READ_EXTENSIONS.test(path)) return ctx.invokeTool({ path: resolvePath(path, ctx.cwd) }, { signal, onUpdate });
 			}
 			try {
 				return text(await readPath(params, ctx.cwd));
 			} catch (error) {
-				// Cursor sends every failure back as result text, prefixed with "Error: ".
 				return text(`Error: ${error instanceof Error ? error.message : String(error)}`, true);
 			}
 		},
@@ -73,13 +69,12 @@ function text(value: string, isError = false) {
 }
 
 async function readPath(params: unknown, cwd: string): Promise<string> {
-	const args = parseReadFileArgs(params);
+	const args = parseReadArgs(params);
 	if (args.path.trim() === "") throw new ReadToolError("path is empty or only whitespace");
 	const binary = UNSUPPORTED_BINARY_EXTENSIONS.exec(args.path);
 	if (binary !== null) throw new ReadToolError(`Cannot read binary files of type ${binary[1]!.toLowerCase()}`);
-	const file = resolveReadPath(args.path, cwd);
-	const real = await resolveRealPath(file);
-	if (real === null) throw new ReadToolError("Permission denied");
+	const file = resolvePath(args.path, cwd);
+	if ((await resolveRealPathStrict(file)) === null) throw new ReadToolError("Permission denied");
 	let bytes: Buffer;
 	try {
 		const info = await stat(file);
@@ -95,20 +90,14 @@ async function readPath(params: unknown, cwd: string): Promise<string> {
 	}
 	if (bytes.subarray(0, 8000).includes(0)) throw new ReadToolError(`File content is binary data, not text: ${args.path}`);
 	const content = bytes.toString("utf8");
-	if (CODE_EXTENSIONS.test(file)) {
-		if (MAP && args.offset === undefined && args.limit === undefined) {
-			const outline = await outlineOf(content, file);
-			if (outline !== undefined) return outline;
-		}
-		if (EXPAND && args.offset !== undefined && args.offset > 0) {
-			const grown = growToBlocks(content, file, args.offset, args.limit);
-			return render(content, grown.offset, grown.limit);
-		}
+	if (CODE_EXTENSIONS.test(file) && args.offset !== undefined && args.offset > 0) {
+		const grown = growToBlocks(content, file, args.offset, args.limit);
+		return render(content, grown.offset, grown.limit);
 	}
 	return render(content, args.offset, args.limit);
 }
 
-// Widen [offset, offset+limit) to the enclosing block boundaries tree-sitter reports, at most EXPAND_REACH lines each way.
+/** Widens [offset, offset+limit) to the enclosing block boundaries tree-sitter reports, at most EXPAND_REACH lines each way. */
 function growToBlocks(content: string, path: string, offset: number, limit: number | undefined) {
 	const total = content.split("\n").length;
 	const start = offset;
@@ -121,23 +110,6 @@ function growToBlocks(content: string, path: string, offset: number, limit: numb
 	const newStart = up.length ? Math.min(...up) : start;
 	const newEnd = down.length ? Math.max(...down) : end;
 	return { offset: newStart, limit: newEnd - newStart + 1 };
-}
-
-// Outline of a long code file: kept lines with their numbers, hidden bodies as line ranges.
-async function outlineOf(content: string, path: string): Promise<string | undefined> {
-	const total = content.split("\n").length;
-	if (total <= MAP_MIN_LINES) return undefined;
-	const summary = await summarizeCodeAsync({ code: content, path, minBodyLines: 4, unfoldUntilLines: 200 });
-	if (!summary.parsed || !summary.elided) return undefined;
-	const out: string[] = [];
-	for (const segment of summary.segments) {
-		if (segment.kind !== "kept") {
-			out.push(`     ... ${segment.startLine}-${segment.endLine} hidden`);
-			continue;
-		}
-		(segment.text ?? "").split("\n").forEach((line, i) => out.push(`${String(segment.startLine + i).padStart(5)}|${line}`));
-	}
-	return `[Outline of a ${total}-line file: bodies hidden; read them with offset and limit.]\n${out.join("\n")}`;
 }
 
 function render(content: string, offset: number | undefined, limit: number | undefined): string {

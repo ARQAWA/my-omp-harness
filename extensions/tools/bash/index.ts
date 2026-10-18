@@ -1,17 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { type Component, Text } from "@oh-my-pi/pi-tui";
-import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
-
-const BASH_DESCRIPTION =
-	"Persistent shell: one fact command/pipeline; dependencies use `&&`.\n" +
-	"Scripts/heredocs/`$(…)`/complex pipelines → `eval`.\n" +
-	"`cwd`, not `cd`; `pty` only interactive.\n" +
-	"Internal URIs work as paths for builtins/coreutils, redirects, globs.\n" +
-	"Without `timeout` a command has no deadline and is never killed, also in the background; set `timeout` in seconds to kill it after that time.\n" +
-	"`block_until_ms`: how long to wait for a non-`pty` command before it moves to background job `bg_N`; default 60000; 0 starts it in the background at once, like `async: true`. Its result arrives automatically as a follow-up message. NEVER poll.\n" +
-	"No `head`/`tail`/redirection; output trunc by default, full result at `artifact://<id>`.\n" +
-	"Long-lived services: unique name; ready requires name; no async/timeout; pty defaults true. ready needs log regex or port (both if given); host defaults 127.0.0.1, ready.timeout 30s.";
+import { nativeRenderers, unavailable } from "../../shared/native.ts";
+import description from "./description.md" with { type: "text" };
 
 type NativeResult = { content: { type: string; text?: string }[]; details?: unknown; isError?: boolean };
 type BashParams = {
@@ -28,20 +18,6 @@ type BashParams = {
 let current: number | undefined;
 let lastStart = 0;
 let gate: Promise<void> = Promise.resolve();
-
-/** The first line of the first text block of a tool result. */
-function firstTextLine(result: unknown): string {
-	const content =
-		typeof result === "object" && result !== null && "content" in result && Array.isArray(result.content)
-			? result.content
-			: [];
-	for (const block of content) {
-		if (typeof block === "object" && block !== null && "text" in block && typeof block.text === "string") {
-			return block.text.split("\n")[0] ?? "";
-		}
-	}
-	return "";
-}
 
 // GPT sends every optional field with an empty default; "" names and cwd, and a ready block with neither log nor port, count as absent.
 function cleanBashParams(raw: BashParams): BashParams {
@@ -89,8 +65,9 @@ export default function (pi: ExtensionAPI) {
 		label: "bash",
 		loadMode: "essential",
 		approval: "exec",
+		// A pty command owns the terminal for interactive input, so it runs alone.
 		concurrency: (args: { pty?: unknown } | undefined) => (args?.pty === true ? "exclusive" : "shared"),
-		description: BASH_DESCRIPTION,
+		description: description.trim(),
 		parameters: z.object({
 			command: z.string(),
 			timeout: z.number().optional().describe("seconds; omitted = no deadline"),
@@ -110,12 +87,7 @@ export default function (pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
 			const params = cleanBashParams(rawParams as BashParams);
-			if (!ctx.invokeTool) {
-				return {
-					content: [{ type: "text" as const, text: "bash is not available to this agent." }],
-					isError: true,
-				};
-			}
+			if (!ctx.invokeTool) return unavailable("bash");
 			const { block_until_ms: blockUntilMs, ...rest } = params;
 			const args: Record<string, unknown> = Object.fromEntries(
 				Object.entries(rest).filter(([, value]) => value !== undefined),
@@ -133,13 +105,6 @@ export default function (pi: ExtensionAPI) {
 			await setThreshold(Math.floor(blockUntilMs ?? 60000));
 			return ctx.invokeTool!(args, { signal, onUpdate }) as Promise<NativeResult>;
 		},
-		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
-			const host = toolRenderers["bash"];
-			return host ? (host.renderCall(...args) as Component) : new Text("bash", 0, 0);
-		},
-		renderResult: (...args: Parameters<ToolRenderer["renderResult"]>): Component => {
-			const host = toolRenderers["bash"];
-			return host ? (host.renderResult(...args) as Component) : new Text(firstTextLine(args[0]), 0, 0);
-		},
+		...nativeRenderers("bash"),
 	});
 }
