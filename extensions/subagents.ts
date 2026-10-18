@@ -8,7 +8,7 @@ const WARM = [
 	{ role: "explore", model: "", thinking: "medium" },
 ];
 
-const REVIEWS = { "light-review": "light", "blind-review": "blind", "high-review": "high" } as const;
+const REVIEWS = { lightreview: "light", blindreview: "blind", highreview: "high" } as const;
 
 export default function subagents(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
