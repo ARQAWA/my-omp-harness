@@ -5,7 +5,7 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 ## Scope
 
 - Work only on the `lite` branch of my-omp-harness, in its worktree `my-omp-harness-worktrees/lite`; the stand home is `~/stock-bench/omp-lite-home` and loads the package from that worktree. Never modify or bench `~/.omp` or the `master` branch; reading them is fine.
-- Only the functionality omp-lite already has. Search behaviour lives in tool descriptions and `SYSTEM.md`.
+- Only the functionality omp-lite already has, plus the interface transferred from the main harness. Search behaviour lives in tool descriptions and `SYSTEM.md`.
 - No Gold Standard and no Workflow Manifest principles ("everything agreed and nothing beyond", "heavy work only on request", "dig deeper only at a contested point", "shortest path"): they were written against GPT-5.6 over-engineering and fight greedy search. `harness.ts` appends only the environment line to the system prompt; `skills/gold-standard` is removed.
 - `SYSTEM.md` exists twice and must stay identical: `SYSTEM.md` of this branch and `omp-lite-home/.omp/agent/SYSTEM.md` (check with `cmp`).
 - Tool call arguments stay as they are.
@@ -65,6 +65,11 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - bench26 (explorer on vs off, at the same time, gpt-6-sol low, 2 runs each; Cursor-style description). T01-T07: on 65.2 s avg / 54.2 median, explorer in 10 of 14 runs, almost always `very thorough`, Main waiting on it; off 31.9 / 29.2. Pairwise judge (fallback `completion`, same prompt for both): on 74.4, off 83.9. Tool tasks: explorer never called, 33.0 / 31.4 vs 32.9 / 33.3. Startup with warm sessions 2.6 s, without 2.5-3.6 s: warm sessions do not delay the first request.
 - Decision: the explorer description is narrowed. Main is the faster searcher and searches the question itself; an explorer takes only an extra independent area alongside Main's own first wave, `quick` by default, never the whole question. bench27 (same setup): on 25.9 / 21.0, explorer in 2 of 14 runs, quality 78.7; off 26.9 / 23.1, quality 84.2. The quality gap also shows in runs where the explorer was not called (T03: 76/84 vs 90/87), so it is within the judge's noise at 2 runs. The explorer stays with the narrow description.
 - One explorer, `codebase_explorer` (user: «я хочу сделать только одного explorer, codebase explorer пусть он будет»), modeled on Cursor's Explore subagent: a faster model running many parallel searches in its own context and returning a summary, never raw files. Main decides itself when to launch it, by the tool description taken from Cursor's Task rules: broad questions across several areas go to the explorer, one explorer per independent area in one response; needle queries, known files and quick questions are searched directly; the whole user query is never handed over just to relay the answer. The launch result tells Main to end its response without tool calls when nothing else is left, instead of polling (a stand probe showed empty `bash` calls while waiting).
+
+## Interface
+
+- The interface of the main harness is transferred into `extensions/ui/` (user: "перевести весь интерфейс из My OMP Harness в наш Light"): `status-bar.ts`, `feed.ts` with `feed/*` (feed rows, live action, cards, hub, to-do panel), `model-arrows.js`, `reasoning-arrows.js`, `subagent-reuse.ts`; theme `settings/titanium-arq.json` and `settings/keybindings.yml`; the stand gets the theme, keys and the status-line settings of the main harness's install step 4. The feed is renamed from its old product-named folder. Tools and agent mechanics of the main harness (`todo`, `diagram`, `results`, `rg`, its write/edit/bash, subagent model policy) are not interface and are not transferred; todo stays off, so the to-do panel stays idle.
+- Warm subagent sessions are `idle` in omp's agent registry and `running` only during a task (`AgentRegistry.global().setStatus`). Reason: omp counts running registry agents in the status line, and right after start the transferred status bar showed three subagents and "Waiting for 3 subagents".
 
 ## Todo
 

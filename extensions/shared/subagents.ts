@@ -4,6 +4,8 @@ import { createAgentSession, SessionManager, settings } from "@oh-my-pi/pi-codin
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+// omp counts registry agents in "running" as working subagents; warm sessions wait as "idle".
+import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 
 export interface Role {
 	name: string;
@@ -56,10 +58,11 @@ function effective(spec: Spec, ctx: ExtensionContext): Spec {
 
 // omp loads every extension file with its own import tag, so each extension gets its own copy of this module; the state lives on globalThis so all copies share it.
 // idle: warm sessions per launch target. starting: sessions still being created, per target. used: sessions that ran a task, so the next task starts from a clean history. all: every session, for disposeAll. running: launches in flight. undelivered: finals not yet delivered. mainWaiting: Main is waiting for finals at its stop. counter: task id sequence. sessions: agent id sequence.
-const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number; started: Map<string, number>; timer: ReturnType<typeof setInterval> | undefined } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0, started: new Map(), timer: undefined });
+const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; ids: WeakMap<AgentSession, string>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number; started: Map<string, number>; timer: ReturnType<typeof setInterval> | undefined } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), ids: new WeakMap(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0, started: new Map(), timer: undefined });
 
 async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> {
 	const model = spec.model === "" ? ctx.model : undefined;
+	const id = `${spec.role.name}-${++state.sessions}`;
 	const { session } = await createAgentSession({
 		cwd: ctx.cwd,
 		modelRegistry: ctx.modelRegistry,
@@ -71,7 +74,7 @@ async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> 
 		sessionManager: SessionManager.inMemory(ctx.cwd),
 		taskDepth: 1,
 		agentName: spec.role.name,
-		agentId: `${spec.role.name}-${++state.sessions}`,
+		agentId: id,
 		appendSystemPrompt: spec.role.prompt,
 		hasUI: false,
 		cacheWarming: false,
@@ -81,6 +84,8 @@ async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> 
 		// A preferred model fails fast, so runTask can rerun the task on the regular model.
 		settings: spec.prefer && spec.model === spec.prefer.model ? settings.overlay({ "retry.enabled": false }) : undefined,
 	});
+	state.ids.set(session, id);
+	AgentRegistry.global().setStatus(id, "idle");
 	state.all.add(session);
 	return session;
 }
@@ -111,6 +116,8 @@ async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession>
 async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; failed: boolean; rateLimited: boolean }> {
 	const spec = effective(target, ctx);
 	const session = await acquire(spec, ctx);
+	const agentId = state.ids.get(session);
+	if (agentId) AgentRegistry.global().setStatus(agentId, "running");
 	try {
 		// A reused session keeps its system prompt and tools; only the previous task's history goes.
 		if (state.used.has(session)) await session.newSession();
@@ -122,6 +129,7 @@ async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promi
 		const rateLimited = failed && /429|rate.?limit/i.test(last?.errorMessage ?? "");
 		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", failed, rateLimited };
 	} finally {
+		if (agentId) AgentRegistry.global().setStatus(agentId, "idle");
 		state.idle.set(keyOf(spec), [...(state.idle.get(keyOf(spec)) ?? []), session]);
 	}
 }

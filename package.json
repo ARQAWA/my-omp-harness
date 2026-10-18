@@ -20,7 +20,12 @@
       "./extensions/tools/shell_runner/index.ts",
       "./extensions/tools/codebase_explorer/index.ts",
       "./extensions/tools/review/index.ts",
-      "./extensions/tools/custom/index.ts"
+      "./extensions/tools/custom/index.ts",
+      "./extensions/ui/status-bar.ts",
+      "./extensions/ui/feed.ts",
+      "./extensions/ui/model-arrows.js",
+      "./extensions/ui/reasoning-arrows.js",
+      "./extensions/ui/subagent-reuse.ts"
     ]
   }
 }

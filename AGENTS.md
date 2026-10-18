@@ -7,11 +7,14 @@ This branch is the lite harness for omp: one omp package (`package.json`) plus `
 ```text
 SYSTEM.md                  rules that span all tools; nothing tool-specific
 DECISIONS.md               decisions and bench results
-settings/                  config.yml and models.yml of the stand
+settings/                  config.yml and models.yml of the stand, theme titanium-arq.json, keybindings.yml
 agents/                    subagent definitions (not active yet)
 extensions/
   harness.ts               active tool set, environment line
   autocompaction.ts        compaction thresholds per model
+  subagents.ts             warm subagent sessions, stop wait, review commands
+  ui/                      interface from the main harness: status bar, feed, hub, model and reasoning keys
+    feed/                  feed modules, loaded through feed.ts and status-bar.ts
   shared/                  code used by more than one tool
     toolset.ts             base and loadable tool names
     search/                search engine and result format of grep and glob
