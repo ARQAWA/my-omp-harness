@@ -323,7 +323,7 @@ The current-action row says "Planning next moves" with a light sheen only
 while the model thinks; while a tool runs or the agent waits it shows a yellow
 status circle and a phrase such as "Reading client.py", "Searching files",
 "Running command" or "Waiting for subagent" without a sheen. The row has no
-timer and disappears when no action is active. While Main has no action but
+timer and stays as a blank row when no action is active. While Main has no action but
 its subagents or background jobs still run, the yellow-circle row names them
 separately: "Waiting for subagent", "Waiting for N subagents", or "Waiting for N
 background jobs"; a mixed wait joins the two counts with "and".

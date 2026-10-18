@@ -81,7 +81,7 @@ The line under the omp input field is the compaction bar: it measures the contex
 
 Compact and flat: no boxes around rows; one blank line separates the live action from the to-do panel. The status line flows after the transcript and is not pinned to the bottom of the screen. Split views divide the screen into two equal halves, list on the left and card on the right.
 
-One widget above the editor draws, top to bottom, the live action row, one blank line after it, the to-do panel and the title/ID row; omp's divider and editor follow. Pasted-image previews sit inside the editor, below its top divider and above the input text and caret. When no action is active its row and spacer disappear. The to-do panel does not appear separately in the transcript, and its step bar has no separate widget. This fixed order also applies after restoring a session.
+One widget above the editor draws, top to bottom, the live action row, one blank line after it, the to-do panel and the title/ID row; omp's divider and editor follow. Pasted-image previews sit inside the editor, below its top divider and above the input text and caret. When no action is active its row stays blank and the spacer stays, so the widget keeps one height. The to-do panel does not appear separately in the transcript, and its step bar has no separate widget. This fixed order also applies after restoring a session.
 
 ## How omp follows the rules
 
