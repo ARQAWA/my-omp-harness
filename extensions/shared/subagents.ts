@@ -49,15 +49,14 @@ function hasAuth(ref: string, ctx: ExtensionContext): boolean {
 }
 
 function effective(spec: Spec, ctx: ExtensionContext): Spec {
-	// A preferred model that just failed is skipped for 10 minutes.
-	if (spec.prefer && Date.now() - state.preferFailedAt > 10 * 60_000 && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
+	if (spec.prefer && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
 	if (!spec.model.startsWith("anthropic/") || hasAuth(spec.model, ctx)) return spec;
 	return { ...spec, ...(spec.fallback ?? FALLBACK) };
 }
 
 // omp loads every extension file with its own import tag, so each extension gets its own copy of this module; the state lives on globalThis so all copies share it.
 // idle: warm sessions per launch target. starting: sessions still being created, per target. used: sessions that ran a task, so the next task starts from a clean history. all: every session, for disposeAll. running: launches in flight. undelivered: finals not yet delivered. mainWaiting: Main is waiting for finals at its stop. counter: task id sequence. sessions: agent id sequence.
-const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number; preferFailedAt: number; started: Map<string, number>; timer: ReturnType<typeof setInterval> | undefined } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0, preferFailedAt: 0, started: new Map(), timer: undefined });
+const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number; started: Map<string, number>; timer: ReturnType<typeof setInterval> | undefined } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0, started: new Map(), timer: undefined });
 
 async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> {
 	const model = spec.model === "" ? ctx.model : undefined;
@@ -109,7 +108,7 @@ async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession>
 }
 
 /** Runs one task on a warm session of the target and returns the subagent's last message. */
-async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; failed: boolean }> {
+async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; failed: boolean; rateLimited: boolean }> {
 	const spec = effective(target, ctx);
 	const session = await acquire(spec, ctx);
 	try {
@@ -118,8 +117,10 @@ async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promi
 		state.used.add(session);
 		await session.prompt(text);
 		await session.waitForIdle();
-		const failed = session.getLastAssistantMessage()?.stopReason === "error";
-		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", failed };
+		const last = session.getLastAssistantMessage();
+		const failed = last?.stopReason === "error";
+		const rateLimited = failed && /429|rate.?limit/i.test(last?.errorMessage ?? "");
+		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", failed, rateLimited };
 	} finally {
 		state.idle.set(keyOf(spec), [...(state.idle.get(keyOf(spec)) ?? []), session]);
 	}
@@ -128,9 +129,13 @@ async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promi
 /** Runs one task; if the preferred model fails, reruns the task once on the spec without prefer. */
 export async function runTask(target: Spec, text: string, ctx: ExtensionContext): Promise<string> {
 	const onPreferred = target.prefer !== undefined && effective(target, ctx).model === target.prefer.model;
-	const first = await runOnce(target, text, ctx);
-	if (!first.failed || !onPreferred) return first.text;
-	state.preferFailedAt = Date.now();
+	let result = await runOnce(target, text, ctx);
+	// On the preferred model a 429 gets up to 3 retries 3 s apart; any other error goes to the regular model at once.
+	for (let retry = 0; onPreferred && result.rateLimited && retry < 3; retry++) {
+		await Bun.sleep(3000);
+		result = await runOnce(target, text, ctx);
+	}
+	if (!result.failed || !onPreferred) return result.text;
 	return (await runOnce({ ...target, prefer: undefined }, text, ctx)).text;
 }
 
