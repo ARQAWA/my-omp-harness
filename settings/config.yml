@@ -1,0 +1,45 @@
+extensions:
+  - /Users/arkadijcukavin/stock-bench/omp-lite
+compaction:
+  methodOrder:
+    - remote
+    - soft
+  supersedeReads: false
+  dropUseless: false
+  asyncEnabled: true
+  experimentalContextManagement: false
+contextPromotion:
+  enabled: false
+branchSummary:
+  enabled: false
+extendedContext: false
+read:
+  defaultLimit: 3000
+  summarize:
+    enabled: false
+tools:
+  artifactSpillThreshold: 100
+  outputMaxColumns: 100000
+  intentTracing: false
+todo:
+  enabled: false
+astGrep:
+  enabled: true
+astEdit:
+  enabled: false
+find:
+  enabled: "off"
+checkpoint:
+  enabled: false
+security:
+  enabled: false
+task:
+  disabledAgents:
+    - task
+    - scout
+    - reviewer
+    - security-reviewer
+    - sonic
+textVerbosity: low
+glob:
+  enabled: true

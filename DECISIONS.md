@@ -1,0 +1,87 @@
+# omp-lite: decisions
+
+Every accepted decision about the omp-lite stand, with its reason and the file that carries it. Change a decision only by editing its entry here together with the file.
+
+## Scope
+
+- Work only on omp-lite: package `~/stock-bench/omp-lite`, home `~/stock-bench/omp-lite-home`. Never modify or bench `~/.omp` or `~/Documents/ChatGPT/my-omp-harness`; reading them is fine.
+- Only the functionality omp-lite already has. Search behaviour lives in tool descriptions and `SYSTEM.md`.
+- No Gold Standard and no Workflow Manifest principles ("everything agreed and nothing beyond", "heavy work only on request", "dig deeper only at a contested point", "shortest path"): they were written against GPT-5.6 over-engineering and fight greedy search. `harness.ts` appends only the environment line to the system prompt; `skills/gold-standard` is removed.
+- `SYSTEM.md` exists twice and must stay identical: `omp-lite/SYSTEM.md` and `omp-lite-home/.omp/agent/SYSTEM.md` (check with `cmp`).
+- Tool call arguments stay as they are (Cursor's schemas).
+
+## Measurement
+
+- Speed is wall clock only: `run.json` `(end - start) / 1000`, reported as average and median. Never derive time from tokens.
+- Process startup (launch to first model request) is not a target: speeding it up is dropped (user: «Ускорять запуск не надо»). Future benches subtract it from the measured time (user: «из бенчей, из замеров убрать это время»).
+- Current result accepted as final for this stage: omp-lite `expand`, first read 1000 lines, answer rules unchanged (see bench19-22).
+- Fair runs: the same model and effort on every stand; omp-lite and Pi run at the same time. bench18 used `gpt-6.1-sol`, `low` (user's order); bench13-17 used `gpt-6-sol`, `medium`; the code-mode probes of `read` used `gpt-6-sol`, `low` (user's order: «Всё делай на модели GPT-6 Sol Low»).
+- Runner: `~/stock-bench/bench2/bench.ts` with `BENCH_DIR`, `BENCH_RUNS=4`, `BENCH_ALL_READ_ONLY=1`, `--tests`, `--concurrency`.
+- Quality: a judge scores each answer against a point checklist built from the code; a point passes at bool >= 0.5; score = 100 x passed / points.
+- Cursor is not part of the benchmark.
+- Reruns start only after the owner agrees on the change set.
+
+## Tool output budgets
+
+- `grep` and `glob`: 51 200 characters, that is 50 KB (`GREP_CHAR_BUDGET`, `GLOB_CHAR_BUDGET` in `extensions/cursor/rg/format.ts`), with no line cap. Cursor uses 15 000 and 5 000; the old harness uses 100 000 (`RESULT_MAX_CHARS`); Pi cuts bash output at 50 KB or 2000 lines. Reason: with 15 000 the first search wave could only list file names, so the model read files blind; Pi sees 20-50 KB of matching lines and picks files precisely. Only characters are capped because the model's input cost follows characters, not line count.
+- No line cap anywhere: the native engine has none, and only the character budget cuts what the model sees (safety cap 100 000 matches).
+
+## Engine
+
+- `grep` and `glob` keep Cursor's schemas and output format but run on omp's Rust search engine, `grep` and `glob` from `@oh-my-pi/pi-natives`, inside the omp process (`extensions/cursor/rg/search.ts`). The Cursor Desktop ripgrep process (`binary.ts`) and `.cursorignore` support (`cursor-ignore.ts`, `read-file/paths.ts`) are removed; only `.gitignore` applies. Reason: no dependency on Cursor Desktop, no process spawn per call, native calls run truly in parallel (8 broad searches in 83 ms).
+- Differences from Cursor's ripgrep: glob filters are case-sensitive; a negated glob (`!x`) is applied as a filter after the search; `multiline` does not imply dotall.
+- `read` stays on `fs.readFile`: omp has no Rust file reader; its own `read` tool also uses `fs.readFile`.
+- All three tools are `shared` and fully async.
+- `read`: 100 000 characters (`READ_CHAR_HARD_LIMIT`), Cursor's value. Over the limit it returns Cursor's error asking for offset and limit. The `[Use offset=N to continue.]` hint appears only on a greedy cut (no offset, no limit, more than 1000 lines).
+- `read` path description says paths are relative to the workspace root; absolute paths also work.
+
+## Parallelism
+
+- omp runs every `shared` call of one response at the same time; an `exclusive` call waits for all earlier calls and holds back later ones (`pi-agent-core` `agent-loop.ts`).
+- omp-lite modes: `grep`, `glob`, `read`, `write` are `shared`; `edit` is `shared` unless given a patch; `bash` is `shared` unless `pty`.
+- Measured: all calls of a step start before the first one ends; the gap between steps is 0.03-0.06 s. Execution is not the bottleneck.
+- The cost is per model step: about 2.2 s plus 1.16 s per 100 output tokens (bench17 fit), and time to first token grows with new input. A batch saves time only when it replaces a whole step; every extra call costs about 6-8 output tokens plus its arguments.
+- `SYSTEM.md` speed block: optimize for wall-clock time (each response costs about 2 s plus writing time, tools are almost free); every call that does not need another call's result goes into the same response (searches, globs, reads, writes and edits of different files, shell commands), one edit call per file; no calls whose results go unused; stop exploring once every part of the question is backed by code seen, and write the final answer once.
+- `eval` is on (in the `harness.ts` KEEP list), as in the main harness, for work beyond context gathering. Its description forbids it for searching and reading code while gathering context and limits it to computation, data processing and tool calls whose output must be filtered in code. Like bash and edit, eval is a wrapper (`extensions/eval.ts`) with the same name as omp's built-in: it calls the native eval through `ctx.invokeTool`, and its description is omp's own eval text (rendered without subagents and the wait tool, which omp-lite does not have) plus this rule. Its doc topics stay as `xd://eval/<topic>` links: `read` serves `xd://eval/<topic>` itself from omp's `getEvalDocTopics` (omp's native read serves them only for its built-in eval) and passes other internal URLs (`scheme://...`) to omp's native read, as it does images and PDF, so the docs load on demand instead of sitting in every request. Tool rules live in tool descriptions, as in Cursor; `SYSTEM.md` keeps only rules that span all tools. Reason: in omp it is `exclusive` (`tools/eval.ts`), so inside a batch it waits for earlier calls and holds back later ones; grep, glob and read run in parallel.
+- `read` description says to read every related file in one response; "read whole files rather than pieces" was removed because it contradicted the `grep` point-read rule.
+
+## Todo
+
+- Off (`todo.enabled: false` in `omp-lite-home/.omp/agent/config.yml`). The built-in omp todo is `exclusive` and would act as a barrier inside a batch. The old harness todo is `shared` but depends on its `cursor-feed` panel. Revisit later.
+
+## Search method
+
+- Greedy waves, written into the `grep` description (`extensions/cursor/rg.ts`):
+  - First response: several broad `grep` searches in parallel in content mode without `head_limit`, one per facet, each an alternation of every name, synonym and spelling, plus `glob` for deploy, run and entrypoint files (compose, Dockerfile, Makefile, systemd, CI, main, bin, `__main__`).
+  - Next responses, one batch each: read whole the files whose matching lines show a definition, configuration or entrypoint, and the run files; read other hits only around their matching lines; continue long files from the returned line; `grep` the exact identifiers just found.
+  - Stop when every part of the question has an answer backed by a file and line for the subject itself; do not follow it into neighbouring subsystems the question does not ask about.
+- Reason for the read and stop rules: in bench17 omp-lite read 27 files (122 KB) per run, half of them never cited, and on T05 spent 2-4 extra steps (15-20 s) in Mongo, stats_telegram and quarantine code.
+- First-wave content mode returned once the budget is 100 000; with 15 000 it truncated the wave and missed `config.rs` and `config.toml`.
+
+## Answer rules (`SYSTEM.md`)
+
+- Several implementations: determine from deploy and run configuration which one runs, say so, and explain for every implementation where and how it is used.
+- Name the exact identifiers that answer the question: keys, constants, topics, config fields and values, with paths; describe non-running implementations briefly. Reason: on T06 the Redis key `currency:tradeoffer:cooldown:{key}` was in omp-lite's tool output in all four runs and in none of its answers.
+- `textVerbosity: low` stays.
+
+## Other settings
+
+- Subagents stay disabled (`task.disabledAgents`).
+- Startup profile, not yet changed: `buildSessionOptions` 164 ms, `loadCachedStandardModels` 73 ms, first `rediscoverRules` 104 ms; omp-lite reaches the first request in about 1.7 s versus Pi's 0.9 s.
+
+## Code mode of read
+
+- `read` treats code files (py, rs, go, java, ts, js and similar) apart from text. Default variant `expand`: a range given with `offset` and `limit` grows to the enclosing blocks tree-sitter reports (`enclosingBlockBoundaries` from `@oh-my-pi/pi-natives`), at most 150 lines each way. Config, docs and other text files read as before.
+- `OMPLITE_VARIANT` switches variants for probes: `base` (no code mode), `expand` (default), `map` (expand plus an outline from `summarizeCodeAsync` for code files over 200 lines read without a range; the `grep` read step then says to read code by windows).
+- Probe (T05-T07, 4 runs each, omp-lite only, gpt-6-sol low): base 38.2 s avg / 37.8 s median, quality 88.1; expand 37.3 / 36.2, quality 87.8; map 39.1 / 37.6, quality 87.8. map added a step and 10 calls on T05 and the model got only 1-2 outlines per run, so it saved no reading. expand was fastest with equal quality and cut T07 reads from 57 to 38 KB. Differences are within the noise of 4 runs. All variants missed the same points (T06 auth blocker delay, T07 "every prod service is Rust"), so the misses are not caused by the tools.
+- Two grep tools (code and text) were rejected: questions span code and config, one grep finds both in one call, and a second tool would need a non-stock name.
+
+## Results log
+
+- bench13-16 (16 runs per stand): small prompt omp-lite 17.5 s avg vs Pi 17.4 s (tie accepted); large prompt 54.9 s vs 84.2 s.
+- bench17 (T03-T07, 4 runs each, before the 100 000 budgets): omp-lite 43.4 s avg / 38.9 s median, quality 88.3; Pi 42.4 s / 42.8 s, quality 79.7.
+- bench18 (T01-T07, 4 runs each, gpt-6.1-sol low; after 50 KB budgets, Rust search, stock tool names, speed block, no Gold Standard, eval wrapper): omp-lite 61.6 s avg / 56.9 s median, quality 99.3, 30 calls per run; Pi 63.9 s / 43.8 s, quality 92.3, 12.7 calls. omp-lite is slower on T01 (31.7 vs 25.9 s), T05 (73.9 vs 57.2), T06 (59.9 vs 39.4) and T07 (68.8 vs 61.2); faster on T02 (123.6 vs 191.7).
+- bench19 (T01-T07, 4 runs each, all stands at the same time, gpt-6-sol). low: Pi 30.4 s avg / 24.7 s median, quality 74.9; omp-lite base 31.3 / 28.2, q91.9; expand 31.0 / 27.5, q90.9; map 31.6 / 28.4, q90.6. high: Pi 52.2 / 41.5, q82.4; base 53.0 / 50.1, q91.3; expand 53.5 / 48.0, q91.3; map 50.5 / 46.2, q88.1. omp-lite ties Pi on average time and leads on quality by 9-17 points; Pi wins the median through short tests (T01, T03), omp-lite wins T02.
+- bench20 (T01-T07, 4 runs each, all stands at the same time, gpt-6.1-sol high): Pi 96.8 s avg / 57.0 s median, quality 94.9; omp-lite base 102.0 / 66.5, q99.3; expand 94.2 / 73.1, q98.7; map 98.4 / 70.1, q99.3. omp-lite expand beats Pi on average time and leads on quality; Pi is faster on T01, T03, T04, T05 and T06 (8-24 s), omp-lite expand on T02 (203 vs 279 s) and T07 (108 vs 115 s).
+- bench21 (T01-T07, 4 runs each; Codex CLI 0.163.0 and stock omp with an empty `omp-home` config, run after bench19-20, not at the same time as Pi and omp-lite). gpt-6-sol low: Codex 45.2 s avg / 38.7 s median, q77.7; omp 57.1 / 39.6, q83.2. gpt-6-sol high: Codex 75.9 / 70.1, q82.6; omp 125.9 / 91.9, q80.7. gpt-6.1-sol high: Codex 119.9 / 90.0, q94.4; omp 230.9 / 160.4, q95.0. `bench.ts` now passes `BENCH_MODEL` and `BENCH_EFFORT` to Codex.
+- bench22 (T01-T07, 4 runs each, omp-lite expand current vs `OMPLITE_TRIM=1`: shorter answer rules for non-running implementations plus first read capped at 500 lines). gpt-6-sol low: current 32.0 s avg / 26.6 s median, q93.0; trim 29.4 / 26.0, q89.9. gpt-6-sol high: current 53.9 / 42.8, q91.6; trim 49.8 / 45.2, q89.0. gpt-6.1-sol high: current 107.0 / 78.8, q99.3; trim 107.2 / 69.8, q96.4. Trim cut answers by 6-10% and saved 0-4 s on average at a cost of 2.6-3.1 quality points; rejected by the user and removed from the code.
