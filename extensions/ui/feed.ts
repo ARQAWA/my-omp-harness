@@ -12,6 +12,7 @@ import { installAgentBoard, isAgentBoardOpen } from "./feed/hub";
 import { installTurn, mainAgentEnded, mainAgentStarted } from "./feed/turn";
 import { installPanel } from "./feed/panel";
 import { addLifecycleEvent, installDialogs } from "./feed/dialogs";
+import { renderSubagentResult } from "./feed/subagent-result";
 
 const WIDGET = "feed";
 /** The hint shown in the empty input of a subagent view. */
@@ -269,6 +270,16 @@ function herdrClientPids(): number[] {
 	return pids;
 }
 
+/** The latest session context, whose model registry names the models of subagent results. */
+let latestCtx: ExtensionContext | undefined;
+
+/** The display name of a "provider/id" model ref, when the registry knows it. */
+function modelName(ref: string): string | undefined {
+	const at = ref.indexOf("/");
+	if (at <= 0 || latestCtx === undefined) return undefined;
+	return latestCtx.modelRegistry.find(ref.slice(0, at), ref.slice(at + 1))?.name;
+}
+
 export default function feed(pi: ExtensionAPI) {
 	installFocus();
 	installQueueRefresh();
@@ -288,6 +299,11 @@ export default function feed(pi: ExtensionAPI) {
 		});
 		ctx.ui.setWidget(WIDGET, undefined);
 	});
+
+	pi.on("session_start", (_event, ctx) => {
+		latestCtx = ctx;
+	});
+	pi.registerMessageRenderer("subagent-result", (message, options, theme) => renderSubagentResult(message, options, theme, modelName));
 
 	pi.on("session_start", (_event, ctx) => seedObjectives(ctx));
 	pi.on("session_switch", (_event, ctx) => seedObjectives(ctx));

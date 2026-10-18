@@ -22,7 +22,7 @@ export default function codeWriter(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const cwd = params.cwd || ctx.cwd;
-			const id = launch(pi, ctx, "code_writer", async () => {
+			const id = launch(pi, "code_writer", async () => {
 				const brief = [
 					`Result: ${params.goal}`,
 					`cwd: ${cwd}`,

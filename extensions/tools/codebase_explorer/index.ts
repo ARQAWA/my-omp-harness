@@ -18,7 +18,7 @@ export default function codebaseExplorer(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const brief = `Thoroughness: ${params.thoroughness}\n\n${params.question}`;
-			return started(launch(pi, ctx, "codebase_explorer", () => runTask(SPEC, brief, ctx)));
+			return started(launch(pi, "codebase_explorer", () => runTask(SPEC, brief, ctx)));
 		},
 	});
 }

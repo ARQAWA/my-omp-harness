@@ -20,7 +20,7 @@ export default function shellRunner(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const brief = `cwd: ${params.cwd || ctx.cwd}\nCommands:\n${params.commands}\nOn a failure: ${params.on_fail}.\nReport: ${params.report}`;
-			return started(launch(pi, ctx, "shell_runner", () => runTask(SPEC, brief, ctx)));
+			return started(launch(pi, "shell_runner", () => runTask(SPEC, brief, ctx)));
 		},
 	});
 }
