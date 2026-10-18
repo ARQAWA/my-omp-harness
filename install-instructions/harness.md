@@ -28,7 +28,10 @@ system prompt:
   `skills/omp-tools/SKILL.md`, `skills/main-workflow/SKILL.md`,
   `skills/subagents/SKILL.md` and `skills/clear-communication/SKILL.md`;
 - for a subagent, only `skills/omp-tools/SKILL.md`. A subagent keeps the whole
-  system prompt, `SYSTEM.md` included, and works from its definition and brief.
+  system prompt, `SYSTEM.md` included, and works from its definition and brief;
+- nothing while the active model is Venice: Uncensored. For it `harness.ts`
+  also turns off the `goal` and `todo` tools, and `todo.ts` adds no list note
+  to the context and does not block the end of the turn.
 
 Main's tools: `harness.ts` keeps the omp goal tool `goal` enabled;
 `diagram.ts` adds `diagram`, a Mermaid diagram as a PNG image across the full
@@ -65,10 +68,12 @@ Plan-mode child tasks do not get extensions and stay on the built-in `read`,
 `shell_runner` gets `bash, read, grep`.
 
 From the session start `harness.ts` turns on `grep`, `lsp` and `ast_grep` for
-all agents; rare tools stay in `xd://` on request. To the `omp-tools` block in
-every agent's system prompt it appends the environment line: the built-in
-bash-compatible shell, the form of absolute paths (on Windows `C:/Users/...`,
-without `/c/...` and backslashes) and the programs found on PATH.
+all agents except while the active model is Venice: Uncensored, which gets none
+of the harness additions; rare tools stay in `xd://` on request. To the
+`omp-tools` block in every other agent's system prompt it appends the
+environment line: the built-in bash-compatible shell, the form of absolute
+paths (on Windows `C:/Users/...`, without `/c/...` and backslashes) and the
+programs found on PATH.
 
 `write.ts` replaces the built-in `write` with a wrapper over it: a call runs in
 parallel with other calls, takes `path` and `content` or `files`, and writes the

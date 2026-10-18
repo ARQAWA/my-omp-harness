@@ -67,6 +67,9 @@ const GPT_NOTES =
 	"Use the listed PATH programs. Read internal URLs with `read`; selectors such as `:raw` are not shell paths. " +
 	"Read `xd://` topics without line selectors. In computer calls, use a window ID from the current window list; refresh the list after a missing-window error. " +
 	"A rejected patch hunk comes back with its expected lines and the closest match: re-read that region and resend only the rejected hunks.";
+// Venice: Uncensored gets none of the harness additions: no prompt blocks, no todo or goal tools.
+const isBare = (model: { id?: string } | undefined) => /dolphin-mistral-24b-venice-edition/i.test(model?.id ?? "");
+const currentModel = (ctx: ExtensionContext) => (ctx as any).models?.current?.() ?? (ctx as any).model;
 // Non-Latin layouts send the letter's own codepoint, so ctrl/alt shortcuts are mapped to the Latin key in the same position.
 const RUSSIAN_TO_LATIN: Record<string, string> = {
 	й: "q", ц: "w", у: "e", к: "r", е: "t", н: "y", г: "u", ш: "i", щ: "o", з: "p", х: "[", ъ: "]",
@@ -106,8 +109,14 @@ export default function harness(pi: ExtensionAPI) {
 	};
 
 	// Root Main keeps omp's goal tool, which omp removes when a goal completes or is dropped.
-	const syncTools = async (kind: string) => {
+	const syncTools = async (ctx: ExtensionContext) => {
+		const kind = ctx.agent.kind;
 		const active = await pi.getActiveTools();
+		if (isBare(currentModel(ctx))) {
+			const bare = active.filter(name => name !== "ask" && name !== "goal" && name !== "todo");
+			if (bare.length !== active.length) await pi.setActiveTools(bare);
+			return;
+		}
 		const next =
 			kind === "sub"
 				? active
@@ -119,12 +128,12 @@ export default function harness(pi: ExtensionAPI) {
 		const known = all?.map(tool => (typeof tool === "string" ? tool : tool.name));
 		const final = [
 			...next.filter(name => name !== "ask"),
-			...["grep", "lsp", "ast_grep"].filter(name => !next.includes(name) && (known === undefined || known.includes(name))),
+			...["grep", "lsp", "ast_grep", ...(kind === "main" ? ["todo"] : [])].filter(name => !next.includes(name) && (known === undefined || known.includes(name))),
 		];
 		if (final.length !== active.length || final.some((name, index) => name !== active[index])) await pi.setActiveTools(final);
 	};
-	pi.on("session_start", async (_event, ctx) => syncTools(ctx.agent.kind));
-	pi.on("agent_end", async (_event, ctx) => syncTools(ctx.agent.kind));
+	pi.on("session_start", async (_event, ctx) => syncTools(ctx));
+	pi.on("agent_end", async (_event, ctx) => syncTools(ctx));
 
 	const bindKeys = (ctx: ExtensionContext) => {
 		if (ctx.agent.kind !== "main") return;
@@ -218,7 +227,9 @@ export default function harness(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
+		await syncTools(ctx);
 		const model = (ctx as any).models?.current?.() ?? (ctx as any).model;
+		if (isBare(model)) return undefined;
 		const gpt = /gpt/i.test(model?.id ?? "");
 		const tools = `Apply the following omp tool mechanics to every tool call. Source: ${TOOLS}\n\n${readFileSync(TOOLS, "utf8")}\n\n${ENVIRONMENT}${gpt ? `\n\n${GPT_NOTES}` : ""}`;
 		if (ctx.agent.kind === "sub") return { systemPrompt: [...event.systemPrompt, tools] };

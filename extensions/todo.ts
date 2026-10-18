@@ -39,6 +39,11 @@ type ProgressSlot = {
 };
 const slot = ((globalThis as Record<symbol, unknown>)[SLOT] ??= {}) as ProgressSlot;
 
+const isBare = (ctx: ExtensionContext) => {
+	const model = (ctx as any).models?.current?.() ?? (ctx as any).model;
+	return /dolphin-mistral-24b-venice-edition/i.test(model?.id ?? "");
+};
+
 class OpError extends Error {
 	readonly reason: string;
 	readonly fix: string;
@@ -566,7 +571,7 @@ export default function todo(pi: ExtensionAPI) {
 	});
 
 	pi.on("context", (event, ctx) => {
-		if (ctx.agent.kind !== "main") return undefined;
+		if (ctx.agent.kind !== "main" || isBare(ctx)) return undefined;
 		const current = currentState(ctx.sessionManager);
 		const messages = event.messages.map(message => (isGoalModeContext(message) ? stripTodoBlock(message) : message));
 		let changed = messages.some((message, index) => message !== event.messages[index]);
@@ -582,7 +587,7 @@ export default function todo(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_stop", async (_event, ctx) => {
-		if (ctx.agent.kind !== "main") return;
+		if (ctx.agent.kind !== "main" || isBare(ctx)) return;
 		const open = allItems(currentState(ctx.sessionManager)).filter(entry => entry.item.status === "pending" || entry.item.status === "in_progress");
 		if (open.length === 0) return;
 		return {
