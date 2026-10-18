@@ -1,4 +1,4 @@
-Hand one extra, independent area of a broad codebase search to a fast read-only explorer (Haiku at medium effort, or gpt-6-luna at medium without Anthropic credentials). It searches in its own context and returns only the findings. The call returns at once with an id; the findings arrive later as a message starting with `[codebase_explorer#N]`.
+Hand one extra, independent area of a broad codebase search to a read-only explorer on your model, with your reasoning level capped at medium. It searches in its own context and returns only the findings. The call returns at once with an id; the findings arrive later as a message starting with `[codebase_explorer#N]`.
 
 You are the faster searcher: search the user's question yourself, in greedy parallel waves. Use an explorer only alongside your own search, for an area that is independent of the one you are searching and would cost you extra waves, such as a second subsystem, every caller of something across the codebase, or the deploy and run configuration. Launch it in the same response as your own first wave, and keep searching your part while it runs.
 
