@@ -19,7 +19,7 @@ export default function custom(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const spec = { role: ROLE, model: params.model, thinking: params.effort ?? "inherit" };
-			return started(launch(pi, "custom", () => runTask(spec, params.task, ctx)));
+			return started(launch(pi, ctx, "custom", () => runTask(spec, params.task, ctx)));
 		},
 	});
 }

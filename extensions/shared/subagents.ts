@@ -49,14 +49,15 @@ function hasAuth(ref: string, ctx: ExtensionContext): boolean {
 }
 
 function effective(spec: Spec, ctx: ExtensionContext): Spec {
-	if (spec.prefer && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
+	// A preferred model that just failed is skipped for 10 minutes.
+	if (spec.prefer && Date.now() - state.preferFailedAt > 10 * 60_000 && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
 	if (!spec.model.startsWith("anthropic/") || hasAuth(spec.model, ctx)) return spec;
 	return { ...spec, ...(spec.fallback ?? FALLBACK) };
 }
 
 // omp loads every extension file with its own import tag, so each extension gets its own copy of this module; the state lives on globalThis so all copies share it.
 // idle: warm sessions per launch target. starting: sessions still being created, per target. used: sessions that ran a task, so the next task starts from a clean history. all: every session, for disposeAll. running: launches in flight. undelivered: finals not yet delivered. mainWaiting: Main is waiting for finals at its stop. counter: task id sequence. sessions: agent id sequence.
-const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0 });
+const state: { idle: Map<string, AgentSession[]>; starting: Map<string, Promise<AgentSession>[]>; used: WeakSet<AgentSession>; all: Set<AgentSession>; running: Set<Promise<void>>; undelivered: string[]; mainWaiting: boolean; counter: number; sessions: number; preferFailedAt: number; started: Map<string, number>; timer: ReturnType<typeof setInterval> | undefined } = ((globalThis as any).__ompliteSubagents ??= { idle: new Map(), starting: new Map(), used: new WeakSet(), all: new Set(), running: new Set(), undelivered: [], mainWaiting: false, counter: 0, sessions: 0, preferFailedAt: 0, started: new Map(), timer: undefined });
 
 async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> {
 	const model = spec.model === "" ? ctx.model : undefined;
@@ -129,6 +130,7 @@ export async function runTask(target: Spec, text: string, ctx: ExtensionContext)
 	const onPreferred = target.prefer !== undefined && effective(target, ctx).model === target.prefer.model;
 	const first = await runOnce(target, text, ctx);
 	if (!first.failed || !onPreferred) return first.text;
+	state.preferFailedAt = Date.now();
 	return (await runOnce({ ...target, prefer: undefined }, text, ctx)).text;
 }
 
@@ -146,9 +148,25 @@ export async function fileBlocks(paths: string[], cwd: string): Promise<string> 
 	return blocks.join("\n");
 }
 
+/** Shows the running subagents and their elapsed seconds in the status line; ticks once a second while any run. */
+function showStatus(ctx: ExtensionContext): void {
+	const now = Date.now();
+	const text = state.started.size === 0 ? undefined : [...state.started].map(([id, at]) => `${id} ${Math.round((now - at) / 1000)}s`).join("  ");
+	if (state.started.size === 0 && state.timer !== undefined) {
+		clearInterval(state.timer);
+		state.timer = undefined;
+	}
+	if (state.started.size > 0 && state.timer === undefined) state.timer = setInterval(() => showStatus(ctx), 1000);
+	try {
+		ctx.ui.setStatus("subagents", text);
+	} catch {}
+}
+
 /** Starts a task without blocking Main; its final reaches Main as a message. Returns the task id. */
-export function launch(pi: ExtensionAPI, label: string, work: () => Promise<string>): string {
+export function launch(pi: ExtensionAPI, ctx: ExtensionContext, label: string, work: () => Promise<string>): string {
 	const id = `${label}#${++state.counter}`;
+	state.started.set(id, Date.now());
+	showStatus(ctx);
 	const done: Promise<void> = work()
 		.then(
 			text => `[${id}] ${text}`,
@@ -164,7 +182,11 @@ export function launch(pi: ExtensionAPI, label: string, work: () => Promise<stri
 				}
 			}
 		})
-		.finally(() => state.running.delete(done));
+		.finally(() => {
+			state.running.delete(done);
+			state.started.delete(id);
+			showStatus(ctx);
+		});
 	state.running.add(done);
 	return id;
 }

@@ -33,7 +33,7 @@ export default function review(pi: ExtensionAPI) {
 				params.rejected ? `Rejected earlier:\n${params.rejected}` : "",
 			].filter(Boolean);
 			const spec = { role: ROLE, ...LEVELS[params.level] };
-			return started(launch(pi, "review", () => runTask(spec, brief.join("\n\n"), ctx)));
+			return started(launch(pi, ctx, "review", () => runTask(spec, brief.join("\n\n"), ctx)));
 		},
 	});
 }
