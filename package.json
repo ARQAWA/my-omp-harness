@@ -12,6 +12,8 @@
       "./extensions/tools/edit/index.ts",
       "./extensions/tools/write/index.ts",
       "./extensions/tools/eval/index.ts",
+      "./extensions/tools/lsp/index.ts",
+      "./extensions/tools/ast_grep/index.ts",
       "./extensions/tools/load_tools/index.ts"
     ]
   }

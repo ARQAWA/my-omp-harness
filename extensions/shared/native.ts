@@ -6,6 +6,11 @@ export function unavailable(name: string) {
 	return { content: [{ type: "text" as const, text: `${name} is not available to this agent.` }], isError: true as const };
 }
 
+/** Arguments without the null and empty-string values GPT sends for omitted optional fields. */
+export function dropEmpty(params: object): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== ""));
+}
+
 /** The first line of the first text block of a tool result. */
 function firstTextLine(result: unknown): string {
 	const content =
