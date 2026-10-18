@@ -14,7 +14,13 @@
       "./extensions/tools/eval/index.ts",
       "./extensions/tools/lsp/index.ts",
       "./extensions/tools/ast_grep/index.ts",
-      "./extensions/tools/load_tools/index.ts"
+      "./extensions/tools/load_tools/index.ts",
+      "./extensions/subagents.ts",
+      "./extensions/tools/code_writer/index.ts",
+      "./extensions/tools/shell_runner/index.ts",
+      "./extensions/tools/explore/index.ts",
+      "./extensions/tools/review/index.ts",
+      "./extensions/tools/custom/index.ts"
     ]
   }
 }

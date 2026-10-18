@@ -1,0 +1,6 @@
+Hand code writing to a fast model (Haiku, medium effort) that writes it exactly as the brief says and decides nothing. The call returns at once with an id; the final arrives later as a message starting with `[code_writer#N]`. Keep working meanwhile: read, search, write other files. Do not wait or poll.
+
+- Write the code yourself when the brief would be about as long as the code: an edit of a few lines, a change you already see exactly, or a brief that would restate the code. Use code_writer for substantial new code or many edits; run several calls in one response for independent parts.
+- Decide the design first: the brief carries decisions, not questions. `goal`: what will be true. `files`: every target file and every file it must read; their current content goes with the task, so it starts editing without a reading round. `decisions`: exact names, signatures, values and formatting to keep. `facts`: what you found that it cannot see, such as what callers pass. `check`: one existing command to run after the edits.
+- Trust the final and use it as it is; reread changed files only when acceptance needs it. `DECISION_REQUIRED` means the brief left a choice open: make it and call again.
+- Do not edit the same files yourself while its task runs.

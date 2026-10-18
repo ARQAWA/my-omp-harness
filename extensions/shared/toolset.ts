@@ -5,7 +5,9 @@
 const EXTRA = ["eval", "lsp", "ast_grep"] as const;
 const ALL_BASE = process.env.OMPLITE_TOOLS === "base";
 
-export const BASE_TOOLS = ["read", "grep", "glob", "bash", "edit", "write", ...(ALL_BASE ? EXTRA : ["load_tools"])];
+// Subagent tools are Main's only; a subagent keeps the tools its role file lists.
+export const SUBAGENT_TOOLS = ["code_writer", "shell_runner", "explore", "review", "custom"];
+export const BASE_TOOLS = ["read", "grep", "glob", "bash", "edit", "write", ...(ALL_BASE ? EXTRA : ["load_tools"]), ...SUBAGENT_TOOLS];
 export const LOADABLE_TOOLS = EXTRA;
 
 // Loadable tools the model has loaded in this process.

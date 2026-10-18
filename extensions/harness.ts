@@ -20,8 +20,12 @@ export default function harness(pi: ExtensionAPI) {
 		const final = KEEP.filter(name => active.includes(name) || known === undefined || known.includes(name));
 		if (final.length !== active.length || final.some((name, index) => name !== active[index])) await pi.setActiveTools(final);
 	};
-	pi.on("session_start", async () => syncTools());
-	pi.on("agent_end", async () => syncTools());
+	pi.on("session_start", async (_event, ctx) => {
+		if (ctx.agent.kind === "main") await syncTools();
+	});
+	pi.on("agent_end", async (_event, ctx) => {
+		if (ctx.agent.kind === "main") await syncTools();
+	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		const tools = ENVIRONMENT;
