@@ -5,7 +5,7 @@ import { collectAtStop, disposeAll, loadRole, prestart } from "./shared/subagent
 const WARM = [
 	{ role: "code_writer", model: "anthropic/claude-haiku-5-5", thinking: "medium" },
 	{ role: "shell_runner", model: "anthropic/claude-haiku-5-5", thinking: "medium" },
-	{ role: "codebase_explorer", model: "anthropic/claude-haiku-5-5", thinking: "high" },
+	{ role: "codebase_explorer", model: "anthropic/claude-haiku-5-5", thinking: "medium" },
 ];
 
 const REVIEWS = { lightreview: "light", blindreview: "blind", highreview: "high" } as const;

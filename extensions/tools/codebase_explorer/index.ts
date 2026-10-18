@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { loadRole, runTask } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
-const SPEC = { role: loadRole("codebase_explorer"), model: "anthropic/claude-haiku-5-5", thinking: "high" };
+const SPEC = { role: loadRole("codebase_explorer"), model: "anthropic/claude-haiku-5-5", thinking: "medium" };
 
 export default function codebaseExplorer(pi: ExtensionAPI) {
 	const z = pi.zod;
