@@ -204,8 +204,9 @@ export async function collectAtStop(): Promise<string[]> {
 		// omp cuts a session_stop handler at 30 s, so wait at most 25 s and continue Main for another wait.
 		if (state.undelivered.length === 0) await Promise.race([...state.running, Bun.sleep(25_000)]);
 		const finals = state.undelivered.splice(0);
-		if (finals.length > 0 || state.running.size === 0) return finals;
-		return [`${state.running.size} subagent task(s) still running. End your response without tool calls; each final wakes you. Do not run filler commands.`];
+		if (finals.length > 0) return ["Subagent results arrived. Write your complete final answer now, using them; do not write it as a correction or addition to an earlier reply.", ...finals];
+		if (state.running.size === 0) return finals;
+		return [`${state.running.size} subagent task(s) still running. Do not write your final answer yet: end your response with no text and no tool calls; each final wakes you. Do not run filler commands.`];
 	} finally {
 		state.mainWaiting = false;
 	}
@@ -220,5 +221,5 @@ export async function disposeAll(): Promise<void> {
 
 /** Result of a launch tool call. */
 export function started(id: string) {
-	return { content: [{ type: "text" as const, text: `Started ${id}. Its final arrives as a message starting with [${id}]. Keep doing your own part of the task; when nothing else is left, end your response without tool calls and the final wakes you. Never poll and never run filler commands such as pwd, ls or git status.` }] };
+	return { content: [{ type: "text" as const, text: `Started ${id}. Its final arrives as a message starting with [${id}]. Keep doing your own part of the task, but do not write your final answer while it runs: when nothing else is left, end your response with no text and no tool calls, and the final wakes you. Never poll and never run filler commands such as pwd, ls or git status.` }] };
 }
