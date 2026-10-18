@@ -1,6 +1,6 @@
 // Subagent runtime: role files, a pool of warm sessions, and non-blocking delivery of finals to Main.
 import type { AgentSession, ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
-import { createAgentSession, SessionManager, settings } from "@oh-my-pi/pi-coding-agent";
+import { createAgentSession, SessionManager } from "@oh-my-pi/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -21,8 +21,6 @@ export interface Spec {
 	thinking: string;
 	/** Model and thinking without Anthropic credentials; default gpt-6-luna medium. */
 	fallback?: { model: string; thinking: string };
-	/** Model and thinking used first whenever its provider has credentials. */
-	prefer?: { model: string; thinking: string };
 }
 
 /** Reads agents/<name>.md: front matter as key-value lines, the body as the role prompt. */
@@ -60,7 +58,6 @@ function hasAuth(ref: string, ctx: ExtensionContext): boolean {
 }
 
 function effective(spec: Spec, ctx: ExtensionContext): Spec {
-	if (spec.prefer && hasAuth(spec.prefer.model, ctx)) return { ...spec, ...spec.prefer };
 	if (!spec.model.startsWith("anthropic/") || hasAuth(spec.model, ctx)) return spec;
 	return { ...spec, ...(spec.fallback ?? FALLBACK) };
 }
@@ -90,8 +87,6 @@ async function create(spec: Spec, ctx: ExtensionContext): Promise<AgentSession> 
 		autoTitle: false,
 		enableMCP: false,
 		enableLsp: spec.role.tools?.includes("lsp") === true,
-		// A preferred model fails fast, so runTask can rerun the task on the regular model.
-		settings: spec.prefer && spec.model === spec.prefer.model ? settings.overlay({ "retry.enabled": false }) : undefined,
 	});
 	state.ids.set(session, id);
 	AgentRegistry.global().setStatus(id, "idle");
@@ -122,7 +117,7 @@ async function acquire(spec: Spec, ctx: ExtensionContext): Promise<AgentSession>
 }
 
 /** Runs one task on a warm session of the target and returns the subagent's last message. */
-async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; model: string; thinking: string; failed: boolean; rateLimited: boolean }> {
+async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promise<{ text: string; model: string; thinking: string; failed: boolean }> {
 	const spec = effective(target, ctx);
 	const session = await acquire(spec, ctx);
 	const agentId = state.ids.get(session);
@@ -135,8 +130,7 @@ async function runOnce(target: Spec, text: string, ctx: ExtensionContext): Promi
 		await session.waitForIdle();
 		const last = session.getLastAssistantMessage();
 		const failed = last?.stopReason === "error";
-		const rateLimited = failed && /429|rate.?limit/i.test(last?.errorMessage ?? "");
-		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", model: spec.model, thinking: spec.thinking, failed, rateLimited };
+		return { text: session.getLastAssistantText()?.trim() || "(the subagent returned no text)", model: spec.model, thinking: spec.thinking, failed };
 	} finally {
 		if (agentId) AgentRegistry.global().setStatus(agentId, "idle");
 		state.idle.set(keyOf(spec), [...(state.idle.get(keyOf(spec)) ?? []), session]);
@@ -150,18 +144,10 @@ export interface TaskResult {
 	thinking: string;
 }
 
-/** Runs one task; if the preferred model fails, reruns the task once on the spec without prefer. */
+/** Runs one task on a warm session and returns its final with the model it ran on. */
 export async function runTask(target: Spec, text: string, ctx: ExtensionContext): Promise<TaskResult> {
-	const onPreferred = target.prefer !== undefined && effective(target, ctx).model === target.prefer.model;
-	let result = await runOnce(target, text, ctx);
-	// On the preferred model a 429 gets up to 3 retries 3 s apart; any other error goes to the regular model at once.
-	for (let retry = 0; onPreferred && result.rateLimited && retry < 3; retry++) {
-		await Bun.sleep(3000);
-		result = await runOnce(target, text, ctx);
-	}
-	if (!result.failed || !onPreferred) return { text: result.text, model: result.model, thinking: result.thinking };
-	const fallback = await runOnce({ ...target, prefer: undefined }, text, ctx);
-	return { text: fallback.text, model: fallback.model, thinking: fallback.thinking };
+	const result = await runOnce(target, text, ctx);
+	return { text: result.text, model: result.model, thinking: result.thinking };
 }
 
 /** Every file's current content, for a task that would otherwise start by reading them. */

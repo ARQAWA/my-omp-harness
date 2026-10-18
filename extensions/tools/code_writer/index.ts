@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { fileBlocks, launch, loadRole, runTask, started } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
-const SPEC = { role: loadRole("code_writer"), model: "anthropic/claude-haiku-5-5", thinking: "medium", prefer: { model: "openrouter/deepseek/deepseek-v4.1-flash-1017", thinking: "high" } };
+const SPEC = { role: loadRole("code_writer"), model: "anthropic/claude-haiku-5-5", thinking: "medium" };
 
 export default function codeWriter(pi: ExtensionAPI) {
 	const z = pi.zod;
