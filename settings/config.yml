@@ -1,5 +1,5 @@
 extensions:
-  - /Users/arkadijcukavin/stock-bench/omp-lite
+  - /Users/arkadijcukavin/Documents/ChatGPT/my-omp-harness-worktrees/lite
 compaction:
   methodOrder:
     - remote
