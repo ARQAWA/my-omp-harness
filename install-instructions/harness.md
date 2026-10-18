@@ -448,8 +448,9 @@ reasoning level. The rows have no turn timer; the completed turn keeps
 and context.
 The layout and segments are set by [omp.md](omp.md). `autocompaction.ts` sets
 Main's autocompaction threshold: 450 000 tokens for all Claude, all GPT and
-the DeepSeek model at their 700 000 context window from [omp.md](omp.md), and 19 200 tokens
-(15%) for Venice: Uncensored at its 128 000 window, if the threshold is below the context window.
+the DeepSeek model at their 700 000 context window from [omp.md](omp.md), if the threshold
+is below the context window. Other models, such as Venice: Uncensored, keep omp's default
+threshold: the context window minus a 15% reserve.
 
 Context compaction is omp's own, set by the step 4 keys of [omp.md](omp.md).
 `compaction.methodOrder` `["remote", "soft"]`: `remote` is the provider's

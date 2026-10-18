@@ -5,7 +5,6 @@ export function triggerTokens(id: string): number | undefined {
 	if (/claude-/i.test(id)) return 450_000;
 	if (/(?:^|[/.])gpt-\d/i.test(id)) return 450_000;
 	if (/deepseek-/i.test(id)) return 450_000;
-	if (/dolphin-mistral-24b-venice-edition/i.test(id)) return 19_200;
 	return undefined;
 }
 
