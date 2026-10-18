@@ -36,15 +36,6 @@ export function loadRole(name: string): Role {
 	return { name, prompt: text.slice(head?.[0].length ?? 0).trim(), tools, meta };
 }
 
-const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
-
-/** Main's model as a "provider/id" ref and Main's reasoning level capped at medium. */
-export function parentTarget(pi: ExtensionAPI, ctx: ExtensionContext): { model: string; thinking: string } {
-	const level = pi.getThinkingLevel() ?? "medium";
-	const index = LEVELS.indexOf(level);
-	return { model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "", thinking: index > 3 || index < 0 ? "medium" : level };
-}
-
 const keyOf = (spec: Spec) => `${spec.role.name}|${spec.model}|${spec.thinking}`;
 
 // Without Anthropic credentials, Anthropic roles run on their fallback, by default gpt-6-luna at medium effort.

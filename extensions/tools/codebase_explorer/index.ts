@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { loadRole, parentTarget, runTask } from "../../shared/subagents.ts";
+import { loadRole, runTask } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
-const ROLE = loadRole("codebase_explorer");
+const SPEC = { role: loadRole("codebase_explorer"), model: "anthropic/claude-haiku-5-5", thinking: "high" };
 
 export default function codebaseExplorer(pi: ExtensionAPI) {
 	const z = pi.zod;
@@ -18,9 +18,8 @@ export default function codebaseExplorer(pi: ExtensionAPI) {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const brief = `Thoroughness: ${params.thoroughness}\n\n${params.question}`;
-			const spec = { role: ROLE, ...parentTarget(pi, ctx) };
 			const begin = Date.now();
-			const r = await runTask(spec, brief, ctx);
+			const r = await runTask(SPEC, brief, ctx);
 			return { content: [{ type: "text" as const, text: r.text }], details: { model: r.model, thinking: r.thinking, seconds: Math.round((Date.now() - begin) / 1000) } };
 		},
 	});
