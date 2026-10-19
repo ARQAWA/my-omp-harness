@@ -31,7 +31,7 @@ const MARK: Record<Status, string> = { completed: "✓", in_progress: "●", pen
 const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>|<todo>[\s\S]*?<\/todo>|<todo-reminder>[\s\S]*?<\/todo-reminder>/g;
 const TODO_REMINDER = [
 	"<todo-reminder>",
-	"No todo list is open. For a task beyond one answer or one short action, init its list together with your first tool calls.",
+	"No todo list is open. For a task that changes files or runs several stages, init its list together with your first tool calls; a question answered by reading needs none.",
 	"</todo-reminder>",
 ].join("\n");
 
