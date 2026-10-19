@@ -12,5 +12,7 @@ export const SUBAGENT_TOOLS = ["code_writer", "shell_runner", ...(process.env.OM
 export const BASE_TOOLS = ["read", "grep", "glob", "bash", "edit", "write", ...(process.env.OMPLITE_TODO === "off" ? [] : ["todo"]), ...(ALL_BASE ? EXTRA : ["load_tools"]), ...SUBAGENT_TOOLS];
 export const LOADABLE_TOOLS = EXTRA;
 
-// Loadable tools the model has loaded in this process.
-export const loaded = new Set<string>();
+// Loadable tools the model has loaded in this process. On globalThis: omp gives every extension file its own copy of
+// this module, so a module-level set filled by load_tools stayed empty in harness.ts, and its sync at the end of each
+// run deactivated the tools the model had just loaded.
+export const loaded: Set<string> = ((globalThis as any).__ompliteLoadedTools ??= new Set<string>());

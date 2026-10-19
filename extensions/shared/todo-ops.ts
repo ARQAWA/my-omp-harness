@@ -32,7 +32,8 @@ const OFF = process.env.OMPLITE_TODO === "off";
  */
 export function todoParameters<T>(pi: ExtensionAPI, build: (extra: Record<string, unknown>) => T): () => T {
 	const plain = build({});
-	const full = OFF ? plain : build({ todo: todoOps(pi.zod).describe(FIELD_NOTE).optional() });
+	// The field takes text ops only: the object form would cost about 250 schema tokens on every tool in every request.
+	const full = OFF ? plain : build({ todo: pi.zod.array(pi.zod.string()).describe(FIELD_NOTE).optional() });
 	let main = true;
 	pi.on("session_start", (_event, ctx) => {
 		main = ctx.agent.kind === "main";
@@ -47,9 +48,7 @@ export function todoJsonParameters<T extends { properties: Record<string, unknow
 
 /** The optional `todo` field for a tool whose parameters are plain JSON Schema. */
 export function todoFieldJson(z: Zod): Record<string, unknown> {
-	const json = todoOps(z).toJsonSchema({ target: "draft-2020-12", fallback: (ctx: { base: unknown }) => ctx.base } as never);
-	delete json.$schema;
-	return { ...json, description: FIELD_NOTE };
+	return { type: "array", items: { type: "string" }, description: FIELD_NOTE };
 }
 
 /** The parameters without the `todo` field, for a tool that hands them on to a native tool. */
