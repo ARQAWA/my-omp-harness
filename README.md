@@ -1,5 +1,7 @@
 # my-omp-harness: a Cursor-style harness for the omp (oh-my-pi) AI coding agent
 
+> **Deprecated.** This branch keeps the old harness for reference and is no longer maintained. The current harness is the `master` branch; install it with [INSTALL.md](https://github.com/ARQAWA/my-omp-harness/blob/master/INSTALL.md).
+
 my-omp-harness turns [omp](https://github.com/can1357/oh-my-pi), the oh-my-pi
 terminal AI coding agent, into a fast and disciplined coding setup with a
 premium Cursor-style terminal interface. You get a compact feed with Nerd Font
