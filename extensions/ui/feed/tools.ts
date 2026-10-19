@@ -529,12 +529,12 @@ function totalOf(actions: Action[], field: "files" | "searches" | "tools" | "com
 	return actions.reduce((sum, action) => sum + (action.row[field] ?? 0), 0);
 }
 
-/** The last six lines of an expanded call: its original view when it has no marker, else its body rows. */
+/** The last four lines of an expanded call: its original view when it has no marker, else its body rows. */
 function bodyOfCall(call: Call): string[] {
 	const lines = call.view
 		? call.view()
 		: bodyOf(call.toolName, call.args, call.results).map(line => paint(TONE[line.tone], line.text));
-	return lines.slice(-6);
+	return lines.slice(-4);
 }
 
 /** The segments of a read group's actions: each run of successful reads, and each error alone. */

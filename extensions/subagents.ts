@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { onStop } from "./shared/stop.ts";
 import { collectAtStop, disposeAll, loadRole, parentTarget, prestart } from "./shared/subagents.ts";
 
 // Warm sessions started with Main: one per role target, so the first launch of each skips session setup.
@@ -22,11 +23,10 @@ export default function subagents(pi: ExtensionAPI) {
 	});
 
 	// Main does not finish while a subagent it launched is still running: it waits for the next final and continues with it.
-	pi.on("session_stop", async (_event, ctx) => {
-		if (ctx.agent.kind !== "main") return undefined;
+	// First in the shared stop order, so the todo check never drops a final.
+	onStop("subagents", 0, async () => {
 		const finals = await collectAtStop();
-		if (finals.length === 0) return undefined;
-		return { continue: true, additionalContext: finals.join("\n\n") };
+		return finals.length > 0 ? finals.join("\n\n") : undefined;
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {

@@ -70,7 +70,8 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 
 ## Interface
 
-- The interface of the main harness is transferred into `extensions/ui/` (user: "перевести весь интерфейс из My OMP Harness в наш Light"): `status-bar.ts`, `feed.ts` with `feed/*` (feed rows, live action, cards, hub, to-do panel), `model-arrows.js`, `reasoning-arrows.js`, `subagent-reuse.ts`; theme `settings/titanium-arq.json` and `settings/keybindings.yml`; the stand gets the theme, keys and the status-line settings of the main harness's install step 4. The feed is renamed from its old product-named folder. Tools and agent mechanics of the main harness (`todo`, `diagram`, `results`, `rg`, its write/edit/bash, subagent model policy) are not interface and are not transferred; todo stays off, so the to-do panel stays idle.
+- The interface of the main harness is transferred into `extensions/ui/` (user: "перевести весь интерфейс из My OMP Harness в наш Light"): `status-bar.ts`, `feed.ts` with `feed/*` (feed rows, live action, cards, hub, to-do panel), `model-arrows.js`, `reasoning-arrows.js`, `subagent-reuse.ts`; theme `settings/titanium-arq.json` and `settings/keybindings.yml`; the stand gets the theme, keys and the status-line settings of the main harness's install step 4. The feed is renamed from its old product-named folder. Tools and agent mechanics of the main harness (`todo`, `diagram`, `results`, `rg`, its write/edit/bash, subagent model policy) are not interface and were not transferred with it; todo came later as its own tool (see Todo).
+- The collapsed to-do panel shows 3 items instead of 4, and an expanded tool call shows the last 4 lines of its output instead of 6 (user: «надо сделать, чтобы было три строчки»; «надо, чтобы он выводил последние четыре строки»).
 - Warm subagent sessions are `idle` in omp's agent registry and `running` only during a task (`AgentRegistry.global().setStatus`). Reason: omp counts running registry agents in the status line, and right after start the transferred status bar showed three subagents and "Waiting for 3 subagents".
 
 ## Skills
@@ -84,7 +85,9 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 
 ## Todo
 
-- Off (`todo.enabled: false` in `omp-lite-home/.omp/agent/config.yml`). The built-in omp todo is `exclusive` and would act as a barrier inside a batch. The old harness todo is `shared` but depends on its feed panel. Revisit later.
+- The main harness's todo is a base tool, `extensions/tools/todo/` (user: «перенести ту дужку, нашу старую, которая вела обязательный план, которая записывала в Context, завершала»). Same ops, phases, numbered items and per-item plans; `shared`, so it runs in the same batch as other calls; the list is restored from session history on start, switch and branch, drawn on the feed panel through the `my-omp-harness.progress` slot, and shown to Main every turn while items are open, with a short reminder when none are. Main cannot stop while items are pending or in progress. The rules of the main harness's workflow for the list are in its `description.md`, compact. omp's built-in todo stays off (`todo.enabled: false`): it is `exclusive` and would act as a barrier inside a batch.
+- Dropped from the old tool: the session-title refresh after every todo call and every user message. Reason: each was an extra background title-model request; omp titles the session itself.
+- One stop handler (`extensions/shared/stop.ts`, registered in `harness.ts`) runs the checks in priority order: the subagent wait first, then the todo check. Reason: omp runs `session_stop` handlers in turn and the first refusal ends the round, so a separate todo handler would drop a subagent final collected by the handler before it.
 
 ## Search method
 

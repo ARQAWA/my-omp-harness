@@ -11,6 +11,7 @@
       "./extensions/tools/bash/index.ts",
       "./extensions/tools/edit/index.ts",
       "./extensions/tools/write/index.ts",
+      "./extensions/tools/todo/index.ts",
       "./extensions/tools/eval/index.ts",
       "./extensions/tools/lsp/index.ts",
       "./extensions/tools/ast_grep/index.ts",

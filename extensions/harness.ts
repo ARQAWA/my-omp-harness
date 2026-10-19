@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { homedir } from "node:os";
+import { runStop } from "./shared/stop.ts";
 import { BASE_TOOLS, loaded } from "./shared/toolset.ts";
 
 const ENV_PROGRAMS = ["git", "node", "bun", "npm", "pnpm", "python3", "python", "cargo", "rustc", "go", "java", "docker", "gh", "rg", "fd", "jq", "make", "cmake"];
@@ -25,6 +26,13 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.on("agent_end", async (_event, ctx) => {
 		if (ctx.agent.kind === "main") await syncTools();
+	});
+
+	// The one stop handler: the checks of extensions/shared/stop.ts in priority order.
+	pi.on("session_stop", async (_event, ctx) => {
+		if (ctx.agent.kind !== "main") return undefined;
+		const text = await runStop(ctx);
+		return text ? { continue: true, additionalContext: text } : undefined;
 	});
 
 	pi.on("before_agent_start", async (event, ctx) => {

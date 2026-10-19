@@ -112,8 +112,8 @@ function panelLines(mode: ModeLike | undefined, phases: Phase[], width: number):
 		const inProgress = all.findIndex(task => task.status === "in_progress");
 		const open = all.findIndex(task => !isDone(task));
 		const anchor = inProgress >= 0 ? inProgress : open >= 0 ? open : n - 1;
-		const start = Math.max(0, Math.min(anchor - 1, n - 4));
-		for (const task of all.slice(start, start + 4)) {
+		const start = Math.max(0, Math.min(anchor - 1, n - 3));
+		for (const task of all.slice(start, start + 3)) {
 			lines.push(taskLine("  ", task));
 			const progress = progressOf(task);
 			if (progress) lines.push(barLine(progress));

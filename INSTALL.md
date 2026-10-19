@@ -62,6 +62,9 @@ omp config set find.enabled off
 omp config set glob.enabled true
 omp config set checkpoint.enabled false
 omp config set security.enabled false
+omp config set browser.enabled false
+omp config set computer.enabled false
+omp config set github.enabled false
 omp config set task.disabledAgents '["task","scout","reviewer","security-reviewer","sonic"]'
 omp config set textVerbosity low
 omp config set theme.dark titanium-arq
