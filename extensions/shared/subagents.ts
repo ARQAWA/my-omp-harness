@@ -150,14 +150,20 @@ export async function runTask(target: Spec, text: string, ctx: ExtensionContext)
 	return { text: result.text, model: result.model, thinking: result.thinking };
 }
 
-/** Every file's current content, for a task that would otherwise start by reading them. */
+/** The brief's cwd line. A subagent's tools resolve relative paths against Main's cwd, so another cwd needs absolute paths. */
+export function cwdLine(cwd: string, ctx: ExtensionContext): string {
+	return cwd === ctx.cwd ? `cwd: ${cwd}` : `cwd: ${cwd} (your tools start in ${ctx.cwd}: use absolute paths under ${cwd} and cd into it in every command)`;
+}
+
+/** Every file's current content, for a task that would otherwise start by reading them; paths are absolute. */
 export async function fileBlocks(paths: string[], cwd: string): Promise<string> {
 	const blocks = await Promise.all(
 		paths.map(async path => {
+			const full = resolve(cwd, path);
 			try {
-				return `<file path="${path}">\n${await readFile(resolve(cwd, path), "utf8")}\n</file>`;
+				return `<file path="${full}">\n${await readFile(full, "utf8")}\n</file>`;
 			} catch {
-				return `<file path="${path}">(does not exist yet)</file>`;
+				return `<file path="${full}">(does not exist yet)</file>`;
 			}
 		}),
 	);

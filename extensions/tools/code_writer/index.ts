@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { fileBlocks, launch, loadRole, runTask, started } from "../../shared/subagents.ts";
+import { cwdLine, fileBlocks, launch, loadRole, runTask, started } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
 const SPEC = { role: loadRole("code_writer"), model: "anthropic/claude-haiku-5-5", thinking: "medium" };
@@ -25,7 +25,7 @@ export default function codeWriter(pi: ExtensionAPI) {
 			const id = launch(pi, "code_writer", async () => {
 				const brief = [
 					`Result: ${params.goal}`,
-					`cwd: ${cwd}`,
+					cwdLine(cwd, ctx),
 					params.decisions ? `Decisions to keep: ${params.decisions}` : "",
 					params.facts ? `Facts: ${params.facts}` : "",
 					`Check: ${params.check || "none"}`,

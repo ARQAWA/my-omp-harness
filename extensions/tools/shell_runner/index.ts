@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { launch, loadRole, runTask, started } from "../../shared/subagents.ts";
+import { cwdLine, launch, loadRole, runTask, started } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
 
 const SPEC = { role: loadRole("shell_runner"), model: "anthropic/claude-haiku-5-5", thinking: "medium" };
@@ -19,7 +19,7 @@ export default function shellRunner(pi: ExtensionAPI) {
 			cwd: z.string().optional(),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const brief = `cwd: ${params.cwd || ctx.cwd}\nCommands:\n${params.commands}\nOn a failure: ${params.on_fail}.\nReport: ${params.report}`;
+			const brief = `${cwdLine(params.cwd || ctx.cwd, ctx)}\nCommands:\n${params.commands}\nOn a failure: ${params.on_fail}.\nReport: ${params.report}`;
 			return started(launch(pi, "shell_runner", () => runTask(SPEC, brief, ctx)));
 		},
 	});
