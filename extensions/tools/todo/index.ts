@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { type Component, Text } from "@oh-my-pi/pi-tui";
 import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { onStop } from "../../shared/stop.ts";
+import { currentMode } from "../../ui/feed/panel";
 import description from "./description.md" with { type: "text" };
 
 
@@ -28,7 +29,7 @@ const MARK: Record<Status, string> = { completed: "✓", in_progress: "●", pen
 const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>|<todo>[\s\S]*?<\/todo>|<todo-reminder>[\s\S]*?<\/todo-reminder>/g;
 const TODO_REMINDER = [
 	"<todo-reminder>",
-	"No todo items are open. Before the first action of a new task, create its list with init. Extend an unfinished list with append for continued work. Plan items before acting, mark progress during the work, and close every item at handover. A closed list is replaced for the next multi-step task. Skip the list only for one answer, one short action, or the owner's explicit request to work without todo.",
+	"No todo list is open. For a task beyond one answer or one short action, init its list together with your first tool calls.",
 	"</todo-reminder>",
 ].join("\n");
 
@@ -502,13 +503,36 @@ function firstTextLine(result: unknown): string {
 	return "";
 }
 
+/** True when the newest message is the user's own, so this request is the first of his turn. */
+function opensUserTurn(messages: readonly unknown[]): boolean {
+	const last = messages[messages.length - 1] as { role?: unknown; attribution?: unknown } | undefined;
+	return last?.role === "user" && last.attribution !== "agent";
+}
+
 export default function todo(pi: ExtensionAPI) {
+	// OMPLITE_TODO=off removes the tool, its context and its stop check, for the A/B bench.
+	if (process.env.OMPLITE_TODO === "off") return;
 	const z = pi.zod;
 	// The list of this extension instance. A child's todo calls change only its own list.
 	let state: TodoState | undefined;
+	// A newer title request of the same session replaces an older one still in flight.
+	let titleSequence = 0;
 
 	function currentState(sessionManager: { getBranch(): unknown }): TodoState {
 		return (state ??= restore(sessionManager));
+	}
+
+	// One background title request per new list, so the session name follows the task; nothing until omp has named it.
+	function refreshTitle(ctx: ExtensionContext, input: string): void {
+		const session = currentMode()?.session;
+		if (!session || input === "" || !pi.getSessionName()) return;
+		const sessionId = ctx.sessionManager.getSessionId();
+		const sequence = ++titleSequence;
+		void (async () => {
+			const title = await session.generateTitle(input);
+			if (!title || sequence !== titleSequence || ctx.sessionManager.getSessionId() !== sessionId) return;
+			await pi.setSessionName(title);
+		})().catch(() => undefined);
 	}
 	const ITEM = z.union([z.string(), z.object({ title: z.string(), plan: z.array(z.string()).optional() })]);
 	const OP = z.object({
@@ -524,6 +548,7 @@ export default function todo(pi: ExtensionAPI) {
 
 	const restoreOnSession = (_event: unknown, ctx: ExtensionContext) => {
 		state = undefined;
+		titleSequence += 1;
 		if (ctx.agent.kind !== "main" || !ctx.hasUI) return;
 		const restored = currentState(ctx.sessionManager);
 		slot.setTodos?.(restored.phases);
@@ -539,7 +564,10 @@ export default function todo(pi: ExtensionAPI) {
 		const current = currentState(ctx.sessionManager);
 		const messages = event.messages.map(message => (isGoalModeContext(message) ? stripTodoBlock(message) : message));
 		let changed = messages.some((message, index) => message !== event.messages[index]);
-		const text = allItems(current).some(entry => isOpen(entry.item.status)) ? snapshot(current) : TODO_REMINDER;
+		// The open list goes into every request; the reminder only into the first request after the user's message.
+		const open = allItems(current).some(entry => isOpen(entry.item.status));
+		if (!open && !opensUserTurn(event.messages)) return changed ? { messages } : undefined;
+		const text = open ? snapshot(current) : TODO_REMINDER;
 		messages.push({
 			role: "user",
 			content: [{ type: "text", text }],
@@ -609,6 +637,7 @@ export default function todo(pi: ExtensionAPI) {
 			if (ctx.agent.kind === "main" && ctx.hasUI) {
 				showProgress(committed);
 				slot.setTodos?.(committed.phases);
+				if (ops.slice(0, applied.length).some(op => op.op === "init")) refreshTitle(ctx, snapshot(committed));
 			}
 			const completedTasks = allItems(committed)
 				.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))
