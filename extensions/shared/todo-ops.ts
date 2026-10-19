@@ -4,7 +4,7 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
 type Zod = ExtensionAPI["zod"];
 
-const FIELD_NOTE = "Optional todo ops, the same as the todo tool's `ops`; applied before this response's calls run.";
+const FIELD_NOTE = 'Optional todo ops, the same as the todo tool\'s `ops`, e.g. ["done 1.2", "plan: first | second"]; applied before this response\'s calls run.';
 
 /** The op list of the todo tool. */
 export function todoOps(z: Zod) {
@@ -19,7 +19,8 @@ export function todoOps(z: Zod) {
 		steps: z.array(z.string()).optional(),
 		step: z.number().optional(),
 	});
-	return z.array(op);
+	// An op is a short text like "done 1.2" or the object form; the todo tool's description lists both.
+	return z.array(z.union([z.string(), op]));
 }
 
 // OMPLITE_TODO=off removes the field together with the todo tool, for the A/B bench.

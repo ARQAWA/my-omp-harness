@@ -179,7 +179,7 @@ function defaultPhase(next: TodoState): number {
 
 // Item by number ("2.3") or by text; several text matches resolve to the single open one.
 function locate(next: TodoState, query: string | undefined, op: OpName): Entry {
-	if (query === undefined) throw new OpError(`${op} needs an item`, 'pass item: "<number like 2.3 or the exact item text>"');
+	if (query === undefined) throw new OpError(`${op} needs an item`, 'name the item by number like 2.3 or by its text, e.g. "done 2.3"');
 	const text = query.trim();
 	const entries = allItems(next);
 	if (/^\d+\.\d+$/.test(text)) {
@@ -201,12 +201,12 @@ function locate(next: TodoState, query: string | undefined, op: OpName): Entry {
 function resolveDefault(next: TodoState, query: string | undefined, op: OpName): Entry {
 	if (query !== undefined) return locate(next, query, op);
 	const active = allItems(next).find(entry => entry.item.status === "in_progress");
-	if (!active) throw new OpError(`${op} has no item and none is in progress`, 'pass item: "<number like 2.3 or the exact item text>"');
+	if (!active) throw new OpError(`${op} has no item and none is in progress`, 'name the item by number like 2.3 or by its text, e.g. "done 2.3"');
 	return active;
 }
 
 function init(next: TodoState, op: Op): string {
-	if (!op.list?.length) throw new OpError("init has no list", `pass list: [{phase, items: [...]}]`);
+	if (!op.list?.length) throw new OpError("init has no list", `write "init Phase: item | item"`);
 	const phases: Phase[] = [];
 	const plans = new Map<string, Plan>();
 	const names = new Set<string>();
@@ -232,7 +232,7 @@ function init(next: TodoState, op: Op): string {
 }
 
 function append(next: TodoState, op: Op): string {
-	if (!op.items?.length) throw new OpError("append has no items", `pass items: ["title", {title, plan: [...]}]`);
+	if (!op.items?.length) throw new OpError("append has no items", `write "append: item | item"`);
 	const specs = op.items.map(itemSpec);
 	const taken = new Set(allItems(next).map(entry => normalize(entry.item.content)));
 	let index = -1;
@@ -285,6 +285,47 @@ function closedLines(next: TodoState, op: Op): string[] {
 	return lines.length > 0 ? lines : ["No closed items."];
 }
 
+const OP_NAMES = new Set<OpName>(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"]);
+
+/**
+ * A short op written as text, "<op> [item or phase][: text]": "done 1.2", "start 1.3", "step", "step 3",
+ * "block 1.4: waits for the key", "plan: first | second", "plan 2.1: first | second", "init Phase: item | item",
+ * "append: item | item", "append Phase: item", "closed". It costs a few tokens where the object form costs dozens.
+ */
+function parseOpText(text: string): Op {
+	const colon = text.indexOf(":");
+	const head = (colon < 0 ? text : text.slice(0, colon)).trim();
+	const tail = colon < 0 ? undefined : text.slice(colon + 1).trim();
+	const [word = "", ...restWords] = head.split(/\s+/);
+	const name = word.toLowerCase() as OpName;
+	if (!OP_NAMES.has(name)) {
+		throw new OpError(`unknown op "${text}"`, 'write it as "<op> [item][: text]", e.g. "done 1.2" or "plan: first | second"');
+	}
+	const rest = restWords.join(" ").trim();
+	const target = rest === "" ? undefined : rest;
+	const parts = tail === undefined ? [] : tail.split("|").map(part => part.trim()).filter(part => part !== "");
+	switch (name) {
+		case "init":
+			return { op: name, list: [{ phase: target, items: parts }] };
+		case "append":
+			return { op: name, phase: target, items: parts };
+		case "block":
+			return { op: name, item: target, reason: tail };
+		case "plan":
+			return { op: name, item: target, steps: parts };
+		case "step": {
+			const words = rest === "" ? [] : rest.split(/\s+/);
+			const last = words[words.length - 1];
+			if (last !== undefined && /^\d+$/.test(last)) return { op: name, item: words.slice(0, -1).join(" ") || undefined, step: Number(last) };
+			return { op: name, item: target };
+		}
+		case "closed":
+			return { op: name, phase: target };
+		default:
+			return { op: name, item: target ?? (tail || undefined) };
+	}
+}
+
 function applyOp(next: TodoState, op: Op, report: string[]): string {
 	switch (op.op) {
 		case "init":
@@ -299,7 +340,8 @@ function applyOp(next: TodoState, op: Op, report: string[]): string {
 		}
 		case "done":
 		case "drop": {
-			const target = locate(next, op.item, op.op);
+			// Without an item, done and drop close the current one.
+			const target = resolveDefault(next, op.item, op.op);
 			delete target.item.blocker;
 			target.item.status = op.op === "done" ? "completed" : "abandoned";
 			return `${op.op === "done" ? "done" : "dropped"} ${target.num}`;
@@ -307,7 +349,7 @@ function applyOp(next: TodoState, op: Op, report: string[]): string {
 		case "block": {
 			const target = locate(next, op.item, "block");
 			const reason = op.reason?.trim();
-			if (!reason) throw new OpError("block has no reason", `pass reason: "what the item waits for"`);
+			if (!reason) throw new OpError("block has no reason", `write "block <item>: what it waits for"`);
 			target.item.status = "blocked";
 			target.item.blocker = reason;
 			return `blocked ${target.num}: ${reason}`;
@@ -326,7 +368,7 @@ function applyOp(next: TodoState, op: Op, report: string[]): string {
 			return `removed ${target.num} "${target.item.content}"`;
 		}
 		case "plan": {
-			if (!op.steps?.length) throw new OpError("plan has no steps", `pass steps: ["first step", "second step"]`);
+			if (!op.steps?.length) throw new OpError("plan has no steps", `write "plan: first step | second step"`);
 			const target = resolveDefault(next, op.item, "plan");
 			next.plans.set(itemKey(next, target), { steps: op.steps, current: 1 });
 			return `plan ${target.num}: ${op.steps.length} steps`;
@@ -334,7 +376,7 @@ function applyOp(next: TodoState, op: Op, report: string[]): string {
 		case "step": {
 			const target = resolveDefault(next, op.item, "step");
 			const plan = next.plans.get(itemKey(next, target));
-			if (!plan) throw new OpError(`${target.num} has no plan`, `add its steps first: {op:"plan", item:"${target.num}", steps:[...]}`);
+			if (!plan) throw new OpError(`${target.num} has no plan`, `add its steps first: "plan ${target.num}: step | step"`);
 			const total = plan.steps.length;
 			if (op.step !== undefined) {
 				if (op.step > total) throw new OpError(`step ${op.step} is outside 1..${total}`, `pass step from 1 to ${total}, or omit step to move on by one`);
@@ -368,10 +410,10 @@ function nextLine(next: TodoState): string {
 	const entries = allItems(next);
 	if (!entries.some(entry => isOpen(entry.item.status))) return "All items are closed; the list leaves the context.";
 	const active = entries.find(entry => entry.item.status === "in_progress");
-	if (!active) return `No item is in progress; start one with {op:"start",item:"…"}.`;
+	if (!active) return `No item is in progress; start one with "start <item>".`;
 	const plan = next.plans.get(itemKey(next, active));
-	if (!plan) return `Next: ${active.num} "${active.item.content}" has no plan; add its steps with {op:"plan", steps:[…]}.`;
-	if (plan.current > plan.steps.length) return `All steps of ${active.num} are marked; close it with {op:"done"}.`;
+	if (!plan) return `Next: ${active.num} "${active.item.content}" has no plan; add its steps with "plan: step | step".`;
+	if (plan.current > plan.steps.length) return `All steps of ${active.num} are marked; close it with "done".`;
 	return `Now: ${active.num} "${active.item.content}", step ${plan.current}/${plan.steps.length} "${plan.steps[plan.current - 1]}".`;
 }
 
@@ -389,7 +431,7 @@ function planText(plan: Plan): string {
 function snapshot(next: TodoState): string {
 	const entries = allItems(next);
 	const open = entries.filter(entry => isOpen(entry.item.status)).length;
-	const lines = ["<todo>", `Your todo list; item numbers work in every todo op. ${open} of ${entries.length} open; closed items are folded, list them with {op:"closed"}.`];
+	const lines = ["<todo>", `Your todo list; item numbers work in every todo op. ${open} of ${entries.length} open; closed items are folded, list them with "closed".`];
 	next.phases.forEach((phase, p) => {
 		if (phase.tasks.length === 0) {
 			lines.push(`${p + 1} ${phase.name} — empty`);
@@ -549,17 +591,20 @@ export default function todo(pi: ExtensionAPI) {
 
 	// Applies ops in order; the first failing op stops the rest. A change is saved to the session and shown on the panel.
 	function applyOps(rawOps: unknown, ctx: ExtensionContext): Outcome {
-		const ops = (Array.isArray(rawOps) ? rawOps : []).map(raw => (clean(raw) ?? {}) as Op);
-		if (ops.length === 0) return fail(`todo needs at least one op. Fix: pass ops: [{op: "start", item: "1.1"}].`);
+		const raws = (Array.isArray(rawOps) ? rawOps : []).map(raw => clean(raw)).filter(raw => raw !== undefined);
+		if (raws.length === 0) return fail(`todo needs at least one op. Fix: pass ops: ["start 1.1"].`);
+		const ops: Op[] = [];
 		const start = currentState(ctx.sessionManager);
 		const before = new Set(allItems(start).filter(entry => entry.item.status === "completed").map(entry => itemKey(start, entry)));
 		let working: TodoState = structuredClone(start);
 		const applied: string[] = [];
 		const report: string[] = [];
 		let failure: { index: number; error: OpError } | undefined;
-		for (const [index, op] of ops.entries()) {
+		for (const [index, raw] of raws.entries()) {
 			const trial = structuredClone(working);
 			try {
+				const op = typeof raw === "string" ? parseOpText(raw) : (raw as Op);
+				ops.push(op);
 				applied.push(applyOp(trial, op, report));
 				working = settle(trial);
 			} catch (failed) {
@@ -573,8 +618,9 @@ export default function todo(pi: ExtensionAPI) {
 		if (applied.length > 0) lines.push(`${capitalize(applied.join("; "))}.`);
 		const stop = failure;
 		if (stop) {
-			const parts = [`Stopped at op ${stop.index + 1} (${ops[stop.index]?.op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
-			const rest = ops.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${label(op)})`);
+			const failed = raws[stop.index];
+			const parts = [`Stopped at op ${stop.index + 1} (${typeof failed === "string" ? failed : (failed as Op).op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
+			const rest = raws.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${typeof op === "string" ? op : label(op as Op)})`);
 			if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
 			lines.push(parts.join(" "));
 			lines.push(snapshot(committed));
