@@ -706,7 +706,9 @@ export default function todo(pi: ExtensionAPI) {
 	});
 
 	// Runs after the subagent wait in the one shared stop handler, so a todo refusal never drops a subagent final.
-	onStop("todo", 1, ctx => {
+	// Registered from Main's session only: the registry is shared by the process, and a subagent session that loads this
+	// extension later would replace Main's check with one that reads its own, stale copy of the list.
+	const stopCheck = (ctx: ExtensionContext) => {
 		if (isBare(ctx)) return undefined;
 		const open = allItems(currentState(ctx.sessionManager)).filter(entry => entry.item.status === "pending" || entry.item.status === "in_progress");
 		if (open.length === 0) return undefined;
@@ -715,6 +717,9 @@ export default function todo(pi: ExtensionAPI) {
 			...open.map(entry => `- ${entry.num} ${entry.item.content} (${entry.item.status})`),
 			"Before finishing, mark each one done, drop it if it is no longer needed, or block it with a reason if it waits for the user or another event.",
 		].join("\n");
+	};
+	pi.on("session_start", (_event, ctx) => {
+		if (ctx.agent.kind === "main") onStop("todo", 1, stopCheck);
 	});
 
 	pi.registerTool({
