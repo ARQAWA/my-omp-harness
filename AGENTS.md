@@ -7,6 +7,7 @@ This branch is the lite harness for omp: one omp package (`package.json`) plus `
 ```text
 SYSTEM.md                  rules that span all tools; nothing tool-specific
 DECISIONS.md               decisions and bench results
+INSTALL.md                 standalone install instructions for an agent
 settings/                  config.yml and models.yml of the stand, theme titanium-arq.json, keybindings.yml
 agents/                    subagent definitions (not active yet)
 omp-vscode/                VS Code extension for Windows: omp in a terminal tab, omp.exe kept at the latest release
