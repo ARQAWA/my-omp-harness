@@ -1,6 +1,6 @@
 # Installing my-omp-harness
 
-Instructions for an agent that installs this harness into omp on the owner's machine. Run every step in order; the commands are bash, so on Windows run them in Git Bash (Git for Windows, installed without administrator rights with the "Only for me" option); a repeated run is safe and only overwrites the same files. Ask the owner before replacing a file that exists and differs, and for every sign-in.
+Instructions for an agent that installs this harness into omp on the owner's machine. Run every step in order; the commands are bash, so on Windows run them in Git Bash (Git for Windows, installed without administrator rights with the "Only for me" option), except the omp installer in step 1, which runs in PowerShell; a repeated run is safe and only overwrites the same files. Ask the owner before replacing a file that exists and differs, and for every sign-in.
 
 ## 1. omp
 
@@ -23,13 +23,16 @@ AGENT_DIR="$(omp config path)"
 
 ## 3. Files
 
-```bash
-mkdir -p "$AGENT_DIR/themes"
-cp "$CLONE/settings/titanium-arq.json" "$AGENT_DIR/themes/"
-cp "$CLONE/SYSTEM.md" "$AGENT_DIR/SYSTEM.md"
-```
+Install four files, each by the same rule: copy it when the target is absent; when the target exists and differs, show `git diff --no-index <target> <source>` and replace it only with the owner's consent.
 
-For `models.yml` and `keybindings.yml` from `$CLONE/settings/`: copy the file into `$AGENT_DIR` when it is absent there; when it exists and differs, show `git diff --no-index "$AGENT_DIR/<file>" "$CLONE/settings/<file>"` and replace it only with the owner's consent.
+| Source | Target |
+|---|---|
+| `$CLONE/SYSTEM.md` | `$AGENT_DIR/SYSTEM.md` |
+| `$CLONE/settings/titanium-arq.json` | `$AGENT_DIR/themes/titanium-arq.json` (create `themes/` first) |
+| `$CLONE/settings/models.yml` | `$AGENT_DIR/models.yml` |
+| `$CLONE/settings/keybindings.yml` | `$AGENT_DIR/keybindings.yml` |
+
+Without `SYSTEM.md` the harness's answer and message rules are missing.
 
 ## 4. Settings
 
