@@ -138,6 +138,13 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - Bench (superbot-test, same long task, one run per provider, 2026-10-19): InferenceNet 58 requests, 0 errors, 96.7% of input from cache, median 97% per request from the 2nd, 321 tok/s, first token 0.68 s, $0.053; Together 95.7%, 432 tok/s, 0.55 s, $0.094 for 35 requests; Prime Intellect 93.6%, 353 tok/s, $0.101 for 30 requests. Priced on the same long task, InferenceNet costs $0.058 and Together or Prime Intellect $0.125: in a long session cache reads are cheap, and new input and output decide the cost. Morph and Crusoe each had a request with no cache hit.
 - Requests below 90% from cache in a healthy run are new content (large tool results), not misses: the cached part equals the whole previous request within a 256-token block.
 
+## MiniMax M3.1 Flash free
+
+- `settings/models.yml` adds `minimax/minimax-m3.1-flash:free` as custom provider `minimax-free` and puts it above the DeepSeek entries in `enabledModels` and `extensions/ui/model-arrows.js` (user: «надо добавить в модели MiniMax M3 Flash бесплатный... чтобы в списке выбора он был над DeepSeek»). Thinking levels follow OpenRouter's catalog: low, medium, high, xhigh, max, default max.
+- The key's OpenRouter guardrail now allows the model and provider `minimax`; the guardrail normalizes the id to `minimax/minimax-m3.1-flash-20261019:free`.
+- The only MiniMax endpoint retains prompts (it does not train) and is not ZDR. The owner turned off account ZDR for "All other models", and the model now runs: `omp -p --model minimax-free/minimax/minimax-m3.1-flash:free` returned `OMP-OK`. The management API has no endpoint for account privacy; ZDR must stay off for this model.
+- Prompt cache works despite the endpoint's `supports_implicit_caching: false` metadata: repeated requests reported `cached_tokens` 200/207 and 195/207; a 5811-token prompt cached 5809 tokens on the second request (99.97%), cost 0. The free tier reports 1000 requests per day.
+
 ## Results log
 
 - Per-run data of the todo benches 34-38 (time, responses, todo use, output tokens, check results) is kept in `bench/todo-bench34-38.csv`. The raw event logs (about 400 MB) stay in `~/stock-bench/bench3*`: they hold full sessions, too large and too noisy for git (user: «если они критически важны, то забери их в репозиторий»).

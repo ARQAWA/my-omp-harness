@@ -7,6 +7,7 @@ export const MODELS = [
   "openai-codex/gpt-6-luna",
   "openai-codex/gpt-5.6-luna",
   "anthropic/claude-haiku-5-5",
+  "minimax-free/minimax/minimax-m3.1-flash:free",
   "deepseek-inferencenet/deepseek/deepseek-v4.1-flash-1017",
   "deepseek-relace/deepseek/deepseek-v4.1-flash-1017",
   "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition",
