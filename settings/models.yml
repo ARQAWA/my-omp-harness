@@ -92,3 +92,26 @@ providers:
           - primeintellect
           only:
           - primeintellect
+  deepseek-relace:
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: OPENROUTER_API_KEY
+    api: openai-completions
+    models:
+    - id: deepseek/deepseek-v4.1-flash-1017
+      name: DeepSeek V4.1 Flash · Relace
+      reasoning: true
+      input:
+      - text
+      contextWindow: 700000
+      maxTokens: 65536
+      cost:
+        input: 0.05
+        output: 0.1
+        cacheRead: 0.012
+        cacheWrite: 0
+      compat:
+        openRouterRouting:
+          order:
+          - relace
+          only:
+          - relace
