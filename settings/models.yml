@@ -44,7 +44,7 @@ providers:
       input:
       - text
       - image
-      contextWindow: 1000000
+      contextWindow: 700000
       maxTokens: 524288
       cost:
         input: 0
