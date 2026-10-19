@@ -505,8 +505,12 @@ function firstTextLine(result: unknown): string {
 
 export default function todo(pi: ExtensionAPI) {
 	const z = pi.zod;
-	// The list and title sequence of this extension instance. A child's todo calls change only its own list.
+	// The list of this extension instance. A child's todo calls change only its own list.
 	let state: TodoState | undefined;
+
+	function currentState(sessionManager: { getBranch(): unknown }): TodoState {
+		return (state ??= restore(sessionManager));
+	}
 	const ITEM = z.union([z.string(), z.object({ title: z.string(), plan: z.array(z.string()).optional() })]);
 	const OP = z.object({
 		op: z.enum(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"]),

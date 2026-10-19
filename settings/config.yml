@@ -45,3 +45,9 @@ task:
 textVerbosity: low
 glob:
   enabled: true
+browser:
+  enabled: false
+computer:
+  enabled: false
+github:
+  enabled: false
