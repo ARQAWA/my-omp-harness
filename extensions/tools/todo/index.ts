@@ -101,6 +101,13 @@ function label(op: Op): string {
 	return op.item !== undefined ? `${op.op} ${op.item}` : op.op;
 }
 
+/** A raw op as the failure report names it: its text, its label, or the value itself when it is no op at all. */
+function opName(raw: unknown): string {
+	if (typeof raw === "string") return raw;
+	if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) return label(raw as Op);
+	return JSON.stringify(raw);
+}
+
 // Drops optional fields that are empty strings or empty arrays, and a non-positive step.
 function clean(value: unknown): unknown {
 	if (typeof value === "string") return value.trim() === "" ? undefined : value;
@@ -284,6 +291,9 @@ function closedLines(next: TodoState, op: Op): string[] {
 	}
 	return lines.length > 0 ? lines : ["No closed items."];
 }
+
+// The tools whose schema carries Main's todo field; a todo key sent to any other tool changes nothing.
+const FIELD_TOOLS = new Set(["read", "grep", "glob", "bash", "edit", "write", "eval", "lsp", "ast_grep", "code_writer", "shell_runner", "codebase_explorer", "review"]);
 
 const OP_NAMES = new Set<OpName>(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"]);
 
@@ -603,6 +613,9 @@ export default function todo(pi: ExtensionAPI) {
 		for (const [index, raw] of raws.entries()) {
 			const trial = structuredClone(working);
 			try {
+				if (typeof raw !== "string" && (typeof raw !== "object" || raw === null || Array.isArray(raw))) {
+					throw new OpError(`op ${index + 1} is ${JSON.stringify(raw)}, not an op`, 'write it as text, e.g. "done 1.2"');
+				}
 				const op = typeof raw === "string" ? parseOpText(raw) : (raw as Op);
 				ops.push(op);
 				applied.push(applyOp(trial, op, report));
@@ -618,9 +631,8 @@ export default function todo(pi: ExtensionAPI) {
 		if (applied.length > 0) lines.push(`${capitalize(applied.join("; "))}.`);
 		const stop = failure;
 		if (stop) {
-			const failed = raws[stop.index];
-			const parts = [`Stopped at op ${stop.index + 1} (${typeof failed === "string" ? failed : (failed as Op).op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
-			const rest = raws.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${typeof op === "string" ? op : label(op as Op)})`);
+			const parts = [`Stopped at op ${stop.index + 1} (${opName(raws[stop.index])}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
+			const rest = raws.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${opName(op)})`);
 			if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
 			lines.push(parts.join(" "));
 			lines.push(snapshot(committed));
@@ -656,7 +668,7 @@ export default function todo(pi: ExtensionAPI) {
 			prepared.set(event.toolCallId, applyOps(input.ops, ctx));
 			return undefined;
 		}
-		if (!Array.isArray(input.todo) || input.todo.length === 0) return undefined;
+		if (!FIELD_TOOLS.has(event.toolName) || !Array.isArray(input.todo) || input.todo.length === 0) return undefined;
 		const outcome = applyOps(input.todo, ctx);
 		// A field that worked stays silent: the list in the next request shows it. A failure is added to the call's result.
 		if (outcome.isError) notes.set(event.toolCallId, outcome.content.map(part => part.text).join("\n"));
