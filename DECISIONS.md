@@ -8,6 +8,7 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - Only the functionality omp-lite already has, plus the interface transferred from the main harness. Search behaviour lives in tool descriptions and `SYSTEM.md`.
 - No Gold Standard and no Workflow Manifest principles ("everything agreed and nothing beyond", "heavy work only on request", "dig deeper only at a contested point", "shortest path"): they were written against GPT-5.6 over-engineering and fight greedy search. `harness.ts` appends only the environment line to the system prompt; `skills/gold-standard` is removed.
 - `SYSTEM.md` exists twice and must stay identical: `SYSTEM.md` of this branch and `omp-lite-home/.omp/agent/SYSTEM.md` (check with `cmp`).
+- `settings/models.yml` carries every model entry, override and context window of the owner's active `~/.omp/agent/models.yml`; only the machine-specific `apiKey` lines differ. The bench stand's `models.yml` is a copy of the source. Reason: a release installs the source over the active file, so a missing entry would drop a working model (user: «Чтобы у нас уже локально все заебись работало»).
 - Tool call arguments stay as they are.
 - Internal structure and its rules are in `AGENTS.md`: one folder per tool under `extensions/tools/`, the model-facing description in its `description.md`, shared code in `extensions/shared/`, no mentions of other products.
 

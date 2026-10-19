@@ -5,6 +5,10 @@ providers:
         contextWindow: 700000
       gpt-6-luna:
         contextWindow: 700000
+      gpt-6-sol:
+        contextWindow: 700000
+      gpt-5.6-luna:
+        contextWindow: 700000
   anthropic:
     modelOverrides:
       claude-opus-5-5:
@@ -14,7 +18,11 @@ providers:
       claude-haiku-5-5:
         contextWindow: 700000
   openrouter:
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: OPENROUTER_API_KEY
     modelOverrides:
+      cognitivecomputations/dolphin-mistral-24b-venice-edition:
+        contextWindow: 136192
       deepseek/deepseek-v4.1-flash-1017:
         contextWindow: 700000
         compat:
@@ -23,6 +31,21 @@ providers:
             - inference-net
             only:
             - inference-net
+    models:
+    - id: cognitivecomputations/dolphin-mistral-24b-venice-edition
+      name: 'Venice: Uncensored'
+      api: openai-completions
+      reasoning: false
+      input:
+      - text
+      supportsTools: false
+      cost:
+        input: 0.2
+        output: 0.9
+        cacheRead: 0
+        cacheWrite: 0
+      contextWindow: 136192
+      maxTokens: 8192
   minimax-free:
     baseUrl: https://openrouter.ai/api/v1
     apiKey: OPENROUTER_API_KEY
