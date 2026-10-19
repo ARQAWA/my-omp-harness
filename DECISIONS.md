@@ -137,6 +137,8 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 
 ## Results log
 
+- Per-run data of the todo benches 34-38 (time, responses, todo use, output tokens, check results) is kept in `bench/todo-bench34-38.csv`. The raw event logs (about 400 MB) stay in `~/stock-bench/bench3*`: they hold full sessions, too large and too noisy for git (user: «если они критически важны, то забери их в репозиторий»).
+
 - bench13-16 (16 runs per stand): small prompt omp-lite 17.5 s avg vs Pi 17.4 s (tie accepted); large prompt 54.9 s vs 84.2 s.
 - bench17 (T03-T07, 4 runs each, before the 100 000 budgets): omp-lite 43.4 s avg / 38.9 s median, quality 88.3; Pi 42.4 s / 42.8 s, quality 79.7.
 - bench18 (T01-T07, 4 runs each, gpt-6.1-sol low; after 50 KB budgets, Rust search, stock tool names, speed block, no Gold Standard, eval wrapper): omp-lite 61.6 s avg / 56.9 s median, quality 99.3, 30 calls per run; Pi 63.9 s / 43.8 s, quality 92.3, 12.7 calls. omp-lite is slower on T01 (31.7 vs 25.9 s), T05 (73.9 vs 57.2), T06 (59.9 vs 39.4) and T07 (68.8 vs 61.2); faster on T02 (123.6 vs 191.7).
