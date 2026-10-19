@@ -1,0 +1,21 @@
+{
+  "name": "omp-vscode",
+  "displayName": "omp",
+  "description": "Запускает omp в Git Bash на Windows и сам держит omp.exe на последней версии",
+  "version": "0.1.0",
+  "publisher": "arqawa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ARQAWA/my-omp-harness.git"
+  },
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      { "command": "omp.newTab", "title": "New Tab", "category": "OMP" }
+    ]
+  }
+}
