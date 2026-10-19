@@ -91,6 +91,7 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - Several implementations: determine from deploy and run configuration which one runs, say so, and explain for every implementation where and how it is used.
 - Name the exact identifiers that answer the question: keys, constants, topics, config fields and values, with paths; describe non-running implementations briefly. Reason: on T06 the Redis key `currency:tradeoffer:cooldown:{key}` was in omp-lite's tool output in all four runs and in none of its answers.
 - `textVerbosity: low` stays.
+- `## Messages to the user` is the main harness's Clear Communication in compact form (user: «Communication да, мне нравится. Давай его перенесем, чтобы он был только частью»; «самым простым способом, максимально компактным, чтобы он сохранил всю свою концепцию, но был суперкомпактным»): Russian with «ты», bold first sentence, only what the next step needs, short paragraphs, self-contained messages, a recommendation with alternatives when the user chooses, and the «Вопросы · N» question format.
 
 ## Other settings
 
