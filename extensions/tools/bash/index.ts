@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
 import { nativeRenderers, unavailable } from "../../shared/native.ts";
 import description from "./description.md" with { type: "text" };
+import { todoParameters, withoutTodo } from "../../shared/todo-ops.ts";
 
 type NativeResult = { content: { type: string; text?: string }[]; details?: unknown; isError?: boolean };
 type BashParams = {
@@ -21,7 +22,7 @@ let gate: Promise<void> = Promise.resolve();
 
 // GPT sends every optional field with an empty default; "" names and cwd, and a ready block with neither log nor port, count as absent.
 function cleanBashParams(raw: BashParams): BashParams {
-	const params = { ...raw };
+	const params = withoutTodo({ ...raw });
 	if (params.name === "") delete params.name;
 	if (params.cwd === "") delete params.cwd;
 	if (params.timeout === 0) delete params.timeout;
@@ -60,6 +61,24 @@ export default function (pi: ExtensionAPI) {
 		return step;
 	};
 
+	const parameters = todoParameters(pi, extra => z.object({
+		command: z.string(),
+		timeout: z.number().optional().describe("seconds; omitted = no deadline"),
+		block_until_ms: z.number().min(0).optional(),
+		cwd: z.string().optional(),
+		pty: z.boolean().optional(),
+		async: z.boolean().optional(),
+		name: z.string().optional(),
+		ready: z
+			.object({
+				log: z.string().optional(),
+				port: z.number().optional(),
+				host: z.string().optional(),
+				timeout: z.number().optional(),
+			})
+			.optional(),
+		...extra,
+	}));
 	pi.registerTool({
 		name: "bash",
 		label: "bash",
@@ -68,23 +87,9 @@ export default function (pi: ExtensionAPI) {
 		// A pty command owns the terminal for interactive input, so it runs alone.
 		concurrency: (args: { pty?: unknown } | undefined) => (args?.pty === true ? "exclusive" : "shared"),
 		description: description.trim(),
-		parameters: z.object({
-			command: z.string(),
-			timeout: z.number().optional().describe("seconds; omitted = no deadline"),
-			block_until_ms: z.number().min(0).optional(),
-			cwd: z.string().optional(),
-			pty: z.boolean().optional(),
-			async: z.boolean().optional(),
-			name: z.string().optional(),
-			ready: z
-				.object({
-					log: z.string().optional(),
-					port: z.number().optional(),
-					host: z.string().optional(),
-					timeout: z.number().optional(),
-				})
-				.optional(),
-		}),
+		get parameters() {
+			return parameters();
+		},
 		async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
 			const params = cleanBashParams(rawParams as BashParams);
 			if (!ctx.invokeTool) return unavailable("bash");

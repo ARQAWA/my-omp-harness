@@ -8,6 +8,7 @@ import { parseReadArgs } from "./args.ts";
 import description from "./description.md" with { type: "text" };
 import { ReadToolError } from "./errors.ts";
 import { computeReadSlice, formatReadCodeBlock, READ_CHAR_HARD_LIMIT, readTextRange } from "./lines.ts";
+import { todoJsonParameters } from "../../shared/todo-ops.ts";
 
 // A file read without offset and limit comes back whole up to this many lines; a longer one returns its first lines
 // and the offset to continue from. The number is also written in description.md.
@@ -38,6 +39,7 @@ const PARAMETERS = {
 };
 
 export default function read(pi: ExtensionAPI): void {
+	const parameters = todoJsonParameters(pi, PARAMETERS, sortedSchema);
 	pi.registerTool({
 		name: "read",
 		label: "read",
@@ -45,7 +47,9 @@ export default function read(pi: ExtensionAPI): void {
 		concurrency: "shared",
 		strict: false,
 		description: description.trim(),
-		parameters: sortedSchema(PARAMETERS) as never,
+		get parameters() {
+			return parameters() as never;
+		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const path = (params as { path?: unknown }).path;
 			const topic = typeof path === "string" ? EVAL_TOPIC.exec(path)?.[1] : undefined;

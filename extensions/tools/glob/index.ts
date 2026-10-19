@@ -3,6 +3,7 @@ import { classifyRipgrepMessage, searchWorkspace } from "../../shared/search/eng
 import { formatGlob, GLOB_CHAR_BUDGET, mapToGlob, toolText, truncateOutput, type ToolText } from "../../shared/search/format.ts";
 import { type ArgIssue, checkType, invalidArguments, optionalString, sortedSchema } from "../../shared/validate.ts";
 import description from "./description.md" with { type: "text" };
+import { todoJsonParameters } from "../../shared/todo-ops.ts";
 
 const PARAMETERS = {
 	type: "object",
@@ -46,6 +47,7 @@ function normalizeGlob(glob: string): string {
 }
 
 export default function glob(pi: ExtensionAPI): void {
+	const parameters = todoJsonParameters(pi, PARAMETERS, sortedSchema);
 	pi.registerTool({
 		name: "glob",
 		label: "glob",
@@ -53,7 +55,9 @@ export default function glob(pi: ExtensionAPI): void {
 		concurrency: "shared",
 		strict: false,
 		description: description.trim(),
-		parameters: sortedSchema(PARAMETERS) as never,
+		get parameters() {
+			return parameters() as never;
+		},
 		execute: (_toolCallId, params, signal, _onUpdate, ctx) => executeGlob(params, signal, ctx),
 	});
 }

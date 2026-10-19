@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { type Component, Text } from "@oh-my-pi/pi-tui";
 import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { onStop } from "../../shared/stop.ts";
+import { todoOps } from "../../shared/todo-ops.ts";
 import { currentMode } from "../../ui/feed/panel";
 import description from "./description.md" with { type: "text" };
 
@@ -24,6 +25,7 @@ type Op = {
 	step?: number;
 };
 type Entry = { phase: number; index: number; item: Item; num: string };
+type Outcome = { content: { type: "text"; text: string }[]; isError: boolean; details?: unknown };
 
 const MARK: Record<Status, string> = { completed: "✓", in_progress: "●", pending: "○", blocked: "⊘", abandoned: "✗" };
 const TODO_BLOCK = /<todo_context>[\s\S]*?<\/todo_context>|<todo>[\s\S]*?<\/todo>|<todo-reminder>[\s\S]*?<\/todo-reminder>/g;
@@ -34,6 +36,8 @@ const TODO_REMINDER = [
 ].join("\n");
 
 const SLOT = Symbol.for("my-omp-harness.progress");
+// The session entry that carries the list after each change.
+const STATE_ENTRY = "todo_state";
 type ProgressSlot = {
 	state?: { item: string; steps: string[]; current: number };
 	setTodos?: (phases: Phase[]) => void;
@@ -428,7 +432,7 @@ function restore(sessionManager: { getBranch(): unknown }): TodoState {
 			| {
 					type?: string;
 					customType?: string;
-					data?: { phases?: unknown };
+					data?: { phases?: unknown; plans?: unknown };
 					message?: {
 						role?: string;
 						toolName?: string;
@@ -440,6 +444,10 @@ function restore(sessionManager: { getBranch(): unknown }): TodoState {
 		const edited = entry?.data?.phases;
 		if (entry?.type === "custom" && entry.customType === "user_todo_edit" && Array.isArray(edited)) {
 			return { phases: edited as Phase[], plans: new Map() };
+		}
+		// Written on every change, so ops sent in other tools' todo fields survive a restart and a compaction.
+		if (entry?.type === "custom" && entry.customType === STATE_ENTRY && Array.isArray(edited)) {
+			return { phases: edited as Phase[], plans: livePlans(entry.data?.plans, edited as Phase[]) };
 		}
 		const message = entry?.message;
 		if (entry?.type !== "message" || !message || message.role !== "toolResult" || message.toolName !== "todo") continue;
@@ -534,16 +542,89 @@ export default function todo(pi: ExtensionAPI) {
 			await pi.setSessionName(title);
 		})().catch(() => undefined);
 	}
-	const ITEM = z.union([z.string(), z.object({ title: z.string(), plan: z.array(z.string()).optional() })]);
-	const OP = z.object({
-		op: z.enum(["init", "append", "start", "done", "drop", "block", "unblock", "rm", "plan", "step", "closed"]),
-		item: z.string().optional(),
-		phase: z.string().optional(),
-		list: z.array(z.object({ phase: z.string(), items: z.array(ITEM) })).optional(),
-		items: z.array(ITEM).optional(),
-		reason: z.string().optional(),
-		steps: z.array(z.string()).optional(),
-		step: z.number().optional(),
+
+	// Outcomes of todo tool calls applied while the response was prepared, and notes on failed todo fields.
+	const prepared = new Map<string, Outcome>();
+	const notes = new Map<string, string>();
+
+	// Applies ops in order; the first failing op stops the rest. A change is saved to the session and shown on the panel.
+	function applyOps(rawOps: unknown, ctx: ExtensionContext): Outcome {
+		const ops = (Array.isArray(rawOps) ? rawOps : []).map(raw => (clean(raw) ?? {}) as Op);
+		if (ops.length === 0) return fail(`todo needs at least one op. Fix: pass ops: [{op: "start", item: "1.1"}].`);
+		const start = currentState(ctx.sessionManager);
+		const before = new Set(allItems(start).filter(entry => entry.item.status === "completed").map(entry => itemKey(start, entry)));
+		let working: TodoState = structuredClone(start);
+		const applied: string[] = [];
+		const report: string[] = [];
+		let failure: { index: number; error: OpError } | undefined;
+		for (const [index, op] of ops.entries()) {
+			const trial = structuredClone(working);
+			try {
+				applied.push(applyOp(trial, op, report));
+				working = settle(trial);
+			} catch (failed) {
+				if (!(failed instanceof OpError)) throw failed;
+				failure = { index, error: failed };
+				break;
+			}
+		}
+		const committed = applied.length > 0 ? working : start;
+		const lines: string[] = [];
+		if (applied.length > 0) lines.push(`${capitalize(applied.join("; "))}.`);
+		const stop = failure;
+		if (stop) {
+			const parts = [`Stopped at op ${stop.index + 1} (${ops[stop.index]?.op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
+			const rest = ops.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${label(op)})`);
+			if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
+			lines.push(parts.join(" "));
+			lines.push(snapshot(committed));
+		} else {
+			lines.push(nextLine(committed));
+		}
+		lines.push(...report);
+		if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
+		state = committed;
+		const plans = Object.fromEntries(committed.plans);
+		pi.appendEntry(STATE_ENTRY, { phases: committed.phases, plans });
+		if (ctx.agent.kind === "main" && ctx.hasUI) {
+			showProgress(committed);
+			slot.setTodos?.(committed.phases);
+			if (ops.slice(0, applied.length).some(op => op.op === "init")) refreshTitle(ctx, snapshot(committed));
+		}
+		const completedTasks = allItems(committed)
+			.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))
+			.map(entry => ({ content: entry.item.content }));
+		return {
+			content: [{ type: "text" as const, text: lines.join("\n") }],
+			isError: stop !== undefined,
+			details: { op: "ops", phases: committed.phases, plans, completedTasks },
+		};
+	}
+
+	// omp prepares all calls of a response in order before any of them runs; applying ops here keeps the todo tool and the
+	// todo fields of other calls in call order, and a field never delays the call it rides on.
+	pi.on("tool_call", (event, ctx) => {
+		if (ctx.agent.kind !== "main" || isBare(ctx)) return undefined;
+		const input = event.input as Record<string, unknown>;
+		if (event.toolName === "todo") {
+			prepared.set(event.toolCallId, applyOps(input.ops, ctx));
+			return undefined;
+		}
+		if (!Array.isArray(input.todo) || input.todo.length === 0) return undefined;
+		const outcome = applyOps(input.todo, ctx);
+		// A field that worked stays silent: the list in the next request shows it. A failure is added to the call's result.
+		if (outcome.isError) notes.set(event.toolCallId, outcome.content.map(part => part.text).join("\n"));
+		return undefined;
+	});
+	pi.on("tool_result", event => {
+		const note = notes.get(event.toolCallId);
+		if (note === undefined) return undefined;
+		notes.delete(event.toolCallId);
+		return { content: [...event.content, { type: "text" as const, text: `todo field: ${note}` }] };
+	});
+	pi.on("agent_end", () => {
+		prepared.clear();
+		notes.clear();
 	});
 
 	const restoreOnSession = (_event: unknown, ctx: ExtensionContext) => {
@@ -597,56 +678,15 @@ export default function todo(pi: ExtensionAPI) {
 		concurrency: "shared",
 		approval: "read",
 		description: description.trim(),
-		parameters: z.object({ ops: z.array(OP).min(1) }),
-		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-			const ops = rawParams.ops.map(raw => (clean(raw) ?? {}) as Op);
-			if (ops.length === 0) return fail(`todo needs at least one op. Fix: pass ops: [{op: "start", item: "1.1"}].`);
-			const start = currentState(ctx.sessionManager);
-			const before = new Set(allItems(start).filter(entry => entry.item.status === "completed").map(entry => itemKey(start, entry)));
-			let working: TodoState = structuredClone(start);
-			const applied: string[] = [];
-			const report: string[] = [];
-			let failure: { index: number; error: OpError } | undefined;
-			for (const [index, op] of ops.entries()) {
-				const trial = structuredClone(working);
-				try {
-					applied.push(applyOp(trial, op, report));
-					working = settle(trial);
-				} catch (failed) {
-					if (!(failed instanceof OpError)) throw failed;
-					failure = { index, error: failed };
-					break;
-				}
+		parameters: z.object({ ops: todoOps(z) }),
+		async execute(toolCallId, rawParams, _signal, _onUpdate, ctx) {
+			// Applied already when the response's calls were prepared, in call order with the todo fields of other calls.
+			const done = prepared.get(toolCallId);
+			if (done) {
+				prepared.delete(toolCallId);
+				return done;
 			}
-			const committed = applied.length > 0 ? working : start;
-			const lines: string[] = [];
-			if (applied.length > 0) lines.push(`${capitalize(applied.join("; "))}.`);
-			const stop = failure;
-			if (stop) {
-				const parts = [`Stopped at op ${stop.index + 1} (${ops[stop.index]?.op}): ${stop.error.reason}. Fix: ${stop.error.fix}.`];
-				const rest = ops.slice(stop.index + 1).map((op, offset) => `op ${stop.index + 2 + offset} (${label(op)})`);
-				if (rest.length > 0) parts.push(`Not applied: ${rest.join(", ")}.`);
-				lines.push(parts.join(" "));
-				lines.push(snapshot(committed));
-			} else {
-				lines.push(nextLine(committed));
-			}
-			lines.push(...report);
-			if (applied.length === 0) return { content: [{ type: "text" as const, text: lines.join("\n") }], isError: true };
-			state = committed;
-			if (ctx.agent.kind === "main" && ctx.hasUI) {
-				showProgress(committed);
-				slot.setTodos?.(committed.phases);
-				if (ops.slice(0, applied.length).some(op => op.op === "init")) refreshTitle(ctx, snapshot(committed));
-			}
-			const completedTasks = allItems(committed)
-				.filter(entry => entry.item.status === "completed" && !before.has(itemKey(committed, entry)))
-				.map(entry => ({ content: entry.item.content }));
-			return {
-				content: [{ type: "text" as const, text: lines.join("\n") }],
-				isError: stop !== undefined,
-				details: { op: "ops", phases: committed.phases, plans: Object.fromEntries(committed.plans), completedTasks },
-			};
+			return applyOps(rawParams.ops, ctx);
 		},
 		renderCall: (...args: Parameters<ToolRenderer["renderCall"]>): Component => {
 			const host = toolRenderers["todo"];

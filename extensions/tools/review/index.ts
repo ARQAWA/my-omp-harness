@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { launch, loadRole, runTask, started } from "../../shared/subagents.ts";
 import description from "./description.md" with { type: "text" };
+import { todoParameters } from "../../shared/todo-ops.ts";
 
 const ROLE = loadRole("review");
 // One prompt for every level; the level picks the model.
@@ -12,19 +13,23 @@ const LEVELS = {
 
 export default function review(pi: ExtensionAPI) {
 	const z = pi.zod;
+	const parameters = todoParameters(pi, extra => z.object({
+		level: z.enum(["light", "blind", "high"]),
+		agreement: z.string(),
+		object: z.string(),
+		criterion: z.string(),
+		rejected: z.string().optional(),
+		...extra,
+	}));
 	pi.registerTool({
 		name: "review",
 		label: "review",
 		loadMode: "essential",
 		concurrency: "shared",
 		description: description.trim(),
-		parameters: z.object({
-			level: z.enum(["light", "blind", "high"]),
-			agreement: z.string(),
-			object: z.string(),
-			criterion: z.string(),
-			rejected: z.string().optional(),
-		}),
+		get parameters() {
+			return parameters();
+		},
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const brief = [
 				`Agreement (verbatim):\n${params.agreement}`,

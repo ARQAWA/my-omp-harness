@@ -2,10 +2,17 @@ import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { inFlight, lockKey } from "../../shared/locks.ts";
 import { nativeRenderers, unavailable } from "../../shared/native.ts";
 import description from "./description.md" with { type: "text" };
+import { todoParameters } from "../../shared/todo-ops.ts";
 
 export default function (pi: ExtensionAPI) {
 	const z = pi.zod;
 
+	const parameters = todoParameters(pi, extra => z.object({
+		path: z.string().optional(),
+		content: z.string().optional(),
+		files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+		...extra,
+	}));
 	pi.registerTool({
 		name: "write",
 		label: "write",
@@ -13,11 +20,9 @@ export default function (pi: ExtensionAPI) {
 		concurrency: "shared",
 		approval: "write",
 		description: description.trim(),
-		parameters: z.object({
-			path: z.string().optional(),
-			content: z.string().optional(),
-			files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
-		}),
+		get parameters() {
+			return parameters();
+		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			if (!ctx.invokeTool) return unavailable("write");
 			const filesGiven = params.files !== undefined && params.files.length > 0;

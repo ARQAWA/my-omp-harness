@@ -4,6 +4,7 @@ import { applyPagination, formatSearchError, formatSearchResult, SearchResultCac
 import { sortedSchema } from "../../shared/validate.ts";
 import { parseGrepArgs } from "./args.ts";
 import description from "./description.md" with { type: "text" };
+import { todoJsonParameters } from "../../shared/todo-ops.ts";
 
 const MAX_INT32 = 2_147_483_647;
 const searchCache = new SearchResultCache();
@@ -48,6 +49,7 @@ function toInt32(value: number | undefined, round: (n: number) => number): numbe
 }
 
 export default function grep(pi: ExtensionAPI): void {
+	const parameters = todoJsonParameters(pi, PARAMETERS, sortedSchema);
 	pi.registerTool({
 		name: "grep",
 		label: "grep",
@@ -55,7 +57,9 @@ export default function grep(pi: ExtensionAPI): void {
 		concurrency: "shared",
 		strict: false,
 		description: description.trim(),
-		parameters: sortedSchema(PARAMETERS) as never,
+		get parameters() {
+			return parameters() as never;
+		},
 		execute: (_toolCallId, params, signal, _onUpdate, ctx) => executeGrep(params, signal, ctx),
 	});
 }

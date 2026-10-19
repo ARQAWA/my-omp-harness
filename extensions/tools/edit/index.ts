@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { inFlight, lockKey } from "../../shared/locks.ts";
 import { nativeRenderers, unavailable } from "../../shared/native.ts";
 import description from "./description.md" with { type: "text" };
+import { todoParameters, withoutTodo } from "../../shared/todo-ops.ts";
 
 // Replace mode (description.md) for every model except GPT, which gets omp's apply_patch text and grammar.
 const REPLACE_DESCRIPTION = description.trim();
@@ -69,7 +70,7 @@ function nearestMatchText(relPath: string, oldString: string, cwd: string): stri
 }
 
 function cleanParams(raw: unknown): Params {
-	const params = { ...(raw as Params) };
+	const params = withoutTodo({ ...(raw as Params) });
 	if (params.path === "") delete params.path;
 	if (params.old_string === "") delete params.old_string;
 	if (params.edits?.length === 0) delete params.edits;
@@ -158,7 +159,7 @@ export default function (pi: ExtensionAPI) {
 		gpt = /gpt/i.test(model?.id ?? "");
 	}
 
-	const claudeParameters = z.object({
+	const claudeParameters = todoParameters(pi, extra => z.object({
 		path: z.string().optional(),
 		old_string: z.string().optional(),
 		new_string: z.string().optional(),
@@ -166,7 +167,9 @@ export default function (pi: ExtensionAPI) {
 		edits: z
 			.array(z.object({ path: z.string(), old_string: z.string(), new_string: z.string(), replace_all: z.boolean().optional() }))
 			.optional(),
-	});
+		...extra,
+	}));
+	// The freeform patch mode has no fields, so the todo field exists only in the replace mode.
 	const gptParameters = z.object({ input: z.string() });
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -192,7 +195,7 @@ export default function (pi: ExtensionAPI) {
 			return gpt ? editDescription("apply_patch") : REPLACE_DESCRIPTION;
 		},
 		get parameters() {
-			return gpt ? gptParameters : claudeParameters;
+			return gpt ? gptParameters : claudeParameters();
 		},
 		get customFormat() {
 			return gpt ? { syntax: "lark", definition: editGrammar("apply_patch") } : undefined;
