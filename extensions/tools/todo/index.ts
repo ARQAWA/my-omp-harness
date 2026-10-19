@@ -108,8 +108,9 @@ function opName(raw: unknown): string {
 	return JSON.stringify(raw);
 }
 
-// Drops optional fields that are empty strings or empty arrays, and a non-positive step.
+// Drops optional fields that are null, empty strings or empty arrays, and a non-positive step.
 function clean(value: unknown): unknown {
+	if (value === null) return undefined;
 	if (typeof value === "string") return value.trim() === "" ? undefined : value;
 	if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : undefined;
 	if (Array.isArray(value)) {
@@ -621,8 +622,9 @@ export default function todo(pi: ExtensionAPI) {
 				applied.push(applyOp(trial, op, report));
 				working = settle(trial);
 			} catch (failed) {
-				if (!(failed instanceof OpError)) throw failed;
-				failure = { index, error: failed };
+				// Malformed input that slipped past the checks fails like any op, never as a crash of the call it rides on.
+				const error = failed instanceof OpError ? failed : new OpError(failed instanceof Error ? failed.message : String(failed), 'write the op as text, e.g. "done 1.2"');
+				failure = { index, error };
 				break;
 			}
 		}
