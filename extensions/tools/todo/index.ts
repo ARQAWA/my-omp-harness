@@ -2,9 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { type Component, Text } from "@oh-my-pi/pi-tui";
 import { type ToolRenderer, toolRenderers } from "@oh-my-pi/pi-tui/tools";
 import { onStop } from "../../shared/stop.ts";
-import rules from "./description.md" with { type: "text" };
+import description from "./description.md" with { type: "text" };
 
-const OPS_TEXT = `Manage your todo list in one call: ops is a list of operations applied in order, each seeing the result of the previous ones; on the first failing op the earlier ones are kept and the result names the failing op, its fix, the ops not applied and the current list. Ops: init (list: phases with items; replaces the list), append (items, optional phase; default the current phase), start, done, drop, block (reason), unblock, rm, plan (steps of an item, default the current one), step (step number of the current plan step; omitted = next step), closed (optional phase; lists closed items, changes nothing). An item is a title string or {title, plan: [steps]}. Address items by number like 2.3 (phase.item) or by text; dashes, quotes, spaces and letter case may differ. Batch every change you need now into one call, e.g. [{op:"done",item:"1.2"},{op:"start",item:"1.3"},{op:"plan",steps:["…","…"]}]. While items are open, the list is shown to you every turn: open items with their numbers and the plan of the current item; closed items are folded into counts, list them with closed (optional phase).`;
 
 type Status = "pending" | "in_progress" | "completed" | "abandoned" | "blocked";
 type Item = { content: string; status: Status; blocker?: string };
@@ -569,7 +568,7 @@ export default function todo(pi: ExtensionAPI) {
 		loadMode: "essential",
 		concurrency: "shared",
 		approval: "read",
-		description: `${OPS_TEXT}\n\n${rules.trim()}`,
+		description: description.trim(),
 		parameters: z.object({ ops: z.array(OP).min(1) }),
 		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
 			const ops = rawParams.ops.map(raw => (clean(raw) ?? {}) as Op);
