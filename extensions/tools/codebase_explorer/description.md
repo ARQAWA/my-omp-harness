@@ -1,4 +1,4 @@
-Hand an independent area of a broad codebase search to a fast read-only explorer (Haiku at medium effort, or gpt-6-luna at medium without Anthropic credentials). It searches in its own context and returns only the findings. The call blocks until the explorer finishes and returns its findings as the result.
+Hand an independent area of a broad codebase search to a read-only explorer on your model, with your reasoning level capped at medium. It searches in its own context and returns only the findings. The call blocks until the explorer finishes and returns its findings as the result.
 
 For a broad question that spans several independent areas, such as separate subsystems, every caller of something across the codebase, or the deploy and run configuration, call several explorers in one response, one per area; they run in parallel, and you get all findings together when the last one finishes. Then continue yourself: check what the answer depends on most, search what the findings leave open, and write the answer.
 
