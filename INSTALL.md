@@ -41,6 +41,7 @@ Point omp at the package and set the harness settings. `extensions` replaces the
 ```bash
 omp config set extensions "[\"$CLONE\"]"
 omp config set disabledExtensions '["skill:approval"]'
+omp config set disabledProviders '["deepseek-together","deepseek-primeintellect"]'
 omp config set compaction.methodOrder '["remote","soft"]'
 omp config set compaction.supersedeReads false
 omp config set compaction.dropUseless false

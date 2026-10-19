@@ -2,6 +2,9 @@ extensions:
   - /Users/arkadijcukavin/Documents/ChatGPT/my-omp-harness
 disabledExtensions:
   - skill:approval
+disabledProviders:
+  - deepseek-together
+  - deepseek-primeintellect
 compaction:
   methodOrder:
     - remote

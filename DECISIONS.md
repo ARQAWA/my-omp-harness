@@ -124,6 +124,14 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - Probe (T05-T07, 4 runs each, omp-lite only, gpt-6-sol low): base 38.2 s avg / 37.8 s median, quality 88.1; expand 37.3 / 36.2, quality 87.8; map 39.1 / 37.6, quality 87.8. map added a step and 10 calls on T05 and the model got only 1-2 outlines per run, so it saved no reading. expand was fastest with equal quality and cut T07 reads from 57 to 38 KB. Differences are within the noise of 4 runs. All variants missed the same points (T06 auth blocker delay, T07 "every prod service is Rust"), so the misses are not caused by the tools.
 - Two grep tools (code and text) were rejected: questions span code and config, one grep finds both in one call, and a second tool would need a non-stock name.
 
+## DeepSeek V4.1 Flash
+
+- `settings/models.yml` pins `deepseek/deepseek-v4.1-flash-1017` on OpenRouter to one provider each: `openRouterRouting` `order` and `only` with a single provider. Reason: the prompt cache lives inside one provider, and the old route `[inference-net, baseten]` lost it on every switch (user: «Чтобы когда я использую DeepSeek, всегда был кэш и всегда было попадание в кэш»). The stock `openrouter/` entry goes to `inference-net`.
+- Three selectable models, one provider each: `deepseek-inferencenet`, `deepseek-together`, `deepseek-primeintellect` (custom providers with OpenRouter's `baseUrl`; omp applies `openRouterRouting` by host). Picked by OpenRouter's throughput table, Baseten excluded. Only InferenceNet is on; the other two are kept but off through `disabledProviders` (user: «Давай его пока оставим, а остальные просто сдезиблим, но не будем удалять»).
+- Baseten is removed from the key's OpenRouter guardrail: most requests returned 429 from its shared upstream pool (42 of 79 in a long run), and the run did not finish in 40 minutes.
+- Bench (superbot-test, same long task, one run per provider, 2026-10-19): InferenceNet 58 requests, 0 errors, 96.7% of input from cache, median 97% per request from the 2nd, 321 tok/s, first token 0.68 s, $0.053; Together 95.7%, 432 tok/s, 0.55 s, $0.094 for 35 requests; Prime Intellect 93.6%, 353 tok/s, $0.101 for 30 requests. Priced on the same long task, InferenceNet costs $0.058 and Together or Prime Intellect $0.125: in a long session cache reads are cheap, and new input and output decide the cost. Morph and Crusoe each had a request with no cache hit.
+- Requests below 90% from cache in a healthy run are new content (large tool results), not misses: the cached part equals the whole previous request within a 256-token block.
+
 ## Results log
 
 - bench13-16 (16 runs per stand): small prompt omp-lite 17.5 s avg vs Pi 17.4 s (tie accepted); large prompt 54.9 s vs 84.2 s.
