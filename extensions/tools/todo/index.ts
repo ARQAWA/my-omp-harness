@@ -145,9 +145,11 @@ function openList(next: TodoState): string {
 }
 
 function itemSpec(spec: ItemSpec): { title: string; plan?: string[] } {
-	const title = (typeof spec === "string" ? spec : (spec.title ?? "")).trim();
+	const raw = typeof spec === "string" ? spec : typeof spec === "object" && spec !== null ? spec.title : undefined;
+	const title = typeof raw === "string" ? raw.trim() : "";
 	if (title === "") throw new OpError("an item has no title", "give every item a title");
 	const plan = typeof spec === "string" ? undefined : spec.plan;
+	if (plan !== undefined && !isTextList(plan)) throw new OpError(`the plan of "${title}" is not a list of steps`, 'write the plan as a list of step texts, or add it later with "plan <item>: step | step"');
 	return plan?.length ? { title, plan } : { title };
 }
 
@@ -337,7 +339,24 @@ function parseOpText(text: string): Op {
 	}
 }
 
+function isTextList(value: unknown): value is string[] {
+	return Array.isArray(value) && value.every(part => typeof part === "string");
+}
+
+// The object form arrives as the model wrote it; a field of the wrong type fails here as an op, before any state changes.
+function checkOp(op: Op): void {
+	const wrong = (field: string, want: string) => new OpError(`${op.op} has ${field} that is not ${want}`, 'write the op as text, e.g. "done 1.2"');
+	for (const field of ["item", "phase", "reason"] as const) if (op[field] !== undefined && typeof op[field] !== "string") throw wrong(field, "text");
+	if (op.step !== undefined && typeof op.step !== "number") throw wrong("step", "a number");
+	if (op.steps !== undefined && !isTextList(op.steps)) throw wrong("steps", "a list of texts");
+	if (op.items !== undefined && !Array.isArray(op.items)) throw wrong("items", "a list");
+	if (op.list !== undefined && (!Array.isArray(op.list) || op.list.some(group => typeof group !== "object" || group === null || (group.items !== undefined && !Array.isArray(group.items))))) {
+		throw wrong("list", "a list of phases with items");
+	}
+}
+
 function applyOp(next: TodoState, op: Op, report: string[]): string {
+	checkOp(op);
 	switch (op.op) {
 		case "init":
 			return init(next, op);
