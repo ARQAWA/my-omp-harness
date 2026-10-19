@@ -1,5 +1,7 @@
 extensions:
   - /Users/arkadijcukavin/Documents/ChatGPT/my-omp-harness-worktrees/lite
+disabledExtensions:
+  - skill:approval
 compaction:
   methodOrder:
     - remote

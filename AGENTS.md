@@ -9,6 +9,9 @@ SYSTEM.md                  rules that span all tools; nothing tool-specific
 DECISIONS.md               decisions and bench results
 settings/                  config.yml and models.yml of the stand, theme titanium-arq.json, keybindings.yml
 agents/                    subagent definitions (not active yet)
+skills/                    omp loads them from the package root
+  approval/                approval step, off through disabledExtensions in settings/config.yml
+  define-goal/             /skill:define-goal, hidden from the model
 extensions/
   harness.ts               active tool set, environment line
   autocompaction.ts        compaction thresholds per model

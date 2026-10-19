@@ -73,6 +73,11 @@ Every accepted decision about the omp-lite stand, with its reason and the file t
 - The interface of the main harness is transferred into `extensions/ui/` (user: "перевести весь интерфейс из My OMP Harness в наш Light"): `status-bar.ts`, `feed.ts` with `feed/*` (feed rows, live action, cards, hub, to-do panel), `model-arrows.js`, `reasoning-arrows.js`, `subagent-reuse.ts`; theme `settings/titanium-arq.json` and `settings/keybindings.yml`; the stand gets the theme, keys and the status-line settings of the main harness's install step 4. The feed is renamed from its old product-named folder. Tools and agent mechanics of the main harness (`todo`, `diagram`, `results`, `rg`, its write/edit/bash, subagent model policy) are not interface and are not transferred; todo stays off, so the to-do panel stays idle.
 - Warm subagent sessions are `idle` in omp's agent registry and `running` only during a task (`AgentRegistry.global().setStatus`). Reason: omp counts running registry agents in the status line, and right after start the transferred status bar showed three subagents and "Waiting for 3 subagents".
 
+## Skills
+
+- omp loads `skills/` from the package root. `skills/approval` is the main harness's approval step with work classes, kept but off (`disabledExtensions: [skill:approval]` in `settings/config.yml`); enabling it is removing that line (user: «режим согласования вынеси в отдельный skill, который включается автоматически. Пока выключи его. Мы его перенесём, сохраним, но пока использовать не будем»).
+- `skills/define-goal` is the main harness's /define-goal as a skill started only by the user, `/skill:define-goal` (`disable-model-invocation: true`); it checks small work with `review` light and large work with `review` blind.
+
 ## Todo
 
 - Off (`todo.enabled: false` in `omp-lite-home/.omp/agent/config.yml`). The built-in omp todo is `exclusive` and would act as a barrier inside a batch. The old harness todo is `shared` but depends on its feed panel. Revisit later.
