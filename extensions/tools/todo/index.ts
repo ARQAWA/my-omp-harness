@@ -164,20 +164,23 @@ function isWrapper(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value) && [...TITLE_KEYS, ...PLAN_KEYS].some(key => key in value);
 }
 
-/** A list of step texts from a list, a JSON text of one, or an object wrapping one; undefined when there is none. */
+/**
+ * A list of step texts from a list, the JSON text of a list of texts, or an object wrapping one; undefined when any part
+ * is no step, so the op fails instead of dropping it. Other bracketed text, such as "[1, 2]", stays one step.
+ */
 function stepList(value: unknown): string[] | undefined {
 	if (typeof value === "string") {
 		const parsed = parsedJson(value);
-		return Array.isArray(parsed) || isWrapper(parsed) ? stepList(parsed) : [value];
+		if (isTextList(parsed) && parsed.length > 0) return parsed;
+		return isWrapper(parsed) ? stepList(parsed) : [value];
 	}
 	if (Array.isArray(value)) {
-		const steps = value.flatMap(part => stepList(part) ?? []);
-		return steps.length > 0 ? steps : undefined;
+		const parts = value.map(stepList);
+		return parts.every(part => part !== undefined) && parts.length > 0 ? parts.flat() : undefined;
 	}
-	if (typeof value === "object" && value !== null) {
+	if (isWrapper(value)) {
 		for (const key of [...PLAN_KEYS, ...TITLE_KEYS]) {
-			const inner = (value as Record<string, unknown>)[key];
-			if (inner !== undefined) return stepList(inner);
+			if (value[key] !== undefined) return stepList(value[key]);
 		}
 	}
 	return undefined;
