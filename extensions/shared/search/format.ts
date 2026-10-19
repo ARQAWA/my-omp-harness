@@ -1,7 +1,7 @@
 // Result text of grep and glob: formatters, pagination, the result cache and the glob listing.
 import { basename, isAbsolute, relative, resolve } from "node:path";
 
-// 50 KB in characters, Pi's output size, with no line cap (see DECISIONS.md).
+// 50 KB in characters, with no line cap (see DECISIONS.md).
 export const GREP_CHAR_BUDGET = 51_200;
 export const GLOB_CHAR_BUDGET = 51_200;
 
