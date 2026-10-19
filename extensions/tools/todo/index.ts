@@ -144,12 +144,66 @@ function openList(next: TodoState): string {
 	return allItems(next).filter(entry => isOpen(entry.item.status)).map(show).join("; ") || "none";
 }
 
-function itemSpec(spec: ItemSpec): { title: string; plan?: string[] } {
-	const raw = typeof spec === "string" ? spec : typeof spec === "object" && spec !== null ? spec.title : undefined;
-	const title = typeof raw === "string" ? raw.trim() : "";
-	if (title === "") throw new OpError("an item has no title", "give every item a title");
-	const plan = typeof spec === "string" ? undefined : spec.plan;
-	if (plan !== undefined && !isTextList(plan)) throw new OpError(`the plan of "${title}" is not a list of steps`, 'write the plan as a list of step texts, or add it later with "plan <item>: step | step"');
+// omp fits arguments to the schema before the tool runs: an item sent as an object of the wrong shape, such as
+// {"item": "text"}, comes here as its JSON text. Such text is read back as the item it meant.
+function parsedJson(text: string): unknown {
+	const trimmed = text.trim();
+	if (!(trimmed.startsWith("{") && trimmed.endsWith("}")) && !(trimmed.startsWith("[") && trimmed.endsWith("]"))) return undefined;
+	try {
+		return JSON.parse(trimmed);
+	} catch {
+		return undefined;
+	}
+}
+
+const TITLE_KEYS = ["title", "item", "content", "text", "name"];
+const PLAN_KEYS = ["plan", "steps"];
+
+/** A list of step texts from a list, a JSON text of one, or an object wrapping one; undefined when there is none. */
+function stepList(value: unknown): string[] | undefined {
+	if (typeof value === "string") {
+		const parsed = parsedJson(value);
+		return parsed === undefined ? [value] : stepList(parsed);
+	}
+	if (Array.isArray(value)) {
+		const steps = value.flatMap(part => stepList(part) ?? []);
+		return steps.length > 0 ? steps : undefined;
+	}
+	if (typeof value === "object" && value !== null) {
+		for (const key of [...PLAN_KEYS, ...TITLE_KEYS]) {
+			const inner = (value as Record<string, unknown>)[key];
+			if (inner !== undefined) return stepList(inner);
+		}
+	}
+	return undefined;
+}
+
+function itemSpec(spec: ItemSpec | unknown): { title: string; plan?: string[] } {
+	let value: unknown = spec;
+	if (typeof value === "string") value = parsedJson(value) ?? value;
+	let title = "";
+	let plan: string[] | undefined;
+	if (typeof value === "string") {
+		title = value.trim();
+	} else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+		const record = value as Record<string, unknown>;
+		const key = TITLE_KEYS.find(name => record[name] !== undefined);
+		const inner = key === undefined ? undefined : record[key];
+		if (typeof inner === "string" && parsedJson(inner) === undefined) {
+			title = inner.trim();
+		} else if (inner !== undefined) {
+			// A wrapper such as {"item": {"title": ..., "plan": ...}}: the item is inside it.
+			const nested = itemSpec(inner);
+			title = nested.title;
+			plan = nested.plan;
+		}
+		const rawPlan = PLAN_KEYS.map(name => record[name]).find(part => part !== undefined);
+		if (rawPlan !== undefined) {
+			plan = stepList(rawPlan);
+			if (plan === undefined) throw new OpError(`the plan of "${title}" is not a list of steps`, 'write the plan as a list of step texts, or add it later with "plan <item>: step | step"');
+		}
+	}
+	if (title === "") throw new OpError("an item has no title", 'write items as text, e.g. "init Phase: first item | second item"');
 	return plan?.length ? { title, plan } : { title };
 }
 
@@ -398,7 +452,9 @@ function applyOp(next: TodoState, op: Op, report: string[]): string {
 			return `removed ${target.num} "${target.item.content}"`;
 		}
 		case "plan": {
-			if (!op.steps?.length) throw new OpError("plan has no steps", `write "plan: first step | second step"`);
+			const steps = op.steps === undefined ? undefined : stepList(op.steps);
+			if (!steps?.length) throw new OpError("plan has no steps", `write "plan: first step | second step"`);
+			op.steps = steps;
 			const target = resolveDefault(next, op.item, "plan");
 			next.plans.set(itemKey(next, target), { steps: op.steps, current: 1 });
 			return `plan ${target.num}: ${op.steps.length} steps`;
