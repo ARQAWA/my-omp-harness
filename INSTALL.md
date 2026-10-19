@@ -1,6 +1,6 @@
 # Installing my-omp-harness
 
-Instructions for an agent that installs this harness into omp on the owner's machine. Run every step in order; a repeated run is safe and only overwrites the same files. Ask the owner before replacing a file that exists and differs, and for every sign-in.
+Instructions for an agent that installs this harness into omp on the owner's machine. Run every step in order; the commands are bash, so on Windows run them in Git Bash (Git for Windows, installed without administrator rights with the "Only for me" option); a repeated run is safe and only overwrites the same files. Ask the owner before replacing a file that exists and differs, and for every sign-in.
 
 ## 1. omp
 
