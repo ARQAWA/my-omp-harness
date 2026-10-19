@@ -156,14 +156,19 @@ function parsedJson(text: string): unknown {
 	}
 }
 
-const TITLE_KEYS = ["title", "item", "content", "text", "name"];
-const PLAN_KEYS = ["plan", "steps"];
+const TITLE_KEYS = ["title", "item"];
+const PLAN_KEYS = ["plan"];
+
+/** True for a parsed object that names an item or a plan; other JSON-looking text, such as "[1]", stays plain text. */
+function isWrapper(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value) && [...TITLE_KEYS, ...PLAN_KEYS].some(key => key in value);
+}
 
 /** A list of step texts from a list, a JSON text of one, or an object wrapping one; undefined when there is none. */
 function stepList(value: unknown): string[] | undefined {
 	if (typeof value === "string") {
 		const parsed = parsedJson(value);
-		return parsed === undefined ? [value] : stepList(parsed);
+		return Array.isArray(parsed) || isWrapper(parsed) ? stepList(parsed) : [value];
 	}
 	if (Array.isArray(value)) {
 		const steps = value.flatMap(part => stepList(part) ?? []);
@@ -180,7 +185,10 @@ function stepList(value: unknown): string[] | undefined {
 
 function itemSpec(spec: ItemSpec | unknown): { title: string; plan?: string[] } {
 	let value: unknown = spec;
-	if (typeof value === "string") value = parsedJson(value) ?? value;
+	if (typeof value === "string") {
+		const parsed = parsedJson(value);
+		if (isWrapper(parsed)) value = parsed;
+	}
 	let title = "";
 	let plan: string[] | undefined;
 	if (typeof value === "string") {
@@ -189,7 +197,7 @@ function itemSpec(spec: ItemSpec | unknown): { title: string; plan?: string[] } 
 		const record = value as Record<string, unknown>;
 		const key = TITLE_KEYS.find(name => record[name] !== undefined);
 		const inner = key === undefined ? undefined : record[key];
-		if (typeof inner === "string" && parsedJson(inner) === undefined) {
+		if (typeof inner === "string" && !isWrapper(parsedJson(inner))) {
 			title = inner.trim();
 		} else if (inner !== undefined) {
 			// A wrapper such as {"item": {"title": ..., "plan": ...}}: the item is inside it.
