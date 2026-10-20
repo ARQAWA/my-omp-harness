@@ -17,6 +17,7 @@ providers:
         contextWindow: 700000
       claude-haiku-5-5:
         contextWindow: 700000
+  # openrouter, minimax-free and the deepseek providers are off in config.yml (disabledProviders) until the owner turns them on.
   openrouter:
     baseUrl: https://openrouter.ai/api/v1
     apiKey: OPENROUTER_API_KEY

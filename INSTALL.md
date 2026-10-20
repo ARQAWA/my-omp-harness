@@ -41,8 +41,8 @@ Point omp at the package and set the harness settings. `extensions` replaces the
 ```bash
 omp config set extensions "[\"$CLONE\"]"
 omp config set disabledExtensions '["skill:approval"]'
-omp config set disabledProviders '["deepseek-together","deepseek-primeintellect"]'
-omp config set enabledModels '["anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-haiku-5-5","minimax-free/minimax/minimax-m3.1-flash:free","deepseek-inferencenet/deepseek/deepseek-v4.1-flash-1017","deepseek-relace/deepseek/deepseek-v4.1-flash-1017","openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition"]'
+omp config set disabledProviders '["deepseek-together","deepseek-primeintellect","deepseek-inferencenet","deepseek-relace","minimax-free","openrouter","cursor","google","ollama"]'
+omp config set enabledModels '["anthropic/claude-opus-5-5","anthropic/claude-sonnet-5-5","openai-codex/gpt-6.1-sol","openai-codex/gpt-6-sol","openai-codex/gpt-6-luna","openai-codex/gpt-5.6-luna","anthropic/claude-haiku-5-5"]'
 omp config set compaction.methodOrder '["remote","soft"]'
 omp config set compaction.supersedeReads false
 omp config set compaction.dropUseless false
